@@ -45,13 +45,14 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* Sci-fi crate pack | KayLousberg | https://itch.io/... | CC0 | L1 habitation ring props | — |
+| *(example — delete)* horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | — |
 
 ## Textures & materials
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* Rusted panel PBR set | ambientCG | https://ambientcg.com | CC0 | L2 engineering core walls | — |
+|  Old Worn Chipped Painted Metal - PBR0496 | textures.com | https://www.textures.com/download/old-worn-chipped-painted-metal-pbr0496/138834 | IP-Warranty | Spaceship pillar | — |
+| Concrete Energy Pole - PBR0283 | textures.com | https://www.textures.com/download/concrete-energy-pole-pbr0283/136381 | IP-Warranty | Spaceship texture
 
 ## Audio — sound effects & music
 

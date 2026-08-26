@@ -6,7 +6,7 @@ const loader = new GLTFLoader();
 export function loadAstronaut() {
   const player = new THREE.Group();
   loader.load(
-    '/assets/models/astronaut.glb',
+    './assets/models/astronaut.glb',
     (gltf) => {
       const model = gltf.scene;
 

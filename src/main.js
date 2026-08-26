@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
-import { createLevel1 } from './levels/level1.js';
+import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadAstronaut } from './core/AssetLoader.js';
-
+  
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
 
@@ -42,6 +42,8 @@ const clock = new THREE.Clock();
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
+
+controls.target.copy(player.position);
 // Render loop
 function animate() {
     requestAnimationFrame(animate);
