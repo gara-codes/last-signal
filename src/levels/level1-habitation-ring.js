@@ -6,8 +6,8 @@ const HEIGHT = 20;
 
 // Initialize texture loader (shared across module)
 const textureLoader = new THREE.TextureLoader();
-const ringTexture = textureLoader.load('/assets/textures/spaceship-hull.png');
-const pillarTexture = textureLoader.load('/assets/textures/spaceship-pillar.png');
+const ringTexture = textureLoader.load('./assets/textures/spaceship-hull.png');
+const pillarTexture = textureLoader.load('./assets/textures/spaceship-pillar.png');
 
 /**
  * Creates the outer textured ring wall of the level.
