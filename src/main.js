@@ -35,26 +35,6 @@ scene.add(player);
 const playerController = new PlayerController(player);
 const inputManager = new InputManager();
 
-// TEMP: visual marker, kept for now until real getSurfaceBasis() integration
-// is confirmed working — safe to delete once camera is driven by the real player.
-const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
-const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-scene.add(marker);
-
-function getMarkerPosition(axial, theta) {
-    const markerRadius = (31 - 1.2) - 2;
-    return new THREE.Vector3(
-        axial,
-        markerRadius * Math.cos(theta),
-        markerRadius * Math.sin(theta),
-    );
-}
-
-// TEMP: still driving the camera off the stub sweep for now — see note below
-let axial = 0;
-let theta = -Math.PI;
-
 const clock = new THREE.Clock();
 
 function animate() {
@@ -68,11 +48,9 @@ function animate() {
         level1.update(delta, player);
     }
 
-    theta += 0.005; // TEMP — still stub-driven, see note below
-
-    const basis = cameraSetup.getSurfaceBasisStub(axial, theta);
-
-    marker.position.copy(getMarkerPosition(axial, theta));
+    // Camera now reads live data straight from the player, via the shared
+    // interface Alex exposes on player.userData.
+    const basis = player.userData.getSurfaceBasis();
     cameraSetup.update(basis);
 
     renderer.render(scene, camera);
