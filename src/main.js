@@ -4,6 +4,8 @@ import { RendererSetup } from './core/RendererSetup.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadAstronaut } from './core/AssetLoader.js';
+import { PlayerController } from './systems/physics-controller.js'; 
+import { InputManager } from './core/InputManager.js';
   
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -36,6 +38,9 @@ scene.add(level1.group);
 const player = loadAstronaut();
 scene.add(player);
 
+const playerController = new PlayerController(player);   
+const inputManager = new InputManager();                 
+
 const clock = new THREE.Clock();
 
 
@@ -49,6 +54,9 @@ function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
+
+    playerController.update(delta, inputManager.getInput());   
+
 
     if(level1.update){
       level1.update(delta, player);
