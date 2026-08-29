@@ -4,8 +4,8 @@ import { RendererSetup } from './core/RendererSetup.js';
 import { Camera } from './core/Camera.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { loadAstronaut } from './core/AssetLoader.js';
-// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-// ^ removed per Yannis's go-ahead — was conflicting with the surface-basis follow cam
+import { PlayerController } from './systems/physics-controller.js';
+import { InputManager } from './core/InputManager.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -32,17 +32,15 @@ scene.add(level1.group);
 const player = loadAstronaut();
 scene.add(player);
 
-// TEMP: visual marker tracking the same surface-basis orbit as the camera,
-// so orbit motion is visible even without the astronaut/player driving it yet.
-// Uses its own clearance (separate from WALK_RADIUS) so it doesn't get buried
-// inside the wall mesh. Remove once Alex's real getSurfaceBasis() is wired up
-// and the astronaut itself is visibly walking the curve.
+const playerController = new PlayerController(player);
+const inputManager = new InputManager();
+
+// TEMP: visual marker, kept for now until real getSurfaceBasis() integration
+// is confirmed working — safe to delete once camera is driven by the real player.
 const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
 const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const marker = new THREE.Mesh(markerGeometry, markerMaterial);
 scene.add(marker);
-
-
 
 function getMarkerPosition(axial, theta) {
     const markerRadius = (31 - 1.2) - 2;
@@ -53,24 +51,24 @@ function getMarkerPosition(axial, theta) {
     );
 }
 
-// Starting values — matches player spawn point (bottom of drum)
-// TEMP: driving theta/axial locally until Alex exposes player.userData.getSurfaceBasis()
+// TEMP: still driving the camera off the stub sweep for now — see note below
 let axial = 0;
 let theta = -Math.PI;
 
 const clock = new THREE.Clock();
 
-// Render loop
 function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
 
+    playerController.update(delta, inputManager.getInput());
+
     if (level1.update) {
         level1.update(delta, player);
     }
 
-    theta += 0.005; // TEMP — sweeps theta to test camera across full rim
+    theta += 0.005; // TEMP — still stub-driven, see note below
 
     const basis = cameraSetup.getSurfaceBasisStub(axial, theta);
 
@@ -82,7 +80,6 @@ function animate() {
 
 animate();
 
-// Handle browser resizing
 window.addEventListener('resize', () => {
     cameraSetup.resize();
     rendererSetup.resize();
