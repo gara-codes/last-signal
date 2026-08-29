@@ -41,8 +41,7 @@ const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
 const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const marker = new THREE.Mesh(markerGeometry, markerMaterial);
 scene.add(marker);
-console.log('marker in scene:', scene.children.includes(marker));
-console.log('total scene children:', scene.children.length);
+
 
 
 function getMarkerPosition(axial, theta) {
@@ -76,7 +75,6 @@ function animate() {
     const basis = cameraSetup.getSurfaceBasisStub(axial, theta);
 
     marker.position.copy(getMarkerPosition(axial, theta));
-    console.log('marker pos:', marker.position.toArray());
     cameraSetup.update(basis);
 
     renderer.render(scene, camera);
