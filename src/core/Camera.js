@@ -37,8 +37,8 @@ export class Camera {
 
         // up is now inward, so a positive scalar pulls the camera away from
         // the wall toward the center — correct direction for clearance.
-        const offset = basis.up.clone().multiplyScalar(3)
-            .add(basis.forward.clone().multiplyScalar(-5));
+       const offset = basis.up.clone().multiplyScalar(8)
+            .add(basis.forward.clone().multiplyScalar(-7));
 
         const desiredPosition = basis.position.clone().add(offset);
         this.camera.position.copy(desiredPosition);
