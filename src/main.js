@@ -18,20 +18,25 @@ const renderer = rendererSetup.getRenderer();
 const cameraSetup = new Camera();
 const camera = cameraSetup.getCamera();
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5, 10, 7);
-scene.add(dirLight);
-
-// Level 1
+// Level 1 — must exist before LightingRig, since lights are parented to its group
 const level1 = createLevel1();
 level1.group.rotation.z = Math.PI / 2;
 scene.add(level1.group);
 
+const lightingRig = new LightingRig(scene, level1.group, {
+  lightCount: 8,
+  radius: 28,
+  ceilingHeight: 8,
+});
+
+const halObject = level1.group.getObjectByName('hal-9000');
+const halWorldPosition = new THREE.Vector3();
+halObject.getWorldPosition(halWorldPosition);
+window.halWorldPosition = halWorldPosition;
+
 // Player Model
 const player = loadAstronaut();
+window.player = player;
 scene.add(player);
 
 const playerController = new PlayerController(player);
@@ -44,24 +49,25 @@ function animate() {
 
   const delta = clock.getDelta();
 
-    playerController.update(delta, inputManager.getInput());
+  playerController.update(delta, inputManager.getInput());
 
-    if (level1.update) {
-        level1.update(delta, player);
-    }
+  if (level1.update) {
+    level1.update(delta, player);
+  }
 
-    // Camera now reads live data straight from the player, via the shared
-    // interface Alex exposes on player.userData.
-    const basis = player.userData.getSurfaceBasis();
-    cameraSetup.update(basis);
+  lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
 
-  controls.update();
+  // Camera now reads live data straight from the player, via the shared
+  // interface Alex exposes on player.userData.
+  const basis = player.userData.getSurfaceBasis();
+  cameraSetup.update(basis);
+
   renderer.render(scene, camera);
 }
 
 animate();
 
 window.addEventListener('resize', () => {
-    cameraSetup.resize();
-    rendererSetup.resize();
+  cameraSetup.resize();
+  rendererSetup.resize();
 });
