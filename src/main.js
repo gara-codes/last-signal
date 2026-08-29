@@ -36,11 +36,10 @@ const lightingRig = new LightingRig(scene, level1.group,{
 const halObject = level1.group.getObjectByName('hal-9000');
 const halWorldPosition = new THREE.Vector3();
 halObject.getWorldPosition(halWorldPosition); // computed once — AI doesn't move, so no need to redo this every frame
-window.halWorldPosition = halWorldPosition;
+
 
 // Player Model
 const player = loadAstronaut();
-window.player = player; 
 scene.add(player);
 
 const controls = new OrbitControls(camera, renderer.domElement);
