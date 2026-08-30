@@ -6,6 +6,7 @@ import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
+import { initMenu } from './ui/menu.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -36,6 +37,8 @@ const playerController = new PlayerController(player);
 const inputManager = new InputManager();
 
 const clock = new THREE.Clock();
+
+initMenu();
 
 function animate() {
     requestAnimationFrame(animate);

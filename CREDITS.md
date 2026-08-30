@@ -28,7 +28,7 @@ here, and it won't count toward the Innovation mark the way something we built o
 1. The moment you drop in an asset, install a package, or lean on a tutorial — add a row below.
 2. Fill in every column. If a licence doesn't apply (e.g. you can't find one), write "none
    listed" rather than leaving it blank. Don't guess.
-3. Whoever added the row also updates `credits.js` in the same commit (from when that goes up).
+3. Whoever added the row also updates `credits.js` in the same commit.
 
 Don't batch this for later. "I'll add it before beta" is how this file goes stale.
 
@@ -38,14 +38,15 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* Three.js | Three.js contributors | https://threejs.org | MIT | Core rendering | — |
+| Three.js | Three.js contributors | https://threejs.org | MIT | Core rendering | — |
+| GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT | Loading the astronaut .glb model | — |
 | *(example — delete)* Howler.js | James Simpson / goldfire | https://howlerjs.com | MIT | Audio playback | — |
 
 ## 3D models
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | — |
+| Horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | — |
 
 ## Textures & materials
 
