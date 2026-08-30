@@ -40,13 +40,12 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 |---|---|---|---|---|---|
 | Three.js | Three.js contributors | https://threejs.org | MIT | Core rendering | — |
 | GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT | Loading the astronaut .glb model | — |
-| *(example — delete)* Howler.js | James Simpson / goldfire | https://howlerjs.com | MIT | Audio playback | — |
 
 ## 3D models
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| Horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | — |
+| Horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | 26-08-2026 |
 
 ## Textures & materials
 
@@ -59,26 +58,26 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* "Console beep 3" | freesound.org user | https://freesound.org/... | CC BY 4.0 | HUD interaction sound | — |
-| *(example — delete)* "Ambient drone loop" | incompetech | https://incompetech.com | CC BY 3.0 | L2 background music | — |
+| — | — | — | — | — | — |
+
 
 ## Fonts
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* Orbitron | Google Fonts | https://fonts.google.com/specimen/Orbitron | OFL | HUD / menu typeface | — |
+| — | — | — | — | — | — |
 
 ## Icons / HUD art
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
 |---|---|---|---|---|---|
-| *(example — delete)* Power/shield/door icon set | game-icons.net (author varies per icon) | https://game-icons.net | CC BY 3.0 | HUD power-allocation icons | — |
+| — | — | — | — | — | — |
 
 ## Tutorials, articles, videos & adapted code
 
 | What it covers | Source / author | URL | Used for | Added by (date) |
 |---|---|---|---|---|
-| *(example — delete)* Dissolve shader technique | YouTube tutorial | https://youtube.com/... | Base for L3 dissolve/glitch shader (heavily modified) | — |
+| — | — | — | — | — |
 
 ---
 

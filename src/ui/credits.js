@@ -52,19 +52,19 @@ const CREDITS_DATA = {
   ],
 
   audio: [
-    // { item: '"Console beep 3"', source: 'freesound.org user', url: 'https://freesound.org/...', license: 'CC BY 4.0', usedFor: 'HUD interaction sound' },
+    
   ],
 
   fonts: [
-    // { item: 'Orbitron', source: 'Google Fonts', url: 'https://fonts.google.com/specimen/Orbitron', license: 'OFL', usedFor: 'HUD / menu typeface' },
+    
   ],
 
   icons: [
-    // { item: 'Power/shield/door icon set', source: 'game-icons.net (author varies)', url: 'https://game-icons.net', license: 'CC BY 3.0', usedFor: 'HUD power-allocation icons' },
+    
   ],
 
   tutorials: [
-    // { covers: 'Dissolve shader technique', source: 'YouTube tutorial', url: 'https://youtube.com/...', usedFor: 'Base for L3 dissolve/glitch shader (heavily modified)' },
+    
   ],
 };
 
