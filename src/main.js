@@ -41,27 +41,27 @@ const clock = new THREE.Clock();
 initMenu();
 
 function animate() {
-    requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
 
-    const delta = clock.getDelta();
+  const delta = clock.getDelta();
 
-    playerController.update(delta, inputManager.getInput());
+  playerController.update(delta, inputManager.getInput());
 
-    if (level1.update) {
-        level1.update(delta, player);
-    }
+  if (level1.update) {
+    level1.update(delta, player);
+  }
 
-    // Camera now reads live data straight from the player, via the shared
-    // interface Alex exposes on player.userData.
-    const basis = player.userData.getSurfaceBasis();
-    cameraSetup.update(basis);
+  // Camera now reads live data straight from the player, via the shared
+  // interface Alex exposes on player.userData.
+  const basis = player.userData.getSurfaceBasis();
+  cameraSetup.update(basis);
 
-    renderer.render(scene, camera);
+  renderer.render(scene, camera);
 }
 
 animate();
 
 window.addEventListener('resize', () => {
-    cameraSetup.resize();
-    rendererSetup.resize();
+  cameraSetup.resize();
+  rendererSetup.resize();
 });

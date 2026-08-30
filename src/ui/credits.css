@@ -28,7 +28,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 #menu-credits-btn:hover {
@@ -79,7 +81,9 @@
   background: rgba(12, 18, 32, 0.92);
   border: 1px solid #3a5a8a;
   border-radius: var(--panel-radius, 10px);
-  box-shadow: 0 0 40px rgba(80, 140, 255, 0.15), 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 40px rgba(80, 140, 255, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.5);
   padding: 2rem 2rem 1.5rem;
   color: #d8e4ff;
   font-family: var(--ui-font, 'Segoe UI', system-ui, sans-serif);

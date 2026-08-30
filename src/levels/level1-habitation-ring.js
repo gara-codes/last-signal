@@ -15,9 +15,9 @@ const pillarTexture = textureLoader.load('./assets/textures/spaceship-pillar.png
  */
 function createOuterRing() {
   const ringGeometry = new THREE.CylinderGeometry(RADIUS, RADIUS, HEIGHT, SEGMENTS);
-  const ringMaterial = new THREE.MeshStandardMaterial({ 
-    map: ringTexture, 
-    side: THREE.DoubleSide 
+  const ringMaterial = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
   });
   return new THREE.Mesh(ringGeometry, ringMaterial);
 }
@@ -27,7 +27,7 @@ function createOuterRing() {
  * @returns {THREE.Mesh}
  */
 function createCenterPillar() {
-  const pillarGeometry = new THREE.CylinderGeometry(RADIUS / 5, RADIUS / 5, HEIGHT-1, 50);
+  const pillarGeometry = new THREE.CylinderGeometry(RADIUS / 5, RADIUS / 5, HEIGHT - 1, 50);
   const pillarMaterial = new THREE.MeshStandardMaterial({ map: pillarTexture });
   return new THREE.Mesh(pillarGeometry, pillarMaterial);
 }
@@ -43,18 +43,18 @@ function createPodBays() {
   const capRadius = 1.5;
   const capLength = 3.0;
   const capsuleGeometry = new THREE.CapsuleGeometry(capRadius, capLength, 8, 16);
-  const capsuleMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x4a6a8a, 
-    metalness: 0.2, 
-    roughness: 0.4 
+  const capsuleMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4a6a8a,
+    metalness: 0.2,
+    roughness: 0.4,
   });
 
   const spawnRadius = RADIUS - capRadius; // Sit just inside the outer curved hull
   const numPods = 3;
-  
-  // Since level1.group.rotation.z = Math.PI / 2, local -X (angle = Math.PI) 
+
+  // Since level1.group.rotation.z = Math.PI / 2, local -X (angle = Math.PI)
   // rotates to become the world -Y axis (the bottom curved hull of the spaceship).
-  const centerAngle = Math.PI; 
+  const centerAngle = Math.PI;
   const angleSpacing = 0.15; // Tight angular separation to place them closely side-by-side
 
   for (let i = 0; i < numPods; i++) {
@@ -81,27 +81,26 @@ function createAI() {
   const halGroup = new THREE.Group();
   halGroup.name = 'hal-9000';
 
-
   const height = 14.0;
   const width = 5;
   const thickness = 1;
 
   // 1. Black panel body (the main box)
   const bodyGeometry = new THREE.BoxGeometry(height, thickness, width);
-  const bodyMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x0c0c0c, 
-    roughness: 0.15, 
-    metalness: 0.8 
+  const bodyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x0c0c0c,
+    roughness: 0.15,
+    metalness: 0.8,
   });
   const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
   halGroup.add(body);
 
   // 2. Metallic bezel for the lens eye
   const bezelGeometry = new THREE.CylinderGeometry(0.35, 0.35, 0.1, 24);
-  const bezelMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x888888, 
-    metalness: 0.9, 
-    roughness: 0.1 
+  const bezelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x888888,
+    metalness: 0.9,
+    roughness: 0.1,
   });
   const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
   bezel.rotation.x = -Math.PI; // Point forward out of the panel
@@ -110,10 +109,10 @@ function createAI() {
 
   // 3. Glowing red camera eye (emissive light)
   const eyeGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-  const eyeMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xff0000, 
-    emissive: 0xff0000, 
-    emissiveIntensity: 3.0 
+  const eyeMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff0000,
+    emissive: 0xff0000,
+    emissiveIntensity: 3.0,
   });
   const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
   eye.position.set(2.5, -thickness / 2 - 0.15, 0); // Seat inside the bezel
@@ -122,14 +121,14 @@ function createAI() {
   // 4. Positioning on the curved wall
   const angle = Math.PI + 0.25; // Same bottom alignment as pod bays
   const wallRadius = RADIUS - 0.125; // Flush with the wall (accounting for half-thickness of 0.125)
-  
-  const x = -RADIUS + (height/2);
-  const z = Math.sin(angle) * (RADIUS);
-  
-  // The pods occupy space from y = -3 to +3. 
+
+  const x = -RADIUS + height / 2;
+  const z = Math.sin(angle) * RADIUS;
+
+  // The pods occupy space from y = -3 to +3.
   // We place the AI at y = 5.5 to sit "right after" them along the corridor.
-  const y = 9; 
-  
+  const y = 9;
+
   halGroup.position.set(x, y, z);
 
   // Rotate panel so it faces directly toward the center pillar

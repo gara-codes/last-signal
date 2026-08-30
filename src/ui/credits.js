@@ -20,18 +20,30 @@
 
 const CREDITS_DATA = {
   code: [
-    { item: 'Three.js', source: 'Three.js contributors', url: 'https://threejs.org', license: 'MIT', usedFor: 'Core rendering' },
-    { item: 'GLTFLoader (Three.js addon)', source: 'Three.js contributors', url: 'https://threejs.org/docs/#examples/en/loaders/GLTFLoader', license: 'MIT', usedFor: 'Loading the astronaut .glb model' },
+    {
+      item: 'Three.js',
+      source: 'Three.js contributors',
+      url: 'https://threejs.org',
+      license: 'MIT',
+      usedFor: 'Core rendering',
+    },
+    {
+      item: 'GLTFLoader (Three.js addon)',
+      source: 'Three.js contributors',
+      url: 'https://threejs.org/docs/#examples/en/loaders/GLTFLoader',
+      license: 'MIT',
+      usedFor: 'Loading the astronaut .glb model',
+    },
   ],
 
   models: [
-    { 
-        item: 'Horror Game Astronaut', 
-        source: 'JCastillo', 
-        url: 'https://sketchfab.com/...', 
-        license: 'Free Standard', 
-        usedFor: 'Main character',
-     },
+    {
+      item: 'Horror Game Astronaut',
+      source: 'JCastillo',
+      url: 'https://sketchfab.com/...',
+      license: 'Free Standard',
+      usedFor: 'Main character',
+    },
   ],
 
   textures: [
@@ -51,40 +63,46 @@ const CREDITS_DATA = {
     },
   ],
 
-  audio: [
-    
-  ],
+  audio: [],
 
-  fonts: [
-    
-  ],
+  fonts: [],
 
-  icons: [
-    
-  ],
+  icons: [],
 
-  tutorials: [
-    
-  ],
+  tutorials: [],
 };
 
 const CATEGORY_META = [
   { key: 'code', label: 'Code & Libraries', columns: ['item', 'source', 'license', 'usedFor'] },
   { key: 'models', label: '3D Models', columns: ['item', 'source', 'license', 'usedFor'] },
-  { key: 'textures', label: 'Textures & Materials', columns: ['item', 'source', 'license', 'usedFor'] },
+  {
+    key: 'textures',
+    label: 'Textures & Materials',
+    columns: ['item', 'source', 'license', 'usedFor'],
+  },
   { key: 'audio', label: 'Audio — SFX & Music', columns: ['item', 'source', 'license', 'usedFor'] },
   { key: 'fonts', label: 'Fonts', columns: ['item', 'source', 'license', 'usedFor'] },
   { key: 'icons', label: 'Icons / HUD Art', columns: ['item', 'source', 'license', 'usedFor'] },
-  { key: 'tutorials', label: 'Tutorials, Articles & Adapted Code', columns: ['covers', 'source', 'usedFor'] },
+  {
+    key: 'tutorials',
+    label: 'Tutorials, Articles & Adapted Code',
+    columns: ['covers', 'source', 'usedFor'],
+  },
 ];
 
 const LICENSE_QUICK_REFERENCE = [
   { license: 'CC0', note: 'No attribution legally required — listed anyway for transparency' },
   { license: 'CC BY', note: 'Must credit author + source' },
   { license: 'CC BY-SA', note: 'Credit required; share-alike if redistributed modified' },
-  { license: 'MIT / Apache 2.0', note: 'Credit + licence notice available (this table satisfies that)' },
+  {
+    license: 'MIT / Apache 2.0',
+    note: 'Credit + licence notice available (this table satisfies that)',
+  },
   { license: 'OFL (fonts)', note: 'Credit the font name + source' },
-  { license: '"Free", no licence listed', note: 'Treated as free-to-use, credited, noted as unlicensed' },
+  {
+    license: '"Free", no licence listed',
+    note: 'Treated as free-to-use, credited, noted as unlicensed',
+  },
 ];
 
 // ---------------------------------------------------------------------------

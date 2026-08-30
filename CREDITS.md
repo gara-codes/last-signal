@@ -5,7 +5,7 @@ Everything in this file is something we did not make ourselves. The brief's rule
 work presented as our own is treated as plagiarism, not just a missing line on a screen.
 
 This file is the source of truth. `src/ui/credits.js` must mirror it, since the brief requires
-the credits screen to be accessible from *inside* the game, not just in the repo.
+the credits screen to be accessible from _inside_ the game, not just in the repo.
 
 ## What needs an entry
 
@@ -36,65 +36,64 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 
 ## Code & libraries
 
-| Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-| Three.js | Three.js contributors | https://threejs.org | MIT | Core rendering | — |
-| GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT | Loading the astronaut .glb model | — |
+| Item                        | Source / author       | URL                                                      | Licence | Used for                         | Added by (date) |
+| --------------------------- | --------------------- | -------------------------------------------------------- | ------- | -------------------------------- | --------------- |
+| Three.js                    | Three.js contributors | https://threejs.org                                      | MIT     | Core rendering                   | —               |
+| GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT     | Loading the astronaut .glb model | —               |
 
 ## 3D models
 
-| Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-| Horror game Astronaut | JCastillo | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | 26-08-2026 |
+| Item                  | Source / author | URL                                                                                    | Licence       | Used for       | Added by (date) |
+| --------------------- | --------------- | -------------------------------------------------------------------------------------- | ------------- | -------------- | --------------- |
+| Horror game Astronaut | JCastillo       | https://sketchfab.com/3d-models/horror-game-astronaut-d6ac4001ad4f45aeab498bdde1b7ec5f | Free Standard | Main character | 26-08-2026      |
 
 ## Textures & materials
 
-| Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-|  Old Worn Chipped Painted Metal - PBR0496 | textures.com | https://www.textures.com/download/old-worn-chipped-painted-metal-pbr0496/138834 | IP-Warranty | Spaceship pillar | — |
-| Concrete Energy Pole - PBR0283 | textures.com | https://www.textures.com/download/concrete-energy-pole-pbr0283/136381 | IP-Warranty | Spaceship texture
+| Item                                     | Source / author | URL                                                                             | Licence     | Used for          | Added by (date) |
+| ---------------------------------------- | --------------- | ------------------------------------------------------------------------------- | ----------- | ----------------- | --------------- |
+| Old Worn Chipped Painted Metal - PBR0496 | textures.com    | https://www.textures.com/download/old-worn-chipped-painted-metal-pbr0496/138834 | IP-Warranty | Spaceship pillar  | —               |
+| Concrete Energy Pole - PBR0283           | textures.com    | https://www.textures.com/download/concrete-energy-pole-pbr0283/136381           | IP-Warranty | Spaceship texture |
 
 ## Audio — sound effects & music
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-| — | — | — | — | — | — |
-
+| ---- | --------------- | --- | ------- | -------- | --------------- |
+| —    | —               | —   | —       | —        | —               |
 
 ## Fonts
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| ---- | --------------- | --- | ------- | -------- | --------------- |
+| —    | —               | —   | —       | —        | —               |
 
 ## Icons / HUD art
 
 | Item | Source / author | URL | Licence | Used for | Added by (date) |
-|---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| ---- | --------------- | --- | ------- | -------- | --------------- |
+| —    | —               | —   | —       | —        | —               |
 
 ## Tutorials, articles, videos & adapted code
 
 | What it covers | Source / author | URL | Used for | Added by (date) |
-|---|---|---|---|---|
-| — | — | — | — | — |
+| -------------- | --------------- | --- | -------- | --------------- |
+| —              | —               | —   | —        | —               |
 
 ---
 
 ## Licence quick reference
 
-| Licence | What it requires |
-|---|---|
-| CC0 | No attribution legally required — list it anyway for transparency |
-| CC BY | Must credit author + source, as done above |
-| CC BY-SA | Credit required; if you redistribute a modified version separately, it must carry the same licence (unlikely to apply here) |
-| MIT / Apache 2.0 | Credit + keep the licence notice available (this table satisfies that) |
-| OFL (fonts) | Credit the font name + source; no need to embed the licence text itself |
-| "Free" on itch.io with no explicit licence | Treat as "all rights reserved, free to use" — credit it and note "no licence listed" |
+| Licence                                    | What it requires                                                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| CC0                                        | No attribution legally required — list it anyway for transparency                                                           |
+| CC BY                                      | Must credit author + source, as done above                                                                                  |
+| CC BY-SA                                   | Credit required; if you redistribute a modified version separately, it must carry the same licence (unlikely to apply here) |
+| MIT / Apache 2.0                           | Credit + keep the licence notice available (this table satisfies that)                                                      |
+| OFL (fonts)                                | Credit the font name + source; no need to embed the licence text itself                                                     |
+| "Free" on itch.io with no explicit licence | Treat as "all rights reserved, free to use" — credit it and note "no licence listed"                                        |
 
 If you can't tell which licence applies, don't guess — ask in the group chat before using the asset.
 
 ---
 
-*Shannon owns this file's upkeep and the in-game credits screen, but everyone adds their own
-entries as they go — don't hand this off to be reconstructed from memory at the end.*
+_Shannon owns this file's upkeep and the in-game credits screen, but everyone adds their own
+entries as they go — don't hand this off to be reconstructed from memory at the end._
