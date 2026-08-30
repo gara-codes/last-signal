@@ -1,0 +1,184 @@
+/* src/ui/credits.css
+ *
+ * Space-themed credits overlay. This is a meta/UI screen, not a
+ * diegetic one, so it borrows a neutral deep-space palette instead:
+ * dark navy backdrop, starfield texture, cool blue/white text and accents
+ * (close to the L1 clean palette, since credits has no narrative tension
+ * of its own).
+ *
+ * Expects theme.css to already define at minimum:
+ *   --ui-font (or falls back to a system stack below)
+ *   --panel-radius
+ * Everything else here is scoped to credits so it can't leak into or
+ * clash with per-level ambient tokens.
+ */
+
+#menu-credits-btn {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 900;
+  padding: 0.5rem 1.1rem;
+  background: rgba(12, 18, 32, 0.85);
+  border: 1px solid #3a5a8a;
+  border-radius: var(--panel-radius, 10px);
+  color: #d8e4ff;
+  font-family: var(--ui-font, 'Segoe UI', system-ui, sans-serif);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+#menu-credits-btn:hover {
+  background: rgba(20, 30, 52, 0.95);
+  border-color: #7fa8ff;
+}
+
+.credits-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #0a0e1a 0%, #05070d 100%);
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.credits-overlay::before {
+  /* cheap starfield: a few repeating radial-gradient "stars", no image asset needed */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, #ffffff 100%, transparent 0),
+    radial-gradient(1px 1px at 80% 40%, #cfe0ff 100%, transparent 0),
+    radial-gradient(1.5px 1.5px at 40% 70%, #ffffff 100%, transparent 0),
+    radial-gradient(1px 1px at 60% 85%, #9db4e0 100%, transparent 0),
+    radial-gradient(1px 1px at 25% 55%, #ffffff 100%, transparent 0),
+    radial-gradient(1.5px 1.5px at 90% 15%, #cfe0ff 100%, transparent 0);
+  background-repeat: repeat;
+  background-size: 220px 220px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.credits-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.credits-panel {
+  position: relative;
+  width: min(720px, 92vw);
+  max-height: 82vh;
+  background: rgba(12, 18, 32, 0.92);
+  border: 1px solid #3a5a8a;
+  border-radius: var(--panel-radius, 10px);
+  box-shadow:
+    0 0 40px rgba(80, 140, 255, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 2rem 2rem 1.5rem;
+  color: #d8e4ff;
+  font-family: var(--ui-font, 'Segoe UI', system-ui, sans-serif);
+  display: flex;
+  flex-direction: column;
+}
+
+.credits-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eaf1ff;
+  text-shadow: 0 0 12px rgba(120, 170, 255, 0.4);
+}
+
+.credits-intro {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #9fb3d9;
+}
+
+.credits-intro code {
+  color: #cfe0ff;
+  background: rgba(80, 140, 255, 0.12);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.credits-scroll {
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.credits-category {
+  margin-bottom: 1.5rem;
+}
+
+.credits-category h3 {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7fa8ff;
+  border-bottom: 1px solid rgba(127, 168, 255, 0.3);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.credits-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.credits-table th {
+  text-align: left;
+  color: #9fb3d9;
+  font-weight: 600;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.credits-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+}
+
+.credits-table a {
+  color: #8fc4ff;
+  text-decoration: none;
+}
+
+.credits-table a:hover {
+  text-decoration: underline;
+}
+
+.credits-license-ref {
+  margin-top: 2rem;
+  border-top: 1px dashed rgba(127, 168, 255, 0.25);
+  padding-top: 1rem;
+}
+
+.credits-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: none;
+  border: none;
+  color: #9fb3d9;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.credits-close:hover {
+  color: #eaf1ff;
+}

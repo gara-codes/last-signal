@@ -10,7 +10,7 @@ export function loadAstronaut() {
     (gltf) => {
       const model = gltf.scene;
 
-      //INital scaling and rotation
+      //Initial scaling and rotation
       model.scale.set(4, 4, 4);
       model.rotation.y = Math.PI; //Face forward
 
