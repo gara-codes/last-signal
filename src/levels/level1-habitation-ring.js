@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createEmergencyLightingMaterial } from '../shaders/emergency-lighting.js';
 
 const SEGMENTS = 30;
 const RADIUS = 31;
@@ -107,13 +108,9 @@ function createAI() {
   bezel.position.set(2.5, -thickness / 2 - 0.05, 0); // Place in the upper portion of the panel
   halGroup.add(bezel);
 
-  // 3. Glowing red camera eye (emissive light)
+  // 3. Glowing camera eye — custom emergency-lighting shader
   const eyeGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-  const eyeMaterial = new THREE.MeshStandardMaterial({
-    color: 0xff0000,
-    emissive: 0xff0000,
-    emissiveIntensity: 3.0,
-  });
+  const { material: eyeMaterial, uniforms: emergencyUniforms } = createEmergencyLightingMaterial();
   const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
   eye.position.set(2.5, -thickness / 2 - 0.15, 0); // Seat inside the bezel
   halGroup.add(eye);
@@ -134,12 +131,12 @@ function createAI() {
   // Rotate panel so it faces directly toward the center pillar
   halGroup.rotation.y = 0;
 
-  return halGroup;
+  return { group: halGroup, emergencyUniforms };
 }
 
 /**
  * Main orchestration function for Level 1.
- * @returns {{ group: THREE.Group, dispose: () => void }}
+ * @returns {{ group: THREE.Group, dispose: () => void, update: (delta: number) => void }}
  */
 export function createLevel1() {
   const level1Group = new THREE.Group();
@@ -149,7 +146,7 @@ export function createLevel1() {
   const ring = createOuterRing();
   const pillar = createCenterPillar();
   const podBays = createPodBays();
-  const hal = createAI();
+  const { group: hal, emergencyUniforms } = createAI();
 
   level1Group.add(ring);
   level1Group.add(pillar);
@@ -174,5 +171,12 @@ export function createLevel1() {
     });
   }
 
-  return { group: level1Group, dispose };
+  /**
+   * Advances any time-driven effects in this level (e.g. the emergency-lighting shader).
+   */
+  function update(delta) {
+    emergencyUniforms.time.value += delta;
+  }
+
+  return { group: level1Group, dispose, update };
 }
