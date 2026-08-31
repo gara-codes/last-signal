@@ -1,6 +1,8 @@
+//main.js
 import * as THREE from 'three';
 import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
+import { LightingRig } from './core/LightingRig.js';
 import { Camera } from './core/Camera.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { loadAstronaut } from './core/AssetLoader.js';
@@ -18,17 +20,23 @@ const renderer = rendererSetup.getRenderer();
 const cameraSetup = new Camera();
 const camera = cameraSetup.getCamera();
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5, 10, 7);
-scene.add(dirLight);
-
-// Level 1
+// Level 1 — must exist before LightingRig, since lights are parented to its group
 const level1 = createLevel1();
 level1.group.rotation.z = Math.PI / 2;
 scene.add(level1.group);
+
+const lightingRig = new LightingRig(scene, level1.group, {
+  lightCount: 8,
+  radius: 28,
+  ceilingHeight: 8,
+});
+
+const halObject = level1.group.getObjectByName('hal-9000');
+if (!halObject) {
+  console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
+}
+const halWorldPosition = halObject ? new THREE.Vector3() : null;
+if (halObject) halObject.getWorldPosition(halWorldPosition);
 
 // Player Model
 const player = loadAstronaut();
@@ -50,6 +58,10 @@ function animate() {
 
   if (level1.update) {
     level1.update(delta, player);
+  }
+
+  if (halWorldPosition) {
+    lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
 
   // Camera now reads live data straight from the player, via the shared
