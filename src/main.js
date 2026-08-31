@@ -8,6 +8,7 @@ import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
+import { initMenu } from './ui/menu.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -44,6 +45,8 @@ const inputManager = new InputManager();
 
 const clock = new THREE.Clock();
 
+initMenu();
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -54,8 +57,6 @@ function animate() {
   if (level1.update) {
     level1.update(delta, player);
   }
-
-  lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
 
   // Camera now reads live data straight from the player, via the shared
   // interface Alex exposes on player.userData.

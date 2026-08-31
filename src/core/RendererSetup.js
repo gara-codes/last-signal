@@ -1,27 +1,21 @@
 import * as THREE from 'three';
 
 export class RendererSetup {
-    constructor() {
-        this.renderer = new THREE.WebGLRenderer({
-            antialias: true,
-        });
+  constructor() {
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+    });
 
-        this.renderer.setSize(
-            window.innerWidth,
-            window.innerHeight,
-        );
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-        document.body.appendChild(this.renderer.domElement);
-    }
+    document.body.appendChild(this.renderer.domElement);
+  }
 
-    getRenderer() {
-        return this.renderer;
-    }
+  getRenderer() {
+    return this.renderer;
+  }
 
-    resize() {
-        this.renderer.setSize(
-            window.innerWidth,
-            window.innerHeight,
-        );
-    }
+  resize() {
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
 }

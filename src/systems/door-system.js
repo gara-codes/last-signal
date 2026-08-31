@@ -98,8 +98,8 @@ export function createPowerPanel(id, linkedDoors) {
   return mesh;
 }
 
-export function updateInteractables(interactables, delta){
-    for(const obj of interactables){
-        obj.userData.update?.(delta);
-    }
+export function updateInteractables(interactables, delta) {
+  for (const obj of interactables) {
+    obj.userData.update?.(delta);
+  }
 }
