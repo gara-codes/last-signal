@@ -91,5 +91,8 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
   dispose() {
     this.scene.remove(this.ambientLight);
     this.scene.remove(this.hemiLight);
-  }
+    this.stripLights.forEach((light) => {
+        if (light.parent) light.parent.remove(light);
+    });
+}
 }

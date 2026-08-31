@@ -31,13 +31,14 @@ const lightingRig = new LightingRig(scene, level1.group, {
 });
 
 const halObject = level1.group.getObjectByName('hal-9000');
-const halWorldPosition = new THREE.Vector3();
-halObject.getWorldPosition(halWorldPosition);
-window.halWorldPosition = halWorldPosition;
+if (!halObject) {
+  console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
+}
+const halWorldPosition = halObject ? new THREE.Vector3() : null;
+if (halObject) halObject.getWorldPosition(halWorldPosition);
 
 // Player Model
 const player = loadAstronaut();
-window.player = player;
 scene.add(player);
 
 const playerController = new PlayerController(player);
@@ -56,6 +57,10 @@ function animate() {
 
   if (level1.update) {
     level1.update(delta, player);
+  }
+
+  if (halWorldPosition) {
+    lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
 
   // Camera now reads live data straight from the player, via the shared
