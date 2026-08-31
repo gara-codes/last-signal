@@ -6,6 +6,7 @@ import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
+import './ui/theme.css';
 import { initMenu } from './ui/menu.js';
 
 const sceneManager = new SceneManager();
