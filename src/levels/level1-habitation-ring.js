@@ -73,6 +73,30 @@ function createPodBays() {
   return group;
 }
 
+function createBlastDoorOne(){
+  const height = 14.0;
+  const width = 10;
+  const thickness = 1;
+
+  const doorGeometry = new THREE.BoxGeometry(height, thickness, width);
+  const doorMaterial = new THREE.MeshStandardMaterial({
+    color: 0xFF2600,
+    metalness: 0.9,
+    roughness: 0.1,
+  });
+
+  //const wallRadius = RADIUS-3;
+  const x = RADIUS - 7;
+  const z = 0;
+  const y = -10;
+
+  const blastDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+
+  blastDoor.position.set(x, y, z);
+  //blastDoor.rotation.y;
+
+  return blastDoor;
+}
 /**
  * Creates the HAL 9000 AI terminal mounted on the wall just past the pod bays.
  * @returns {THREE.Group}
@@ -119,11 +143,11 @@ function createAI() {
   halGroup.add(eye);
 
   // 4. Positioning on the curved wall
-  const angle = Math.PI + 0.25; // Same bottom alignment as pod bays
-  const wallRadius = RADIUS - 0.125; // Flush with the wall (accounting for half-thickness of 0.125)
+  //const angle = -Math.PI; // Same bottom alignment as pod bays
+  const wallRadius = RADIUS-3; // Flush with the wall (accounting for half-thickness of 0.125)
 
-  const x = -RADIUS + height / 2;
-  const z = Math.sin(angle) * RADIUS;
+  const x = -wallRadius*Math.cos(7*Math.PI/25);
+  const z = Math.sin(-Math.PI / 6) * wallRadius;
 
   // The pods occupy space from y = -3 to +3.
   // We place the AI at y = 5.5 to sit "right after" them along the corridor.
@@ -132,7 +156,7 @@ function createAI() {
   halGroup.position.set(x, y, z);
 
   // Rotate panel so it faces directly toward the center pillar
-  halGroup.rotation.y = 0;
+  halGroup.rotation.y = Math.atan2(halGroup.position.z, -halGroup.position.x);
 
   return halGroup;
 }
@@ -150,11 +174,13 @@ export function createLevel1() {
   const pillar = createCenterPillar();
   const podBays = createPodBays();
   const hal = createAI();
+  const blastDoorOne = createBlastDoorOne();
 
   level1Group.add(ring);
   level1Group.add(pillar);
   level1Group.add(podBays);
   level1Group.add(hal);
+  level1Group.add(blastDoorOne);
 
   /**
    * Cleans up level resources when transitioned or destroyed.
