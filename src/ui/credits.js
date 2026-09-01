@@ -65,7 +65,29 @@ const CREDITS_DATA = {
 
   audio: [],
 
-  fonts: [],
+  fonts: [
+    {
+      item: 'Rajdhani',
+      source: 'Google Fonts',
+      url: 'https://fonts.google.com/specimen/Rajdhani',
+      license: 'SIL Open Font License 1.1',
+      usedFor: 'Headers & section labels (credits screen; planned HUD label font)',
+    },
+    {
+      item: 'Source Sans 3',
+      source: 'Google Fonts',
+      url: 'https://fonts.google.com/specimen/Source+Sans+3',
+      license: 'SIL Open Font License 1.1',
+      usedFor: 'Body text (credits button & panel copy; planned UI body font)',
+    },
+    {
+      item: 'IBM Plex Mono',
+      source: 'Google Fonts',
+      url: 'https://fonts.google.com/specimen/IBM+Plex+Mono',
+      license: 'SIL Open Font License 1.1',
+      usedFor: 'Data / numeric readouts (loaded now — applied once HUD is built)',
+    },
+  ],
 
   icons: [],
 
