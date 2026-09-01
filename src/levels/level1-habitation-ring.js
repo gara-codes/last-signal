@@ -175,7 +175,7 @@ export function createLevel1() {
    * Advances any time-driven effects in this level (e.g. the emergency-lighting shader).
    */
   function update(delta) {
-    emergencyUniforms.time.value += delta;
+    emergencyUniforms.uTime.value += delta;
   }
 
   return { group: level1Group, dispose, update };
