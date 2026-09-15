@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { createEmergencyLightingMaterial } from '../shaders/emergency-lighting.js';
+import { createDoor } from '../systems/door-system.js';
+import { loadFuelCell } from '../core/AssetLoader.js';
 
 const SEGMENTS = 30;
 const RADIUS = 31;
@@ -70,34 +72,10 @@ function createPodBays() {
     pod.position.set(x, y, z);
     group.add(pod);
   }
-
+  
   return group;
 }
 
-function createBlastDoorOne(){
-  const height = 14.0;
-  const width = 10;
-  const thickness = 1;
-
-  const doorGeometry = new THREE.BoxGeometry(height, thickness, width);
-  const doorMaterial = new THREE.MeshStandardMaterial({
-    color: 0xFF2600,
-    metalness: 0.9,
-    roughness: 0.1,
-  });
-
-  //const wallRadius = RADIUS-3;
-  const x = RADIUS - 7;
-  const z = 0;
-  const y = -10;
-
-  const blastDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-
-  blastDoor.position.set(x, y, z);
-  //blastDoor.rotation.y;
-
-  return blastDoor;
-}
 /**
  * Creates the HAL 9000 AI terminal mounted on the wall just past the pod bays.
  * @returns {THREE.Group}
@@ -158,6 +136,74 @@ function createAI() {
   return { group: halGroup, emergencyUniforms };
 }
 
+function createTransitPoint() {
+  const room = new THREE.Group();
+  room.name = 'transit-point';
+
+  const width = 14;
+  const height = 10;
+  const depth = 20;
+
+  const sideWallGeometry = new THREE.PlaneGeometry(depth, height);
+  const floorCeilingGeometry = new THREE.PlaneGeometry(width, depth);
+  const farWallGeometry = new THREE.PlaneGeometry(width, height);
+  const wallMaterial = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+  });
+
+  // Floor
+  const floor = new THREE.Mesh(floorCeilingGeometry, wallMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -height / 2;
+  room.add(floor);
+
+  // Ceiling (open end — omitted so the player can enter from blastDoorOne above)
+
+  // Left wall
+  const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+  leftWall.rotation.y = Math.PI / 2;
+  leftWall.position.x = -width / 2;
+  room.add(leftWall);
+
+  // Right wall
+  const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+  rightWall.rotation.y = -Math.PI / 2;
+  rightWall.position.x = width / 2;
+  room.add(rightWall);
+
+  // Far wall (exit door mounts on this face)
+  const farWall = new THREE.Mesh(farWallGeometry, wallMaterial);
+  farWall.position.z = -depth / 2;
+  room.add(farWall);
+
+  // Exit blast door — placed on the far wall
+  const blastDoor = createDoor('l1-blastdoor-2');
+  blastDoor.position.z = -depth / 2;
+  room.add(blastDoor);
+
+  // Position the room so its open top sits flush under blastDoorOne's bottom face
+  room.position.x = 24;
+  room.position.y = -10.5 - height / 2;
+  room.position.z = 0;
+
+  return room;
+}
+
+function createFuelCells(){
+  const cells = new THREE.Group();
+  const cell1 = loadFuelCell();
+  cell1.position.set(30, -8, 3);
+
+  cells.add(cell1);
+
+  const cell2 = loadFuelCell();
+  cell2.position.set(-24, 8, -14);
+  cells.add(cell2);
+
+  return cells;
+}
+
 /**
  * Main orchestration function for Level 1.
  * @returns {{ group: THREE.Group, dispose: () => void, update: (delta: number) => void }}
@@ -171,13 +217,25 @@ export function createLevel1() {
   const pillar = createCenterPillar();
   const podBays = createPodBays();
   const { group: hal, emergencyUniforms } = createAI();
-  const blastDoorOne = createBlastDoorOne();
-
+  const blastDoorOne = createDoor('l1-blastdoor-1', onOpenCallback, {
+    width: 10,
+    height: 14,
+    thickness: 1,
+    color: 0xFF2600,
+    metal: 0.9,
+    roughness: 0.1,
+  });
+  blastDoorOne.position.set(RADIUS - 7, -10, 0);
+  //const transitPoint = createTransitPoint();
+  const cells = createFuelCells();
+  
   level1Group.add(ring);
   level1Group.add(pillar);
   level1Group.add(podBays);
   level1Group.add(hal);
   level1Group.add(blastDoorOne);
+  //level1Group.add(transitPoint);
+  level1Group.add(cells);
 
   /**
    * Cleans up level resources when transitioned or destroyed.

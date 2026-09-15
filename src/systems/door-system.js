@@ -29,12 +29,22 @@ const panelMaterialActive = new THREE.MeshStandardMaterial({
  *   the door finishes opening. Level code uses this to trigger the
  *   flicker/malfunction-sound cue on Door 1.
  */
-export function createDoor(id, onOpen) {
+export function createDoor(id, onOpen, options) {
   const group = new THREE.Group();
   group.name = id;
 
-  const panel = new THREE.Mesh(doorGeometry, doorMaterialLocked);
-  panel.position.y = DOOR_HEIGHT / 2;
+  let lockedMaterial, unlockedMaterial;
+  const effectiveHeight = options?.height ?? OPEN_HEIGHT_OFFSET;
+  if(options.texturePath){
+
+  }else if(options.color){
+
+  }else{
+    lockedMaterial = doorMaterialLocked;
+    unlockedMaterial = doorMaterialUnlocked
+  }
+  const panel = new THREE.Mesh(doorGeometry, lockedMaterial);
+  panel.position.y = effectiveHeight / 2;
   group.add(panel);
 
   group.userData = {
@@ -47,7 +57,7 @@ export function createDoor(id, onOpen) {
     unlock() {
       if (group.userData.state !== 'locked') return;
       group.userData.state = 'unlocked';
-      panel.material = doorMaterialUnlocked;
+      panel.material = unlockedMaterial;
     },
 
     interact() {
@@ -62,7 +72,7 @@ export function createDoor(id, onOpen) {
         group.userData.openProgress + delta / OPEN_DURATION
       );
       panel.position.y =
-        group.userData.basePanelY + OPEN_HEIGHT_OFFSET * group.userData.openProgress;
+        group.userData.basePanelY + effectiveHeight * group.userData.openProgress;
       if (group.userData.openProgress >= 1) {
         group.userData.state = 'open';
         if (onOpen) onOpen();
