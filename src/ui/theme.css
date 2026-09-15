@@ -1,0 +1,95 @@
+/*
+ * theme.css — Last Signal UI colour tokens
+ * Owner: Shannon (Polish/UI/Audio)
+ *
+ * This file is the single source of truth for UI colour. The three
+ * "state" accents below are shared conceptually with:
+ *   - Gara's per-level lighting pass (scene/material colours)
+ *   - Natasha's emergency-lighting shader (uColor uniform)
+ * If these values change here, flag it to both of them — and vice versa,
+ * if they land on different values first, update this file to match.
+ *
+ * STATUS: draft, pending review from Gara & Natasha. See the shared
+ * colour-proposal page for hex/RGB/normalised-RGB values in the formats
+ * their tools need.
+ */
+
+:root {
+  /* ---- base UI shell (independent of level, no coordination needed) ---- */
+  --ui-bg: #0b0f14;                         /* page/canvas backdrop, if ever visible behind the game */
+  --ui-panel: rgba(10, 14, 18, 0.72);       /* semi-opaque panel behind HUD text/meters —
+                                                keeps things legible over L1's bright white walls
+                                                AND over L2/L3's dark scenes */
+  --ui-text: #eef2f4;
+  --ui-text-dim: #9fb0b8;
+  --ui-border: rgba(255, 255, 255, 0.14);
+
+  /* ---- escalation states (shared source of truth — see file header) ---- */
+  --state-clean: #cfe8ff; /* L1 — Habitation Ring: confirmed from Gara's LightingRig.js
+                                  ambient light (unmerged branch). His ceiling strip lights stay
+                                  neutral white (#ffffff) by design — this blue lives only in the
+                                  ambient/hemisphere fill, not the primary light source. */
+  --state-warning: #f2a93c; /* L2 — Engineering Core: amber emergency strips (proposed — Gara
+                                  hasn't built L2 lighting yet) */
+  --state-hostile: #b23a30; /* L3 — Docking Corridor: dark red, ambient (proposed — Natasha's
+                                  merged shader currently hardcodes a brighter #ff2626 with no
+                                  uColor uniform; needs her follow-up to generalise + adopt this) */
+
+  /* ---- HUD semantic states (independent of level) ---- */
+  --ui-good: var(
+    --state-clean
+  ); /* reused deliberately, same logic as --ui-warn below: L1's
+                                     clean blue already means "safe" in this game's own visual
+                                     language, so "good" reuses it instead of an unrelated green */
+  --ui-warn: var(
+    --state-warning
+  ); /* reused deliberately: warnings should read the same everywhere */
+  --ui-critical: #ff5252; /* health/oxygen critical — kept brighter & more saturated than
+                                 --state-hostile on purpose, so a critical flash still reads
+                                 against L3's already-red ambient tint */
+
+  /* ---- current level accent: default L1, overridden per level below ---- */
+  --accent: var(--state-clean);
+
+  /* ---- typography (Rajdhani / IBM Plex Mono / Source Sans 3 system,
+     matches the HUD mockup — loaded via index.html) ---- */
+  --ui-font: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif; /* body text */
+  --ui-font-label: 'Rajdhani', ui-sans-serif, sans-serif; /* headers/labels, uppercase + tracked */
+  --ui-font-mono:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; /* data/numeric readouts */
+
+  /* ---- shape ---- */
+  --panel-radius: 10px; /* matches credits.css's existing fallback for now, on purpose — the
+                            HUD mockup uses angular clipped corners instead (effectively 0), so
+                            this is a real open decision for the Phase 1 token-lock pass, not a
+                            final answer. Set here to credits' current look so wiring it up
+                            changes nothing visually yet. */
+
+  /* ---- stacking order (shared scale — keep every new screen on this, not one-off z-index) ---- */
+  --z-hud: 10; /* always-on HUD panels, the credits button */
+  --z-overlay: 20; /* pause overlay, log/text reading overlay, warning banners */
+  --z-modal: 30; /* credits, repair terminal, restart screen — anything that blocks interaction */
+}
+
+/*
+ * Someone (Yannis/Alex, most likely, as part of level-transition logic)
+ * needs to set data-level on <body> when a level loads. Until that
+ * hook exists, --accent just stays L1's clean blue everywhere.
+ */
+body[data-level='l2'] {
+  --accent: var(--state-warning);
+}
+body[data-level='l3'] {
+  --accent: var(--state-hostile);
+}
+
+/*
+ * Usage examples:
+ *   .hud-panel   { background: var(--ui-panel); border: 1px solid var(--ui-border); color: var(--ui-text); }
+ *   .hud-border  { border-color: var(--accent); }        <- shifts automatically per level
+ *   .oxygen-bar.critical { background: var(--ui-critical); }
+ *   .repair-slot.done    { color: var(--ui-good); }
+ *   .hud-label   { font-family: var(--ui-font-label); }
+ *   .hud-readout { font-family: var(--ui-font-mono); }
+ *   .modal       { z-index: var(--z-modal); }
+ */

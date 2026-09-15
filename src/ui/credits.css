@@ -7,8 +7,9 @@
  * of its own).
  *
  * Expects theme.css to already define at minimum:
- *   --ui-font (or falls back to a system stack below)
+ *   --ui-font, --ui-font-label (or falls back to a system stack below)
  *   --panel-radius
+ *   --z-hud, --z-modal (or falls back to this file's original 900/1000)
  * Everything else here is scoped to credits so it can't leak into or
  * clash with per-level ambient tokens.
  */
@@ -17,7 +18,7 @@
   position: fixed;
   top: 1rem;
   right: 1rem;
-  z-index: 900;
+  z-index: var(--z-hud, 900);
   padding: 0.5rem 1.1rem;
   background: rgba(12, 18, 32, 0.85);
   border: 1px solid #3a5a8a;
@@ -45,7 +46,7 @@
   align-items: center;
   justify-content: center;
   background: radial-gradient(ellipse at center, #0a0e1a 0%, #05070d 100%);
-  z-index: 1000;
+  z-index: var(--z-modal, 1000);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -98,6 +99,7 @@
   text-transform: uppercase;
   color: #eaf1ff;
   text-shadow: 0 0 12px rgba(120, 170, 255, 0.4);
+  font-family: var(--ui-font-label, 'Segoe UI', system-ui, sans-serif);
 }
 
 .credits-intro {
@@ -130,6 +132,7 @@
   border-bottom: 1px solid rgba(127, 168, 255, 0.3);
   padding-bottom: 0.35rem;
   margin-bottom: 0.6rem;
+  font-family: var(--ui-font-label, 'Segoe UI', system-ui, sans-serif);
 }
 
 .credits-table {

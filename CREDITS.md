@@ -62,9 +62,11 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 
 ## Fonts
 
-| Item | Source / author | URL | Licence | Used for | Added by (date) |
-| ---- | --------------- | --- | ------- | -------- | --------------- |
-| —    | —               | —   | —       | —        | —               |
+| Item          | Source / author | URL                                             | Licence                   | Used for                                                          | Added by (date) |
+| ------------- | --------------- | ----------------------------------------------- | ------------------------- | ----------------------------------------------------------------- | --------------- |
+| Rajdhani      | Google Fonts    | https://fonts.google.com/specimen/Rajdhani      | SIL Open Font License 1.1 | Headers & section labels (credits screen; planned HUD label font) | 30-08-2026      |
+| Source Sans 3 | Google Fonts    | https://fonts.google.com/specimen/Source+Sans+3 | SIL Open Font License 1.1 | Body text (credits button & panel copy; planned UI body font)     | 30-08-2026      |
+| IBM Plex Mono | Google Fonts    | https://fonts.google.com/specimen/IBM+Plex+Mono | SIL Open Font License 1.1 | Data / numeric readouts (loaded now — applied once HUD is built)  | 30-08-2026      |
 
 ## Icons / HUD art
 
