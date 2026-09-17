@@ -204,6 +204,35 @@ function createFuelCells(){
   return cells;
 }
 
+function createBlastDoor(){
+  const blastDoorOne = createDoor('l1-blastdoor-1', undefined, {  //When we later want the open sound cue, replace undefined with () => playDoorOpenSound()
+    width: 10,
+    height: 10,
+    thickness: 1,
+    color: 0xFF2600,
+    metalness: 0.9,
+    roughness: 0.1,
+    openDuration: 2.5
+  });
+  // Mounted on the hull the same way as the AI panel (see createAI, step 4):
+  // polar position at wall radius + atan2 facing. One adaptation: the AI's
+  // thin axis is Y, but createDoor puts thickness on Z — so the door is
+  // tipped forward 90° (X spin) to bring its face around to look down the
+  // corridor like HAL's face.
+  const wallRadius = RADIUS - 7;    // same mount radius as the AI panel
+  const wallAngle = Math.PI * 1.1;  // near-floor hull, a bit before HAL
+  const x = -Math.cos(wallAngle) * wallRadius -3;
+  const z = Math.sin(wallAngle) * wallRadius+12;
+  const doorAngle = Math.atan2(z,x);
+  blastDoorOne.rotation.set(Math.PI /2, Math.atan2(z, -x), Math.PI / 2- doorAngle, 'YXZ');
+  // The -10 keeps the door at its current axial position along the corridor.
+  blastDoorOne.position.set(x, -10, z);
+  // Euler order 'YXZ': the X tip applies in the door's own space first, then
+  // the Y facing applies in level space — same result as parenting the door
+  // to a holder group with the AI's rotation.
+  //blastDoorOne.rotation.set(Math.PI / 2, Math.atan2(z, -x), 0, 'YXZ');
+  return blastDoorOne;
+}
 /**
  * Main orchestration function for Level 1.
  * @returns {{ group: THREE.Group, dispose: () => void, update: (delta: number) => void }}
@@ -217,15 +246,7 @@ export function createLevel1() {
   const pillar = createCenterPillar();
   const podBays = createPodBays();
   const { group: hal, emergencyUniforms } = createAI();
-  const blastDoorOne = createDoor('l1-blastdoor-1', onOpenCallback, {
-    width: 10,
-    height: 14,
-    thickness: 1,
-    color: 0xFF2600,
-    metal: 0.9,
-    roughness: 0.1,
-  });
-  blastDoorOne.position.set(RADIUS - 7, -10, 0);
+  
   //const transitPoint = createTransitPoint();
   const cells = createFuelCells();
   
@@ -233,7 +254,7 @@ export function createLevel1() {
   level1Group.add(pillar);
   level1Group.add(podBays);
   level1Group.add(hal);
-  level1Group.add(blastDoorOne);
+  level1Group.add(createBlastDoor());
   //level1Group.add(transitPoint);
   level1Group.add(cells);
 
