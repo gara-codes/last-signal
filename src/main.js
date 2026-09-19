@@ -43,7 +43,7 @@ const player = loadAstronaut();
 scene.add(player);
 
 const playerController = new PlayerController(player);
-const inputManager = new InputManager();
+const inputManager = new InputManager(renderer.domElement);
 
 const clock = new THREE.Clock();
 
@@ -54,7 +54,9 @@ function animate() {
 
   const delta = clock.getDelta();
 
-  playerController.update(delta, inputManager.getInput());
+  const input = inputManager.getInput();
+  playerController.update(delta, input);
+  cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
 
   if (level1.update) {
     level1.update(delta, player);
