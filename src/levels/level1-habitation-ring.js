@@ -192,12 +192,16 @@ function createTransitPoint() {
 
 function createFuelCells(){
   const cells = new THREE.Group();
+  cells.name = 'fuel-cells';
+
   const cell1 = loadFuelCell();
+  cell1.name = 'fuel-cell-1';
   cell1.position.set(30, -8, 3);
 
   cells.add(cell1);
 
   const cell2 = loadFuelCell();
+  cell2.name = 'fuel-cell-2';
   cell2.position.set(-24, 8, -14);
   cells.add(cell2);
 
