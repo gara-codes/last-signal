@@ -1,0 +1,57 @@
+/* Loading screen — centred block on the 1600x900 stage. */
+
+.ui-screen.ui-screen--loading {
+  --bg-focus-y: 50%;
+  --grid-opacity: 0.45;
+  --vignette-alpha: 0.75;
+}
+
+.loading__block {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 640px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.loading__kicker {
+  margin-bottom: 12px;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-md);
+  letter-spacing: var(--ls-widest);
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.loading__sector {
+  margin-bottom: 30px;
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-sector);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text);
+}
+
+.loading__bar {
+  --pip-height: 8px;
+
+  margin-bottom: 12px;
+}
+
+.loading__pct {
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-tertiary);
+}
+
+.loading__tip {
+  margin-top: 44px;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  font-style: italic;
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-faint);
+}

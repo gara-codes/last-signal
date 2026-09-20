@@ -1,28 +1,49 @@
 /*
- * theme.css — Last Signal UI colour tokens
+ * theme.css — Last Signal UI design tokens
  * Owner: Shannon (Polish/UI/Audio)
  *
- * This file is the single source of truth for UI colour. The three
- * "state" accents below are shared conceptually with:
+ * This file is the single source of truth for UI colour, type, shape and stacking.
+ * The three "state" accents below are shared conceptually with:
  *   - Gara's per-level lighting pass (scene/material colours)
  *   - Natasha's emergency-lighting shader (uColor uniform)
  * If these values change here, flag it to both of them — and vice versa,
  * if they land on different values first, update this file to match.
  *
- * STATUS: draft, pending review from Gara & Natasha. See the shared
- * colour-proposal page for hex/RGB/normalised-RGB values in the formats
- * their tools need.
+ * STATUS: menu-suite foundation lock (main menu, options, pause, loading, credits).
+ * Values come from the HUD & menu mockup (Version 16). Level-HUD-only values (L3 red family,
+ * L2 amber alphas, repair-console/graph tokens, HUD-only type sizes) are deliberately NOT
+ * here yet — they land in the level lock once those screens settle.
+ * L2 amber (--state-warning) is still provisional (Gara hasn't built the L2 lighting pass).
  */
 
 :root {
   /* ---- base UI shell (independent of level, no coordination needed) ---- */
-  --ui-bg: #0b0f14;                         /* page/canvas backdrop, if ever visible behind the game */
-  --ui-panel: rgba(10, 14, 18, 0.72);       /* semi-opaque panel behind HUD text/meters —
-                                                keeps things legible over L1's bright white walls
-                                                AND over L2/L3's dark scenes */
-  --ui-text: #eef2f4;
-  --ui-text-dim: #9fb0b8;
-  --ui-border: rgba(255, 255, 255, 0.14);
+  --ui-bg: #0b0f14; /* page/canvas backdrop, if ever visible behind the game */
+
+  /* Panel surfaces: one base colour at three strengths. */
+  --ui-panel-soft: rgba(8, 12, 16, 0.6); /* menu rows / unselected list items */
+  --ui-panel: rgba(
+    8,
+    12,
+    16,
+    0.82
+  ); /* HUD panels, option/credits panels — keeps things legible
+                                          over L1's bright white walls AND L2/L3's dark scenes */
+  --ui-panel-strong: rgba(8, 12, 16, 0.9); /* modals / reading overlays */
+  --ui-scrim: rgba(3, 4, 5, 0.72); /* dim layer behind the pause overlay */
+
+  /* Text ramp (Rajdhani/Source Sans/Plex Mono all share it). */
+  --ui-text: #eef2f4; /* primary: headings, selected items */
+  --ui-text-action: #dfe6ea; /* button labels */
+  --ui-text-dim: #9aa5b1; /* secondary: unselected items, field labels */
+  --ui-text-tertiary: #8a94a0; /* captions, secondary readouts */
+  --ui-text-faint: #5a6672; /* index numbers, build tag, hints */
+
+  /* Lines and fills (white-on-dark alpha steps). */
+  --ui-fill: rgba(255, 255, 255, 0.06); /* button fill, focus tint, row dividers */
+  --ui-track: rgba(255, 255, 255, 0.1); /* empty pips, dividers, unselected row edge */
+  --ui-border: rgba(255, 255, 255, 0.16); /* panel borders */
+  --ui-border-strong: rgba(255, 255, 255, 0.25); /* focus / hover, button borders */
 
   /* ---- escalation states (shared source of truth — see file header) ---- */
   --state-clean: #cfe8ff; /* L1 — Habitation Ring: confirmed from Gara's LightingRig.js
@@ -34,6 +55,17 @@
   --state-hostile: #b23a30; /* L3 — Docking Corridor: dark red, ambient (proposed — Natasha's
                                   merged shader currently hardcodes a brighter #ff2626 with no
                                   uColor uniform; needs her follow-up to generalise + adopt this) */
+
+  /* Full-screen backdrop gradient stops, one set per state (the level theme is accent + backdrop). */
+  --bg-clean-top: #0a0d10;
+  --bg-clean-mid: #050607;
+  --bg-clean-bottom: #020202;
+  --bg-warning-top: #0d0a06;
+  --bg-warning-mid: #050403;
+  --bg-warning-bottom: #020202;
+  --bg-hostile-top: #100605;
+  --bg-hostile-mid: #060302;
+  --bg-hostile-bottom: #020101;
 
   /* ---- HUD semantic states (independent of level) ---- */
   --ui-good: var(
@@ -48,8 +80,11 @@
                                  --state-hostile on purpose, so a critical flash still reads
                                  against L3's already-red ambient tint */
 
-  /* ---- current level accent: default L1, overridden per level below ---- */
+  /* ---- current level theme: default L1, overridden per level below ---- */
   --accent: var(--state-clean);
+  --backdrop-top: var(--bg-clean-top);
+  --backdrop-mid: var(--bg-clean-mid);
+  --backdrop-bottom: var(--bg-clean-bottom);
 
   /* ---- typography (Rajdhani / IBM Plex Mono / Source Sans 3 system,
      matches the HUD mockup — loaded via index.html) ---- */
@@ -58,35 +93,89 @@
   --ui-font-mono:
     'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; /* data/numeric readouts */
 
-  /* ---- shape ---- */
-  --panel-radius: 10px; /* matches credits.css's existing fallback for now, on purpose — the
-                            HUD mockup uses angular clipped corners instead (effectively 0), so
-                            this is a real open decision for the Phase 1 token-lock pass, not a
-                            final answer. Set here to credits' current look so wiring it up
-                            changes nothing visually yet. */
+  /* Display scale (menu suite). */
+  --fs-title: 64px; /* main menu game title */
+  --fs-sector: 42px; /* loading screen sector name */
+  --fs-pause: 34px; /* pause overlay heading */
+  --fs-screen-title: 30px; /* credits heading */
+  --fs-panel-title: 26px; /* options panel heading */
+  --fs-item: 19px; /* main menu items */
+  --fs-item-sm: 16px; /* pause menu items */
+
+  /* Small scale: four steps (the mockup's 9.5–13px half-steps snap to these). */
+  --fs-2xs: 10px; /* column headers */
+  --fs-xs: 11px; /* captions, hints, build tag */
+  --fs-sm: 12px; /* labels, table cells */
+  --fs-md: 13px; /* readouts, buttons, body cells */
+
+  /* Letter-spacing. */
+  --ls-tight: 0.04em;
+  --ls-normal: 0.08em;
+  --ls-label: 0.1em; /* Rajdhani labels */
+  --ls-wide: 0.16em;
+  --ls-widest: 0.24em;
+
+  /* ---- shape: angular clipped corners (replaces the old rounded --panel-radius) ----
+     Use with .ui-chamfer-row (top-left cut) or .ui-chamfer-panel (top-left + bottom-right cuts)
+     from ui.css, which read --chamfer. */
+  --chamfer-sm: 8px; /* buttons */
+  --chamfer-md: 10px; /* menu rows, HUD panels */
+  --chamfer-lg: 12px; /* credits panels */
+  --chamfer-xl: 16px; /* options panel */
 
   /* ---- stacking order (shared scale — keep every new screen on this, not one-off z-index) ---- */
-  --z-hud: 10; /* always-on HUD panels, the credits button */
+  --z-hud: 10; /* always-on HUD panels */
   --z-overlay: 20; /* pause overlay, log/text reading overlay, warning banners */
-  --z-modal: 30; /* credits, repair terminal, restart screen — anything that blocks interaction */
+  --z-modal: 30; /* main menu, options, loading, credits, repair terminal, restart screen —
+                    anything that blocks interaction */
 }
 
 /*
- * Someone (Yannis/Alex, most likely, as part of level-transition logic)
- * needs to set data-level on <body> when a level loads. Until that
- * hook exists, --accent just stays L1's clean blue everywhere.
+ * Derived accent tints. These must be declared on <body> (and re-declared wherever --accent
+ * is re-pinned) so they resolve against the accent that is actually in effect there — a
+ * declaration on :root would freeze them to L1's blue.
+ */
+body,
+.ui-screen--pinned-clean {
+  --accent-tint: color-mix(in srgb, var(--accent) 8%, transparent); /* selected row fill */
+  --accent-glow: color-mix(in srgb, var(--accent) 10%, transparent); /* backdrop focal glow */
+  --accent-grid: color-mix(in srgb, var(--accent) 5%, transparent); /* backdrop grid lines */
+  --accent-soft: color-mix(in srgb, var(--accent) 65%, transparent); /* scrollbar thumb */
+}
+
+/*
+ * Level hook: something in the level-transition logic (Yannis/Alex) sets data-level on <body>
+ * when a level loads — src/ui/index.js exposes setLevel() for that. L1 is the default.
  */
 body[data-level='l2'] {
   --accent: var(--state-warning);
+  --backdrop-top: var(--bg-warning-top);
+  --backdrop-mid: var(--bg-warning-mid);
+  --backdrop-bottom: var(--bg-warning-bottom);
 }
 body[data-level='l3'] {
   --accent: var(--state-hostile);
+  --backdrop-top: var(--bg-hostile-top);
+  --backdrop-mid: var(--bg-hostile-mid);
+  --backdrop-bottom: var(--bg-hostile-bottom);
+}
+
+/*
+ * Screens that stay on the L1 blue no matter which level is loaded: main menu, options
+ * (even when opened from pause), credits. Pause and loading follow the level instead.
+ */
+.ui-screen--pinned-clean {
+  --accent: var(--state-clean);
+  --backdrop-top: var(--bg-clean-top);
+  --backdrop-mid: var(--bg-clean-mid);
+  --backdrop-bottom: var(--bg-clean-bottom);
 }
 
 /*
  * Usage examples:
  *   .hud-panel   { background: var(--ui-panel); border: 1px solid var(--ui-border); color: var(--ui-text); }
  *   .hud-border  { border-color: var(--accent); }        <- shifts automatically per level
+ *   .selected    { background: var(--accent-tint); }     <- derives from the level accent
  *   .oxygen-bar.critical { background: var(--ui-critical); }
  *   .repair-slot.done    { color: var(--ui-good); }
  *   .hud-label   { font-family: var(--ui-font-label); }

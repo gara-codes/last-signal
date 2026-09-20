@@ -9,13 +9,17 @@ import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
-import { initMenu } from './ui/menu.js';
+import { initUI, STATES } from './ui/index.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
 
 const rendererSetup = new RendererSetup();
 const renderer = rendererSetup.getRenderer();
+
+// UI (main menu, loading, pause, options, credits, HUD). Must run before the level and player
+// are created so their asset loads are counted by the loading screen.
+const ui = initUI({ canvas: renderer.domElement });
 
 const cameraSetup = new Camera();
 const camera = cameraSetup.getCamera();
@@ -47,12 +51,30 @@ const inputManager = new InputManager();
 
 const clock = new THREE.Clock();
 
-initMenu();
+// Space pressed on a menu button also queues a jump in InputManager; flush it so resuming
+// doesn't launch the player.
+ui.subscribe((state) => {
+  if (state === STATES.PLAYING) inputManager.getInput();
+});
+
+// TODO(wire): see the WIRING notes at the top of src/ui/index.js —
+//   ui.registerHooks({ resetLevel })   Alex: restart without location.reload()
+//   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
+//   ui.setFuelCount(fuelSystem.banked) whenever the fuel count changes
 
 function animate() {
   requestAnimationFrame(animate);
 
   const delta = clock.getDelta();
+  const uiState = ui.getState();
+
+  // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
+  // Paused keeps drawing the (frozen) scene behind the dimmed overlay.
+  if (uiState === STATES.PAUSED) {
+    renderer.render(scene, camera);
+    return;
+  }
+  if (uiState !== STATES.PLAYING) return;
 
   playerController.update(delta, inputManager.getInput());
 

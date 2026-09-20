@@ -1,6 +1,7 @@
 // src/ui/credits.js
 //
-// Live, in-game credits screen. This file MUST stay in sync with /CREDITS.md —
+// Live, in-game credits screen (opened from the main menu; screen-manager.js owns when it
+// shows). This file MUST stay in sync with /CREDITS.md —
 // whoever adds a row to CREDITS.md adds the matching entry here, same commit.
 // CREDITS.md is the source of truth for humans reading the repo; this file is
 // the source of truth for what the player sees in-game.
@@ -11,6 +12,9 @@
 // red is reserved for the AI's signal color everywhere else in the game,
 // so the credits screen (a meta/UI surface, not diegetic) stays in the
 // neutral/blue space palette to not muddy that visual language.
+
+import './credits.css';
+import { el, cornerBrackets } from './dom.js';
 
 // ---------------------------------------------------------------------------
 // 1. DATA — mirror of CREDITS.md. Keep column names consistent with the .md
@@ -128,133 +132,160 @@ const LICENSE_QUICK_REFERENCE = [
 ];
 
 // ---------------------------------------------------------------------------
-// 2. RENDER — builds the overlay once, toggles visibility after that.
+// 2. RENDER — builds the screen once; screen-manager.js shows/hides it.
 //    Data-driven: adding a row above is the only thing anyone should need
-//    to touch to add a credit.
+//    to touch to add a credit. Empty categories are skipped.
 // ---------------------------------------------------------------------------
 
-let overlayEl = null;
+const COLUMN_LABELS = {
+  item: 'Item',
+  covers: 'Covers',
+  source: 'Source',
+  license: 'Licence',
+  usedFor: 'Used for',
+  note: 'What it requires', // licence quick-reference table only
+};
 
-function buildCategorySection({ key, label, columns }) {
+// Relative column widths (matches the mockup's Item / Source / Licence / Used-for layout).
+const COLUMN_WIDTHS = { item: 2.2, covers: 2.2, source: 2, license: 1.2, usedFor: 2, note: 4 };
+
+const COLUMN_CLASS = {
+  item: 'credits__cell--item',
+  covers: 'credits__cell--item',
+  source: 'credits__cell--meta',
+  license: 'credits__cell--meta',
+  usedFor: 'credits__cell--note',
+  note: 'credits__cell--meta',
+};
+
+function gridColumns(columns) {
+  return columns.map((column) => `${COLUMN_WIDTHS[column] ?? 2}fr`).join(' ');
+}
+
+function buildCell(column, entry) {
+  const value = entry[column] ?? '—';
+  const cell = el('div', { className: `credits__cell ${COLUMN_CLASS[column] ?? ''}`.trim() });
+  if ((column === 'item' || column === 'covers') && entry.url) {
+    cell.append(
+      el('a', {
+        text: value,
+        attrs: { href: entry.url, target: '_blank', rel: 'noopener noreferrer' },
+      })
+    );
+  } else {
+    cell.textContent = value;
+  }
+  return cell;
+}
+
+/** One bordered panel: a header row of column names, then one row per entry. */
+function buildTable(columns, rows) {
+  const template = gridColumns(columns);
+  const header = el(
+    'div',
+    { className: 'credits__row credits__row--head', attrs: { style: `--columns: ${template}` } },
+    columns.map((column) =>
+      el('div', { className: 'credits__head-cell', text: COLUMN_LABELS[column] })
+    )
+  );
+  const body = rows.map((entry) =>
+    el(
+      'div',
+      { className: 'credits__row', attrs: { style: `--columns: ${template}` } },
+      columns.map((column) => buildCell(column, entry))
+    )
+  );
+  return el('div', { className: 'credits__table ui-panel ui-chamfer-panel' }, header, body);
+}
+
+function buildCategory({ key, label, columns }) {
   const rows = CREDITS_DATA[key] || [];
-  if (rows.length === 0) return '';
-
-  const header = columns
-    .map((c) => `<th>${c === 'usedFor' ? 'Used for' : c[0].toUpperCase() + c.slice(1)}</th>`)
-    .join('');
-
-  const body = rows
-    .map((entry) => {
-      const tds = columns
-        .map((col) => {
-          const val = entry[col] ?? '—';
-          if ((col === 'item' || col === 'covers') && entry.url) {
-            return `<td><a href="${entry.url}" target="_blank" rel="noopener noreferrer">${val}</a></td>`;
-          }
-          return `<td>${val}</td>`;
-        })
-        .join('');
-      return `<tr>${tds}</tr>`;
-    })
-    .join('');
-
-  return `
-    <section class="credits-category">
-      <h3>${label}</h3>
-      <table class="credits-table">
-        <thead><tr>${header}</tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </section>
-  `;
+  if (rows.length === 0) return null;
+  return el(
+    'section',
+    { className: 'credits__category' },
+    el(
+      'div',
+      { className: 'credits__category-head' },
+      el('span', { className: 'credits__category-name ui-label', text: label }),
+      el('div', { className: 'credits__rule' })
+    ),
+    buildTable(columns, rows)
+  );
 }
 
 function buildLicenseReference() {
-  const rows = LICENSE_QUICK_REFERENCE.map(
-    (r) => `<tr><td>${r.license}</td><td>${r.note}</td></tr>`
-  ).join('');
-  return `
-    <section class="credits-category credits-license-ref">
-      <h3>Licence Quick Reference</h3>
-      <table class="credits-table">
-        <thead><tr><th>Licence</th><th>What it requires</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>
-  `;
+  return el(
+    'section',
+    { className: 'credits__category' },
+    el(
+      'div',
+      { className: 'credits__category-head' },
+      el('span', { className: 'credits__category-name ui-label', text: 'Licence Quick Reference' }),
+      el('div', { className: 'credits__rule' })
+    ),
+    buildTable(['license', 'note'], LICENSE_QUICK_REFERENCE)
+  );
 }
 
-function buildOverlay() {
-  const el = document.createElement('div');
-  el.id = 'credits-overlay';
-  el.className = 'credits-overlay';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'Credits');
-  el.setAttribute('aria-hidden', 'true');
+export function createCreditsScreen(api) {
+  const list = el(
+    'div',
+    { className: 'credits__list' },
+    CATEGORY_META.map(buildCategory),
+    buildLicenseReference()
+  );
 
-  const sections = CATEGORY_META.map(buildCategorySection).join('');
+  const viewport = el(
+    'div',
+    {
+      className: 'credits__viewport',
+      attrs: { tabindex: 0, role: 'region', 'aria-label': 'Credits list' },
+    },
+    list
+  );
 
-  el.innerHTML = `
-    <div class="credits-panel">
-      <button class="credits-close" aria-label="Close credits">&times;</button>
-      <h2 class="credits-title">Credits</h2>
-      <p class="credits-intro">
-        Everything below is something the team did not make itself.
-      </p>
-      <div class="credits-scroll">
-        ${sections}
-        ${buildLicenseReference()}
-      </div>
-    </div>
-  `;
+  // Fades the bottom edge while there is more to scroll.
+  const fade = el('div', { className: 'credits__fade', attrs: { 'aria-hidden': 'true' } });
 
-  el.querySelector('.credits-close').addEventListener('click', closeCredits);
-  el.addEventListener('click', (e) => {
-    if (e.target === el) closeCredits(); // click on backdrop closes
+  function updateFade() {
+    const atEnd = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 2;
+    fade.hidden = atEnd;
+  }
+  viewport.addEventListener('scroll', updateFade, { passive: true });
+
+  const backButton = el('button', {
+    className: 'ui-button ui-chamfer-row credits__back',
+    text: 'Back',
+    attrs: { type: 'button' },
+    on: { click: () => api.back() },
   });
 
-  document.body.appendChild(el);
-  return el;
+  const element = el(
+    'section',
+    {
+      className: 'ui-screen ui-screen--pinned-clean ui-screen--credits',
+      attrs: { hidden: true, 'aria-label': 'Credits' },
+    },
+    el(
+      'div',
+      { className: 'ui-stage' },
+      el('h2', { className: 'credits__title', text: 'Credits' }),
+      viewport,
+      fade,
+      backButton
+    ),
+    cornerBrackets()
+  );
+
+  return {
+    id: 'credits',
+    element,
+    onShow() {
+      viewport.scrollTop = 0;
+      updateFade();
+      backButton.focus({ preventScroll: true });
+    },
+    onHide() {},
+  };
 }
-
-export function openCredits() {
-  if (!overlayEl) overlayEl = buildOverlay();
-  overlayEl.setAttribute('aria-hidden', 'false');
-  overlayEl.classList.add('is-open');
-  document.addEventListener('keydown', handleEscape);
-}
-
-export function closeCredits() {
-  if (!overlayEl) return;
-  overlayEl.setAttribute('aria-hidden', 'true');
-  overlayEl.classList.remove('is-open');
-  document.removeEventListener('keydown', handleEscape);
-}
-
-export function toggleCredits() {
-  if (overlayEl && overlayEl.classList.contains('is-open')) {
-    closeCredits();
-  } else {
-    openCredits();
-  }
-}
-
-function handleEscape(e) {
-  if (e.key === 'Escape') closeCredits();
-}
-
-// ---------------------------------------------------------------------------
-// 3. WIRING — call this once from main.js / menu.js to attach a button.
-//    Example:
-//      import { initCreditsButton } from './ui/credits.js';
-//      initCreditsButton(document.querySelector('#menu-credits-btn'));
-// ---------------------------------------------------------------------------
-
-export function initCreditsButton(buttonEl) {
-  console.log('initCreditsButton called with', buttonEl);
-  if (!buttonEl) return;
-  buttonEl.addEventListener('click', openCredits);
-}
-
-// For debugging purposes only:
-// window.openCredits = openCredits;

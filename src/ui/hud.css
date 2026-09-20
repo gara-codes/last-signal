@@ -1,0 +1,50 @@
+/* HUD overlay — panels anchored to the real screen edges (.ui-anchor in ui.css). */
+
+.ui-hud {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: var(--z-hud);
+  /* the Options "HUD Opacity" slider (floored at 20%, see settings.js) */
+  opacity: var(--hud-opacity, 1);
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+/* Pause: the HUD stays visible but recedes behind the scrim. */
+.ui-hud.is-dimmed {
+  opacity: calc(var(--hud-opacity, 1) * 0.35);
+  filter: saturate(0.6);
+}
+
+/* ---- Fuel Cells panel (top-left) ---- */
+.hud-fuel {
+  /* anchored top-left: 56px in from each edge, at design scale */
+  --x: 56px;
+  --y: 56px;
+
+  width: 236px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--accent);
+}
+
+.hud-fuel__body {
+  flex: 1;
+}
+
+.hud-fuel__label {
+  font-size: var(--fs-xs);
+  color: var(--ui-text-dim);
+}
+
+.hud-fuel__count {
+  font-family: var(--ui-font-mono);
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--ui-text);
+}
