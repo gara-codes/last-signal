@@ -1,23 +1,25 @@
 // src/core/LightingRig.js
 import * as THREE from 'three';
 
+// L1 lighting — clean white/blue, bright but not blown-out.
+// L2/L3 will override these with amber/red tones.
 const L1_AMBIENT_COLOR = 0xcfe8ff;
-const L1_AMBIENT_INTENSITY = 0.5;
+const L1_AMBIENT_INTENSITY = 0.8;
 
 const L1_HEMI_SKY_COLOR = 0xdfeeff;
 const L1_HEMI_GROUND_COLOR = 0x8899aa;
-const L1_HEMI_INTENSITY = 0.5;
+const L1_HEMI_INTENSITY = 0.7;
 
 const L1_STRIP_COLOR = 0xffffff;
-const L1_STRIP_INTENSITY = 1.2;
-const L1_STRIP_DISTANCE = 25;
+const L1_STRIP_INTENSITY = 1.8;
+const L1_STRIP_DISTANCE = 30;
 const L1_STRIP_DECAY = 2;
 
 const FLICKER_RADIUS = 8;
 
 export class LightingRig {
   // levelGroup: pass level1.group so lights inherit its rotation/transform
-  constructor(scene, levelGroup, ringConfig = { lightCount: 8, radius: 28, ceilingHeight: 8 }) {
+  constructor(scene, levelGroup, ringConfig = { lightCount: 10, radius: 27, ceilingHeight: 8 }) {
     this.scene = scene;
     this.stripLights = [];
     this.flickerTime = 0;
@@ -34,6 +36,11 @@ export class LightingRig {
       L1_HEMI_INTENSITY
     );
     this.scene.add(this.hemiLight);
+
+    // Directional light — gentle fill so nothing is in total shadow
+    this.dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    this.dirLight.position.set(0, 10, 0);
+    scene.add(this.dirLight);
 
     // Point lights placed in the LEVEL's local coordinate space, added as
     // children of levelGroup so they automatically follow its rotation —
@@ -91,6 +98,7 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
   dispose() {
     this.scene.remove(this.ambientLight);
     this.scene.remove(this.hemiLight);
+    this.scene.remove(this.dirLight);
     this.stripLights.forEach((light) => {
         if (light.parent) light.parent.remove(light);
     });

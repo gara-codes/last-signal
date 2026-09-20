@@ -15,6 +15,9 @@ const WALL_MARGIN = 1.5; // minimum clearance kept between camera and the curved
 const AXIAL_HALF_LENGTH = 10;
 const AXIAL_MARGIN = 1.5;
 
+const LOOK_SENSITIVITY = 0.0025;
+const MAX_PITCH = Math.PI / 2 - 0.15; // stop just short of straight up/down, avoids gimbal flip
+
 export class Camera {
   constructor() {
     this.camera = new THREE.PerspectiveCamera(
@@ -23,17 +26,52 @@ export class Camera {
       0.1,
       1000
     );
+
+    // Free mouse-look state — the camera's own, independent of the
+    // player's movement-driven facing (physics-controller.js's facing2D).
+    // yaw orbits the camera around the player's local up; pitch tilts it
+    // above/below their local horizon. Both are angles, not vectors, so
+    // they stay meaningful as basis.up itself keeps rotating on this
+    // level — a fixed world-axis version (à la OrbitControls) doesn't.
+    this.yaw = 0;
+    this.pitch = 0;
   }
 
   getCamera() {
     return this.camera;
   }
 
+  /**
+   * Feeds raw Pointer Lock mouse deltas (InputManager) into the camera's
+   * own look state. Call once per frame, before update().
+   */
+  applyLookDelta(deltaX, deltaY) {
+    this.yaw -= deltaX * LOOK_SENSITIVITY;
+    this.pitch = THREE.MathUtils.clamp(
+      this.pitch - deltaY * LOOK_SENSITIVITY,
+      -MAX_PITCH,
+      MAX_PITCH
+    );
+  }
+
   update(basis) {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    const offset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+    const baseOffset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+
+    // Orbit that offset by the mouse-look yaw/pitch, both expressed
+    // relative to the player's own local axes (not world ones): yaw spins
+    // around basis.up, pitch tilts around the resulting (already-yawed)
+    // right axis, so it stays "up/down relative to the player" regardless
+    // of where they are on the drum.
+    const right = new THREE.Vector3().crossVectors(basis.forward, basis.up).normalize();
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(basis.up, this.yaw);
+    const yawedRight = right.applyQuaternion(yawQuat);
+    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(yawedRight, this.pitch);
+    const lookRotation = pitchQuat.multiply(yawQuat); // yaw first, then pitch
+
+    const offset = baseOffset.applyQuaternion(lookRotation);
 
     const desiredPosition = basis.position.clone().add(offset);
 
