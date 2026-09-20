@@ -21,8 +21,8 @@ const panelMaterialActive = new THREE.MeshStandardMaterial({
 //Loads each door texture once; multiple doors sharing a path reuse it
 const doorTextureLoader = new THREE.TextureLoader();
 const doorTextureCache = new Map();
-function getDoorTexture(path){
-  if(!doorTextureCache.has(path)){
+function getDoorTexture(path) {
+  if (!doorTextureCache.has(path)) {
     doorTextureCache.set(path, doorTextureLoader.load(path));
   }
   return doorTextureCache.get(path);
@@ -50,7 +50,11 @@ function getDoorTexture(path){
  * @param {number} [options.metalness] - passed to MeshStandardMaterial (default 0)
  * @param {number} [options.roughness] - passed to MeshStandardMaterial (default 1)
  * @param {number} [options.openDuration] - seconds to fully open (default 1.2)
- */
+ * @param {boolean} [options.centred] - rest the panel centred on the group
+ *   origin (covers [-h/2, +h/2]) instead of above it ([0, h]). Use when the
+ *   door group's origin is the middle of the doorway, not its floor line.
+ * @param {number} [options.slideDirection] - 1 rises (default), -1 sinks
+*/
 export function createDoor(id, onOpen, options = {}) {
   const {
     width = DOOR_WIDTH,
@@ -61,6 +65,8 @@ export function createDoor(id, onOpen, options = {}) {
     metalness = 0,
     roughness = 1,
     openDuration = OPEN_DURATION,
+    centred = false,
+    slideDirection = 1,
   } = options;
 
   const group = new THREE.Group();
@@ -68,13 +74,13 @@ export function createDoor(id, onOpen, options = {}) {
 
   //Geometry: Shared when default-sized, per-instance when custom
   const isDefaultSize = width === DOOR_WIDTH && height === DOOR_HEIGHT && thickness === DOOR_THICKNESS;
-  const geometry = isDefaultSize 
+  const geometry = isDefaultSize
     ? doorGeometry
     : new THREE.BoxGeometry(width, height, thickness);
 
   // Material: A locked/unlocked pair built from texture or colour
   let lockedMaterial, unlockedMaterial;
-  if(texturePath){
+  if (texturePath) {
     const map = getDoorTexture(texturePath);
     lockedMaterial = new THREE.MeshStandardMaterial({
       map, metalness, roughness, emissive: 0x331111
@@ -82,20 +88,20 @@ export function createDoor(id, onOpen, options = {}) {
     unlockedMaterial = new THREE.MeshStandardMaterial({
       map, metalness, roughness, emissive: 0x113322,
     });
-  } else if (color !== undefined){
+  } else if (color !== undefined) {
     lockedMaterial = new THREE.MeshStandardMaterial({
-      color, metalness, roughness, emissive: 0x3300000,
+      color, metalness, roughness, emissive: 0x330000,
     });
     unlockedMaterial = new THREE.MeshStandardMaterial({
       color, metalness, roughness, emissive: 0x003300,
     });
-  } else{
+  } else {
     lockedMaterial = doorMaterialLocked;
     unlockedMaterial = doorMaterialUnlocked;
   }
 
   const panel = new THREE.Mesh(geometry, lockedMaterial);
-  panel.position.y = height/2;
+  panel.position.y = centred ? 0 : height / 2;
   group.add(panel);
 
   group.userData = {
@@ -105,25 +111,25 @@ export function createDoor(id, onOpen, options = {}) {
     openProgress: 0,
     basePanelY: panel.position.y,
 
-    unlock(){
-      if(group.userData.state !== 'locked') return;
+    unlock() {
+      if (group.userData.state !== 'locked') return;
       group.userData.state = 'unlocked';
       panel.material = unlockedMaterial;
     },
 
-    interact(){
-      if(group.userData.state !== 'unlocked') return;
+    interact() {
+      if (group.userData.state !== 'unlocked') return;
       group.userData.state = 'opening';
     },
 
-    update(delta){
-      if(group.userData.state !== 'opening') return;
+    update(delta) {
+      if (group.userData.state !== 'opening') return;
       group.userData.openProgress = Math.min(
         1,
         group.userData.openProgress + delta / openDuration
       );
-      panel.position.y = group.userData.basePanelY + height * group.userData.openProgress;
-      if(group.userData.openProgress >= 1){
+      panel.position.y = group.userData.basePanelY + slideDirection * height * group.userData.openProgress;
+      if (group.userData.openProgress >= 1) {
         group.userData.state = 'open';
         if (onOpen) onOpen();
       }
@@ -162,4 +168,34 @@ export function updateInteractables(interactables, delta) {
   for (const obj of interactables) {
     obj.userData.update?.(delta);
   }
+}
+
+export function applyFuelGate(door, gate, fuelSystem) {
+  const baseInteract = door.userData.interact; //Save original method
+
+  door.userData.interact = () => {
+    if (door.userData.state !== 'locked') {
+      baseInteract();   //Already unlocked/opening
+      return;
+    }
+    if (gate.tryOpen(fuelSystem)) {
+      door.userData.unlock();
+      baseInteract();
+    }
+    //Couldn't afford it: silently do nothing for alpha
+    //Beta: Add a "not enough fuel cell" sound / HUD Flash here
+  };
+}
+
+const sharedResources = new Set([
+  doorGeometry,
+  doorMaterialLocked,
+  doorMaterialUnlocked,
+  panelGeometry,
+  panelMaterialInactive,
+  panelMaterialActive,
+]);
+
+export function isSharedDoorResource(resource) {
+  return sharedResources.has(resource);
 }

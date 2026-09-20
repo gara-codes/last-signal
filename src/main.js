@@ -10,6 +10,7 @@ import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
 import { initMenu } from './ui/menu.js';
+import { updateInteractables } from './systems/door-system.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -44,7 +45,9 @@ scene.add(player);
 
 const playerController = new PlayerController(player);
 const inputManager = new InputManager();
+level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
 
+window.__game = {level1, player, playerController};
 const clock = new THREE.Clock();
 
 initMenu();
@@ -52,12 +55,15 @@ initMenu();
 function animate() {
   requestAnimationFrame(animate);
 
-  const delta = clock.getDelta();
+  // Capped so a tab-refocus pause can't produce one giant step — that
+  // would tunnel the player straight through the wall blockers
+  const delta = Math.min(clock.getDelta(), 0.05);
 
-  playerController.update(delta, inputManager.getInput());
+  const input = inputManager.getInput();
+  playerController.update(delta, input);
 
   if (level1.update) {
-    level1.update(delta, player);
+    level1.update(delta, player, input);
   }
 
   if (halWorldPosition) {
@@ -71,6 +77,7 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+
 
 animate();
 
