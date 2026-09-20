@@ -12,6 +12,9 @@ import { FuelSystem } from './systems/fuel-system.js';
 import { DoorGate } from './systems/door-gate.js';
 import './ui/theme.css';
 import { initMenu } from './ui/menu.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -82,6 +85,19 @@ const inputManager = new InputManager(renderer.domElement);
 
 const clock = new THREE.Clock();
 
+// Post-processing: bloom makes emissive panels, the HAL eye, and fuel cells glow
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.3,  // strength — subtle glow
+  0.3,  // radius
+  0.85  // threshold — only very bright emissive surfaces glow
+);
+composer.addPass(bloomPass);
+
 initMenu();
 
 function animate() {
@@ -129,7 +145,7 @@ function animate() {
   const basis = player.userData.getSurfaceBasis();
   cameraSetup.update(basis);
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 animate();
@@ -137,4 +153,5 @@ animate();
 window.addEventListener('resize', () => {
   cameraSetup.resize();
   rendererSetup.resize();
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
