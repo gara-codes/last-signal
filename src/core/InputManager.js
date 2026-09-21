@@ -11,6 +11,7 @@ export class InputManager {
   constructor(lockTarget) {
     this._keys = new Set();
     this._jumpQueued = false;
+    this._interactQueued = false;
 
     this._lockTarget = lockTarget;
     this._mouseDX = 0;
@@ -19,6 +20,9 @@ export class InputManager {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !this._keys.has('Space')) {
         this._jumpQueued = true;
+      }
+      if(e.code === 'KeyE' && !this._keys.has('KeyE')){
+        this._interactQueued = true;
       }
       this._keys.add(e.code);
     });
@@ -42,7 +46,11 @@ export class InputManager {
     }
   }
 
-  /** @returns {{axialAxis:number, tangentAxis:number, running:boolean, jump:boolean, mouseDX:number, mouseDY:number}} */
+  /**
+   * @returns {{axialAxis:number, tangentAxis:number, running:boolean, jump:boolean, interact:boolean, mouseDX:number, mouseDY:number}}
+   *   jump/interact are edge-triggered: true only on the frame the key is
+   *   first pressed, so each press fires exactly once.
+   */
   getInput() {
     let axialAxis = 0;
     let tangentAxis = 0;
@@ -57,11 +65,14 @@ export class InputManager {
     const jump = this._jumpQueued;
     this._jumpQueued = false;
 
+    const interact = this._interactQueued;
+    this._interactQueued = false;
+
     const mouseDX = this._mouseDX;
     const mouseDY = this._mouseDY;
     this._mouseDX = 0;
     this._mouseDY = 0;
 
-    return { axialAxis, tangentAxis, running, jump, mouseDX, mouseDY };
+    return { axialAxis, tangentAxis, running, jump, interact, mouseDX, mouseDY };
   }
 }

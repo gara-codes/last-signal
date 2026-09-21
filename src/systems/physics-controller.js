@@ -70,6 +70,11 @@ export class PlayerController {
 
     this._lookMatrix = new THREE.Matrix4();
 
+    // Solid rectangles in the drum's (axial, theta) coordinates — walls and
+    // closed doors standing on the walking surface. Populated by the level
+    // via addWallBlocker(); resolved every update, after movement.
+    this.wallBlockers = [];
+
     this.player.userData.getSurfaceBasis = () => this._basis;
   }
 
@@ -154,6 +159,10 @@ export class PlayerController {
     const angularSpeed = speed / WALK_RADIUS;
     this.theta += moveT * angularSpeed * delta;
 
+    // Keep the scalars out of solid geometry before they bake into the
+    // world transform below
+    this._resolveWallBlockers();
+
     // Circular cross-section position — verified against the real level
     // geometry (pod-bay placement), not the brief's example.
     const worldPosition = new THREE.Vector3(
@@ -192,8 +201,62 @@ export class PlayerController {
     this._basis.up.copy(radialUp);
     this._basis.forward.copy(forward);
   }
+
+  /**
+   * Registers a solid rectangle in the drum's (axial, theta) coordinates.
+   * @param {{aMin:number, aMax:number, tMin:number, tMax:number}} rect -
+   *   world-x range and theta range of the solid
+   * @returns {{aMin:number, aMax:number, tMin:number, tMax:number, active:boolean}}
+   *   the blocker handle — set `.active = false` to open a passage (e.g.
+   *   once a door has risen clear)
+   */
+  addWallBlocker(rect) {
+    const blocker = { ...rect, active: true };
+    this.wallBlockers.push(blocker);
+    return blocker;
+  }
+
+  removeWallBlocker(blocker) {
+    const index = this.wallBlockers.indexOf(blocker);
+    if (index !== -1) this.wallBlockers.splice(index, 1);
+  }
+
+  /**
+   * Pushes the player out of any active wall blocker, along whichever face
+   * it penetrated least. Penetrations are compared in world units (theta
+   * scaled by WALK_RADIUS) so axial and rim faces compete fairly. Theta is
+   * compared modulo 2 PI: it is never wrapped, so the far side can
+   * legitimately read as 0 or 2 PI depending on the direction walked.
+   */
+  _resolveWallBlockers() {
+    for (const blocker of this.wallBlockers) {
+      if (!blocker.active) continue;
+      if (this.axial <= blocker.aMin || this.axial >= blocker.aMax) continue;
+
+      const tCentre = (blocker.tMin + blocker.tMax) / 2;
+      const tHalf = (blocker.tMax - blocker.tMin) / 2;
+      const dTheta = wrapToPi(this.theta - tCentre);
+      if (Math.abs(dTheta) >= tHalf) continue;
+
+      // Inside the rectangle — push out along the shallower penetration
+      const penAxial = Math.min(this.axial - blocker.aMin, blocker.aMax - this.axial);
+      const penTheta = (tHalf - Math.abs(dTheta)) * WALK_RADIUS;
+      if (penAxial <= penTheta) {
+        this.axial = this.axial - blocker.aMin < blocker.aMax - this.axial
+          ? blocker.aMin
+          : blocker.aMax;
+      } else {
+        this.theta += (dTheta >= 0 ? tHalf : -tHalf) - dTheta;
+      }
+    }
+  }
 }
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
+}
+
+// Wraps an angle to [-PI, PI] — same trick the facing-turn code uses
+function wrapToPi(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
