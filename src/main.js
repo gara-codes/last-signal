@@ -46,6 +46,15 @@ if (halObject) halObject.getWorldPosition(halWorldPosition);
 const player = loadAstronaut();
 scene.add(player);
 
+// The level's FuelSystem (pickups add to it, doors spend from it). It hangs off the level group
+// as userData.fuelSystem; the HUD counter reads its live count every frame below.
+const fuelSystem = level1.group.userData.fuelSystem;
+if (!fuelSystem) {
+  console.warn(
+    'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
+  );
+}
+
 const playerController = new PlayerController(player);
 const inputManager = new InputManager();
 level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
@@ -60,9 +69,8 @@ ui.subscribe((state) => {
 });
 
 // TODO(wire): see the WIRING notes at the top of src/ui/index.js —
-//   ui.registerHooks({ resetLevel })   Alex: restart without location.reload()
+//   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
 //   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
-//   ui.setFuelCount(fuelSystem.banked) whenever the fuel count changes
 
 function animate() {
   requestAnimationFrame(animate);
@@ -86,6 +94,9 @@ function animate() {
   if (level1.update) {
     level1.update(delta, player, input);
   }
+
+  // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
+  if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
   if (halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);

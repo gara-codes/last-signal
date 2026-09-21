@@ -49,6 +49,7 @@
   min-height: 1em;
   font-family: var(--ui-font-mono);
   font-size: var(--fs-xs);
+  line-height: 1.5;
   letter-spacing: var(--ls-tight);
-  color: var(--ui-text-faint);
+  color: var(--ui-text-tertiary); /* carries the Quit message, so more legible than a hint */
 }

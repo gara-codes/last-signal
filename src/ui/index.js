@@ -11,10 +11,17 @@
 //   resetLevel()   Alex — restart without location.reload(). Register it and Pause > Restart
 //                  Level, plus New Game after "Quit to Main Menu", switch on by themselves:
 //                    ui.registerHooks({ resetLevel });                       (see main.js)
+//                  One hook, told which kind of reset by its argument:
+//                    resetLevel({ full: true })   New Game over an existing run: back to L1,
+//                                                 zero banked fuel, no repair flags, checkpoint
+//                                                 ignored.
+//                    resetLevel({ full: false })  Pause > Restart Level: the current level again,
+//                                                 from its checkpoint if one has been passed.
 //   lockPointer()  Nonku's mouse-look — Resume calls it (from a click, as browsers require) to
 //                  re-lock the mouse:  ui.registerHooks({ lockPointer });
-//   fuel count     Whoever owns FuelSystem — call ui.setFuelCount(n) whenever it changes.
-//                  (No FuelSystem instance exists in main.js yet, so the panel reads 00.)
+//   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
+//                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
+//                  exposing fuelSystem there, main.js warns and the panel reads 00.
 //   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
 //                  (labels, denied state and detail, object anchor — see the header of hud.js).
 //                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",

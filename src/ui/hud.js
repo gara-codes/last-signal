@@ -145,9 +145,14 @@ export function createHud() {
     prompt.element
   );
 
+  // main.js feeds this every frame, so only touch the DOM when the number changes.
+  let shownCount = '';
   function setFuelCount(value) {
     const n = Math.max(0, Math.floor(Number(value) || 0));
-    count.textContent = String(n).padStart(2, '0');
+    const text = String(n).padStart(2, '0');
+    if (text === shownCount) return;
+    shownCount = text;
+    count.textContent = text;
   }
 
   setFuelCount(0);

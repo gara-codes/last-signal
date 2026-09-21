@@ -43,8 +43,8 @@ export function createScreenManager({
 
     newGame() {
       // Starting over while a run exists needs resetLevel() (main-menu.js disables the row
-      // when it isn't registered).
-      if (state.hasSession()) hooks.resetLevel?.();
+      // when it isn't registered). A full wipe: back to L1, zero fuel, no repairs, no checkpoint.
+      if (state.hasSession()) hooks.resetLevel?.({ full: true });
       setLevel(firstLevelId); // the loading screen takes the destination level's theme
       state.send(ACTIONS.NEW_GAME);
     },
@@ -62,7 +62,8 @@ export function createScreenManager({
     },
     restartLevel() {
       if (typeof hooks.resetLevel !== 'function') return;
-      hooks.resetLevel();
+      // Mid-run recovery: the current level again, from its checkpoint if one has been passed.
+      hooks.resetLevel({ full: false });
       api.resume();
     },
   };

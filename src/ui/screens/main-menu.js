@@ -52,11 +52,13 @@ export function createMainMenuScreen(api) {
 
   const nav = createMenuNav(menu);
 
-  // Browsers only let a script close a window that a script opened, so in a normal tab this
-  // does nothing — say so instead of leaving a dead button.
+  // Browsers only let a script close a window that a script opened, so in a normal tab
+  // window.close() does nothing. Say what the player can do instead of leaving a dead button.
   function quit() {
     window.close();
-    status.textContent = 'Close this tab to exit.';
+    status.textContent = api.hasSession()
+      ? 'You can close this tab now. Your current run will be lost when you do.'
+      : 'You can close this tab now.';
   }
 
   const element = el(
