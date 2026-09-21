@@ -48,7 +48,9 @@ scene.add(player);
 
 const playerController = new PlayerController(player);
 const inputManager = new InputManager();
+level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
 
+window.__game = { level1, player, playerController };
 const clock = new THREE.Clock();
 
 // Space pressed on a menu button also queues a jump in InputManager; flush it so resuming
@@ -65,7 +67,9 @@ ui.subscribe((state) => {
 function animate() {
   requestAnimationFrame(animate);
 
-  const delta = clock.getDelta();
+  // Capped so a tab-refocus pause (or coming back from a menu) can't produce one giant step —
+  // that would tunnel the player straight through the wall blockers
+  const delta = Math.min(clock.getDelta(), 0.05);
   const uiState = ui.getState();
 
   // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
@@ -76,10 +80,11 @@ function animate() {
   }
   if (uiState !== STATES.PLAYING) return;
 
-  playerController.update(delta, inputManager.getInput());
+  const input = inputManager.getInput();
+  playerController.update(delta, input);
 
   if (level1.update) {
-    level1.update(delta, player);
+    level1.update(delta, player, input);
   }
 
   if (halWorldPosition) {

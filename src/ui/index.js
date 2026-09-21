@@ -15,6 +15,10 @@
 //                  re-lock the mouse:  ui.registerHooks({ lockPointer });
 //   fuel count     Whoever owns FuelSystem — call ui.setFuelCount(n) whenever it changes.
 //                  (No FuelSystem instance exists in main.js yet, so the panel reads 00.)
+//   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
+//                  (labels, denied state and detail, object anchor — see the header of hud.js).
+//                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
+//                  "Open Door" + "2 / 4 Fuel Cells" when denied) and the anchor position.
 //   sfx / music    Audio manager — settings.subscribe() and read sfxVolume / musicVolume (0-100).
 //   captions       The AI-voice caption bar reads settings.get().captions (also mirrored on
 //                  body[data-captions]); the bar itself is not built yet.

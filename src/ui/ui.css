@@ -76,8 +76,9 @@ body > canvas {
  * window size and still keep the design's proportions.
  *
  *   --x  distance from the anchored side, in design px (e.g. 56px)
- *   --y  vertical position in design px: from the top for --tl, from the bottom for --bl, and
- *        measured on the 900px-tall frame (centre = 450px) for the --l-mid / --r-mid anchors
+ *   --y  vertical position in design px: from the top for --tl, from the bottom for --bl and
+ *        --b-mid (which is centred horizontally, so it has no --x), and measured on the
+ *        900px-tall frame (centre = 450px) for the --l-mid / --r-mid anchors
  */
 .ui-anchor {
   position: absolute;
@@ -94,6 +95,13 @@ body > canvas {
   bottom: calc(var(--y) * var(--ui-scale, 1));
   left: calc(var(--x) * var(--ui-scale, 1));
   transform-origin: bottom left;
+}
+
+.ui-anchor--b-mid {
+  bottom: calc(var(--y) * var(--ui-scale, 1));
+  left: 50%;
+  transform: translateX(-50%) scale(var(--ui-scale, 1));
+  transform-origin: bottom center;
 }
 
 .ui-anchor--l-mid {

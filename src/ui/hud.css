@@ -48,3 +48,103 @@
   font-size: 22px;
   color: var(--ui-text);
 }
+
+/* ---- Interaction prompt: "[E] Collect Fuel Cell" (mockup HUD L1) ----
+   Docked bottom-centre unless the level gives it an object to lock onto; then the brackets and
+   stem appear and the whole thing is positioned from --px/--py (window px, set by hud.js). */
+.hud-prompt {
+  --y: 144px; /* docked: distance from the bottom edge, at design scale */
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hud-prompt.is-anchored {
+  /* --py is the centre of the object, i.e. the centre of the 40px bracket frame */
+  left: var(--px);
+  top: calc(var(--py) - 20px * var(--ui-scale, 1));
+  transform: translateX(-50%) scale(var(--ui-scale, 1));
+  transform-origin: top center;
+}
+
+/* brackets + stem only make sense when there is an object to point at */
+.hud-prompt__reticle {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  color: var(--ui-text);
+  opacity: 0.6;
+  /* thin dark halo: white brackets would vanish against L1's bright walls otherwise */
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
+}
+
+.hud-prompt.is-anchored .hud-prompt__reticle {
+  display: flex;
+}
+
+.hud-prompt__reticle svg {
+  display: block;
+}
+
+.hud-prompt__stem {
+  width: 1px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.hud-prompt__box {
+  --chamfer: var(--chamfer-sm);
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 16px 7px 10px;
+  white-space: nowrap;
+}
+
+.hud-prompt__key {
+  padding: 1px 6px;
+  border: 1px solid var(--accent); /* follows the level: blue L1, amber L2 */
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.hud-prompt__label {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-action);
+}
+
+.hud-prompt__detail {
+  padding-left: 6px;
+  border-left: 1px solid var(--ui-border);
+  font-size: var(--fs-xs);
+  color: var(--ui-text-tertiary);
+}
+
+/* Denied reads as "not yet", never as an error: muted, no accent, no red. */
+.hud-prompt.is-denied {
+  opacity: 0.9;
+}
+
+/* Keeps the full panel fill (the mockup's lighter one washes out over L1's bright walls); only
+   the border, key and text go quiet. */
+.hud-prompt.is-denied .hud-prompt__box {
+  border-color: var(--ui-track);
+}
+
+.hud-prompt.is-denied .hud-prompt__key {
+  border-color: var(--ui-text-tertiary);
+  color: var(--ui-text-tertiary);
+}
+
+.hud-prompt.is-denied .hud-prompt__label {
+  color: var(--ui-text-tertiary);
+}
+
+.hud-prompt.is-denied .hud-prompt__reticle {
+  color: var(--ui-text-tertiary);
+  opacity: 0.5;
+}
