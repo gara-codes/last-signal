@@ -1,0 +1,355 @@
+/*
+ * ui.css — shared building blocks for the menu suite and HUD.
+ * Only tokens from theme.css here: no raw hex, no one-off z-index.
+ *
+ * Every screen is authored against the mockup's 1600x900 frame. `.ui-stage` holds that frame and
+ * is scaled to fit the window (see stage.js, which sets --ui-scale); the full-bleed backdrop
+ * (gradient, grid, vignette, corner brackets) stays on the real viewport edges.
+ */
+
+/*
+ * Page base. Without this the page is browser-default white with an 8px margin, which shows
+ * through whenever a screen is fading in (the "white flash" between screens) and leaves a
+ * light strip around the game canvas. Keep the colour in step with the inline <style> in
+ * index.html, which paints the page before any CSS or JS has loaded.
+ */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ui-bg);
+  color-scheme: dark;
+}
+
+body > canvas {
+  display: block;
+}
+
+.ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--ui-font);
+  color: var(--ui-text);
+}
+
+.ui-root *,
+.ui-root *::before,
+.ui-root *::after {
+  box-sizing: border-box;
+}
+
+.ui-root [hidden] {
+  display: none !important;
+}
+
+/* ---- type helpers ---- */
+.ui-label {
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+}
+
+.ui-mono {
+  font-family: var(--ui-font-mono);
+}
+
+/* ---- 1600x900 design frame, scaled to fit ---- */
+.ui-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1600px;
+  height: 900px;
+  transform: translate(-50%, -50%) scale(var(--ui-scale, 1));
+  transform-origin: center center;
+}
+
+/*
+ * Edge anchors. `.ui-stage` is a centred 1600x900 frame, so when the window isn't 16:9 (a
+ * browser with toolbars, an ultrawide, a phone in landscape) its content sits inside empty
+ * bands. Things meant to hug the screen edge (the HUD, the main menu's title, menu and build
+ * tag) are instead direct children of the screen with an anchor class: their offset from the
+ * REAL viewport edge is the design offset times --ui-scale, so they stay on the edge at any
+ * window size and still keep the design's proportions.
+ *
+ *   --x  distance from the anchored side, in design px (e.g. 56px)
+ *   --y  vertical position in design px: from the top for --tl, from the bottom for --bl and
+ *        --b-mid (which is centred horizontally, so it has no --x), and measured on the
+ *        900px-tall frame (centre = 450px) for the --l-mid / --r-mid anchors
+ */
+.ui-anchor {
+  position: absolute;
+  transform: scale(var(--ui-scale, 1));
+}
+
+.ui-anchor--tl {
+  top: calc(var(--y) * var(--ui-scale, 1));
+  left: calc(var(--x) * var(--ui-scale, 1));
+  transform-origin: top left;
+}
+
+.ui-anchor--bl {
+  bottom: calc(var(--y) * var(--ui-scale, 1));
+  left: calc(var(--x) * var(--ui-scale, 1));
+  transform-origin: bottom left;
+}
+
+.ui-anchor--b-mid {
+  bottom: calc(var(--y) * var(--ui-scale, 1));
+  left: 50%;
+  transform: translateX(-50%) scale(var(--ui-scale, 1));
+  transform-origin: bottom center;
+}
+
+.ui-anchor--l-mid {
+  top: calc(50% + (var(--y) - 450px) * var(--ui-scale, 1));
+  left: calc(var(--x) * var(--ui-scale, 1));
+  transform-origin: top left;
+}
+
+.ui-anchor--r-mid {
+  top: calc(50% + (var(--y) - 450px) * var(--ui-scale, 1));
+  right: calc(var(--x) * var(--ui-scale, 1));
+  transform-origin: top right;
+}
+
+/* ---- full-screen screens ---- */
+.ui-screen {
+  --bg-focus-y: 30%;
+  --grid-opacity: 0.4;
+  --vignette-alpha: 0.7;
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: var(--z-modal);
+  background:
+    radial-gradient(
+      ellipse 56.25% 77.8% at 50% var(--bg-focus-y),
+      var(--accent-tint) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      var(--backdrop-top) 0%,
+      var(--backdrop-mid) 60%,
+      var(--backdrop-bottom) 100%
+    );
+  animation: ui-fade-in 0.18s ease-out;
+}
+
+/* faint technical grid */
+.ui-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: var(--grid-opacity);
+  background-image:
+    linear-gradient(var(--accent-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+}
+
+/* vignette */
+.ui-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 220px 60px rgba(0, 0, 0, var(--vignette-alpha));
+  pointer-events: none;
+}
+
+.ui-screen > .ui-stage,
+.ui-screen > .ui-anchor,
+.ui-screen > .ui-corners {
+  z-index: 1;
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-screen {
+    animation: none;
+  }
+}
+
+/* four corner brackets pinned to the real viewport corners */
+.ui-corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--accent);
+  opacity: 0.55;
+}
+
+/* sized and inset in design px x --ui-scale, like everything else, so they match the anchors */
+.ui-corners {
+  --corner-inset: calc(28px * var(--ui-scale, 1));
+}
+
+.ui-corners svg {
+  position: absolute;
+  width: calc(52px * var(--ui-scale, 1));
+  height: calc(52px * var(--ui-scale, 1));
+}
+
+.ui-corners .is-tl {
+  top: var(--corner-inset);
+  left: var(--corner-inset);
+}
+.ui-corners .is-tr {
+  top: var(--corner-inset);
+  right: var(--corner-inset);
+}
+.ui-corners .is-bl {
+  bottom: var(--corner-inset);
+  left: var(--corner-inset);
+}
+.ui-corners .is-br {
+  bottom: var(--corner-inset);
+  right: var(--corner-inset);
+}
+
+/* ---- angular corners ---- */
+.ui-chamfer-row {
+  --chamfer: var(--chamfer-md);
+  clip-path: polygon(var(--chamfer) 0, 100% 0, 100% 100%, 0 100%, 0 var(--chamfer));
+}
+
+.ui-chamfer-panel {
+  --chamfer: var(--chamfer-md);
+  clip-path: polygon(
+    var(--chamfer) 0,
+    100% 0,
+    100% calc(100% - var(--chamfer)),
+    calc(100% - var(--chamfer)) 100%,
+    0 100%,
+    0 var(--chamfer)
+  );
+}
+
+.ui-panel {
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-border);
+}
+
+/* ---- menu list (main menu + pause) ---- */
+.ui-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-menu-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 14px 18px;
+  border: 0;
+  border-left: 3px solid var(--ui-track);
+  background: var(--ui-panel-soft);
+  color: var(--ui-text-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.ui-menu-num {
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ui-text-faint);
+}
+
+.ui-menu-label {
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-item);
+  letter-spacing: var(--ls-normal);
+}
+
+/* One selection at a time, driven by menu-nav.js (hover, keyboard and focus all move it),
+   so it also doubles as the visible focus indicator (clip-path would clip an outline). */
+.ui-menu-item.is-selected {
+  background: var(--accent-tint);
+  border-left-color: var(--accent);
+  color: var(--ui-text);
+}
+
+.ui-menu-item.is-selected .ui-menu-num {
+  color: var(--accent);
+}
+
+.ui-menu-item.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ui-menu--center .ui-menu-item {
+  justify-content: center;
+  padding: 13px 18px;
+  gap: 12px;
+}
+
+.ui-menu--center .ui-menu-label {
+  font-size: var(--fs-item-sm);
+}
+
+/* ---- button ---- */
+.ui-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 22px;
+  border: 1px solid var(--ui-border-strong);
+  background: var(--ui-fill);
+  color: var(--ui-text-action);
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-md);
+  letter-spacing: var(--ls-normal);
+  cursor: pointer;
+  outline: none;
+  --chamfer: var(--chamfer-sm);
+}
+
+.ui-button:hover,
+.ui-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ui-text);
+}
+
+/* ---- pip bars (options sliders, loading progress) ---- */
+.ui-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.ui-pip {
+  flex: 1;
+  height: var(--pip-height, 12px);
+  background: var(--ui-track);
+}
+
+.ui-pip.is-on {
+  background: var(--accent);
+}

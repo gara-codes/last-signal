@@ -9,14 +9,17 @@ import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
-import { initMenu } from './ui/menu.js';
-import { updateInteractables } from './systems/door-system.js';
+import { initUI, STATES } from './ui/index.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
 
 const rendererSetup = new RendererSetup();
 const renderer = rendererSetup.getRenderer();
+
+// UI (main menu, loading, pause, options, credits, HUD). Must run before the level and player
+// are created so their asset loads are counted by the loading screen.
+const ui = initUI({ canvas: renderer.domElement });
 
 const cameraSetup = new Camera();
 const camera = cameraSetup.getCamera();
@@ -43,21 +46,47 @@ if (halObject) halObject.getWorldPosition(halWorldPosition);
 const player = loadAstronaut();
 scene.add(player);
 
+// The level's FuelSystem (pickups add to it, doors spend from it). It hangs off the level group
+// as userData.fuelSystem; the HUD counter reads its live count every frame below.
+const fuelSystem = level1.group.userData.fuelSystem;
+if (!fuelSystem) {
+  console.warn(
+    'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
+  );
+}
+
 const playerController = new PlayerController(player);
 const inputManager = new InputManager(renderer.domElement);
 level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
 
-window.__game = {level1, player, playerController};
+window.__game = { level1, player, playerController };
 const clock = new THREE.Clock();
 
-initMenu();
+// Space pressed on a menu button also queues a jump in InputManager; flush it so resuming
+// doesn't launch the player.
+ui.subscribe((state) => {
+  if (state === STATES.PLAYING) inputManager.getInput();
+});
+
+// TODO(wire): see the WIRING notes at the top of src/ui/index.js —
+//   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
+//   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // Capped so a tab-refocus pause can't produce one giant step — that
-  // would tunnel the player straight through the wall blockers
+  // Capped so a tab-refocus pause (or coming back from a menu) can't produce one giant step —
+  // that would tunnel the player straight through the wall blockers
   const delta = Math.min(clock.getDelta(), 0.05);
+  const uiState = ui.getState();
+
+  // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
+  // Paused keeps drawing the (frozen) scene behind the dimmed overlay.
+  if (uiState === STATES.PAUSED) {
+    renderer.render(scene, camera);
+    return;
+  }
+  if (uiState !== STATES.PLAYING) return;
 
   const input = inputManager.getInput();
   playerController.update(delta, input);
@@ -66,6 +95,9 @@ function animate() {
   if (level1.update) {
     level1.update(delta, player, input);
   }
+
+  // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
+  if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
   if (halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
@@ -78,7 +110,6 @@ function animate() {
 
   renderer.render(scene, camera);
 }
-
 
 animate();
 

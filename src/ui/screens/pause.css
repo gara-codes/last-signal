@@ -1,0 +1,38 @@
+/* Pause overlay — a scrim over the live game, so no gradient/grid/vignette of its own. */
+
+.ui-screen.ui-screen--pause {
+  z-index: var(--z-overlay);
+  background: var(--ui-scrim);
+}
+
+.ui-screen.ui-screen--pause::before,
+.ui-screen.ui-screen--pause::after {
+  display: none;
+}
+
+.pause__panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 460px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.pause__title {
+  margin: 0 0 26px;
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-pause);
+  letter-spacing: var(--ls-wide);
+  color: var(--ui-text);
+}
+
+.pause__hint {
+  margin-top: 26px;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-faint);
+}

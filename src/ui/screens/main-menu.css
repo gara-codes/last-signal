@@ -1,0 +1,55 @@
+/* Main menu — title, menu and build tag are edge-anchored (.ui-anchor in ui.css), so they hug
+   the real screen edges at any window size. */
+
+.main-menu__tag {
+  --x: 56px;
+  --y: 34px; /* from the bottom edge */
+
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-faint);
+}
+
+.main-menu__title {
+  --x: 120px;
+  --y: 200px;
+
+  max-width: 640px;
+}
+
+.main-menu__name {
+  margin: 0;
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-title);
+  line-height: 1;
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text);
+}
+
+.main-menu__meta {
+  margin-top: 14px;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-md);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-tertiary);
+}
+
+.main-menu__panel {
+  --x: 150px; /* from the right edge */
+  --y: 210px;
+
+  width: 280px;
+}
+
+.main-menu__status {
+  margin-top: 14px;
+  min-height: 1em;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-tertiary); /* carries the Quit message, so more legible than a hint */
+}

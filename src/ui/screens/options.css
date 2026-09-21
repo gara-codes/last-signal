@@ -1,0 +1,211 @@
+/* Options — laid out on the 1600x900 stage (see ui.css). */
+
+.options__panel {
+  --chamfer: var(--chamfer-xl);
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 640px;
+  padding: 36px 40px;
+  transform: translate(-50%, -50%);
+}
+
+.options__title {
+  margin: 0 0 28px;
+  font-family: var(--ui-font-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-panel-title);
+  letter-spacing: var(--ls-label);
+  color: var(--ui-text);
+}
+
+/* ---- slider row ---- */
+.options-slider {
+  margin: 0 -12px 26px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+}
+
+/* hover / keyboard focus / dragging: the "currently adjusted control" state */
+.options-slider:hover,
+.options-slider:focus-within,
+.options-slider.is-dragging {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-fill);
+}
+
+.options-slider__label {
+  margin-bottom: 9px;
+  font-size: var(--fs-sm);
+  color: var(--ui-text-dim);
+}
+
+.options-slider__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.options-slider__track {
+  position: relative;
+  flex: 1;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.options-slider__handle {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 18px;
+  background: var(--ui-text);
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.options-slider__pct {
+  flex-shrink: 0;
+  min-width: 4ch;
+  text-align: right;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-md);
+  color: var(--accent);
+}
+
+.options-slider__step {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.options-slider__step:hover,
+.options-slider__step:focus-visible {
+  background: var(--accent-tint);
+  outline: none;
+}
+
+.options-slider__caption {
+  margin-top: 8px;
+  font-family: var(--ui-font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-tertiary);
+  opacity: 0;
+
+  /* a hint is always a single line (settings.js keeps them short; this is the safety net) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- a slider's floor (HUD Opacity can't go below 20%) ---- */
+.options-slider .ui-pip.is-locked {
+  /* always lit, hatched: reads as "this part is fixed on" */
+  background: repeating-linear-gradient(135deg, var(--accent-soft) 0 2px, var(--ui-track) 2px 4px);
+}
+
+.options-slider__floor {
+  position: absolute;
+  top: -5px;
+  width: 2px;
+  height: 22px;
+  background: var(--ui-text-tertiary);
+  pointer-events: none;
+}
+
+/* an arrow that can't move the slider any further */
+.options-slider__step.is-limit {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.options-slider__step.is-limit:hover {
+  background: transparent;
+}
+
+.options-slider:hover .options-slider__handle,
+.options-slider:focus-within .options-slider__handle,
+.options-slider.is-dragging .options-slider__handle,
+.options-slider:hover .options-slider__caption,
+.options-slider:focus-within .options-slider__caption,
+.options-slider.is-dragging .options-slider__caption {
+  opacity: 1;
+}
+
+/* ---- captions toggle (a rectangle, not a pill) ---- */
+.options__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  margin-bottom: 26px;
+}
+
+.options__toggle-label {
+  font-size: var(--fs-sm);
+  color: var(--ui-text-dim);
+}
+
+.options-toggle {
+  appearance: none;
+  position: relative;
+  width: 44px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--ui-track);
+  cursor: pointer;
+}
+
+.options-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.options-toggle__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--ui-text-tertiary);
+}
+
+.options-toggle[aria-checked='true'] {
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.options-toggle[aria-checked='true'] .options-toggle__knob {
+  left: auto;
+  right: 2px;
+  background: var(--backdrop-mid);
+}
+
+/* ---- footer ---- */
+.options__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 32px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ui-track);
+}
