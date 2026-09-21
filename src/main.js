@@ -44,7 +44,7 @@ const player = loadAstronaut();
 scene.add(player);
 
 const playerController = new PlayerController(player);
-const inputManager = new InputManager();
+const inputManager = new InputManager(renderer.domElement);
 level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
 
 window.__game = {level1, player, playerController};
@@ -61,6 +61,7 @@ function animate() {
 
   const input = inputManager.getInput();
   playerController.update(delta, input);
+  cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
 
   if (level1.update) {
     level1.update(delta, player, input);
