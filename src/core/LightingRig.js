@@ -10,7 +10,11 @@ const L1_HEMI_INTENSITY = 0.5;
 
 const L1_STRIP_COLOR = 0xffffff;
 const L1_STRIP_INTENSITY = 1.2;
-const L1_STRIP_DISTANCE = 25;
+// Raised from 25 so the falloff cutoff comfortably reaches the center pillar
+// (~28-29 units from a ring light at radius=28) instead of leaving it lit by
+// ambient/hemisphere fill only. `distance` is a hard cutoff, not part of the
+// decay curve, so this doesn't affect brightness near the lights.
+const L1_STRIP_DISTANCE = 32;
 const L1_STRIP_DECAY = 2;
 
 const FLICKER_RADIUS = 8;
@@ -93,6 +97,9 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     this.scene.remove(this.hemiLight);
     this.stripLights.forEach((light) => {
         if (light.parent) light.parent.remove(light);
+        if (light.shadow && light.shadow.map) {
+          light.shadow.map.dispose();
+        }
     });
 }
 }
