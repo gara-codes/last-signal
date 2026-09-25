@@ -5,6 +5,7 @@ import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
 import { Camera } from './core/Camera.js';
 import { FlyCam } from './core/FlyCam.js';
+import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
 import { loadAstronaut } from './core/AssetLoader.js';
@@ -104,7 +105,7 @@ function animate() {
 
   // Capped so a tab-refocus pause (or coming back from a menu) can't produce one giant step —
   // that would tunnel the player straight through the wall blockers
-  const delta = Math.min(clock.getDelta(), 0.05);
+  const delta = getCappedDelta(clock);
   const uiState = ui.getState();
 
   // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
