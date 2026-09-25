@@ -27,7 +27,9 @@ const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
 const EYE_HEIGHT = 1.7; // flycam spawn eye height above the deck/ground
 
-// Reusable scratch vector — never allocated inside the per-frame loop.
+// Reusable scratch vectors — module-level singletons, never allocated inside
+// the per-frame loop. Concurrent L2 instances are not supported (the level
+// is a singleton in main.js), so shared scratch state is safe.
 const scratchPosition = new THREE.Vector3();
 const interactBox = new THREE.Box3();
 

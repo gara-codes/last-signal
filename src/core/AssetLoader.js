@@ -10,9 +10,11 @@ const loader = new GLTFLoader();
  * can position it before the asset arrives.
  * @param {string} path - path to the .glb, e.g. './assets/models/pylon.glb'
  * @param {number} [scale] - uniform scale applied to the loaded model
+ * @param {(error: Error) => void} [onError] - called if the load fails;
+ *   the holder Group is returned empty so the caller can react.
  * @returns {THREE.Group}
  */
-export function loadGlb(path, scale = 1) {
+export function loadGlb(path, scale = 1, onError) {
   const holder = new THREE.Group();
   loader.load(
     path,
@@ -24,6 +26,7 @@ export function loadGlb(path, scale = 1) {
     undefined,
     (error) => {
       console.error(`Failed to load ${path}: `, error);
+      if (onError) onError(error);
     }
   );
   return holder;
