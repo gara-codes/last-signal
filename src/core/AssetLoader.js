@@ -3,6 +3,32 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
 
+/**
+ * Generic GLB loader — the upgrade hook for every primitive-built prop.
+ * Returns a Group immediately and fills it with the model once the load
+ * finishes (same async pattern as the hardcoded loaders below), so callers
+ * can position it before the asset arrives.
+ * @param {string} path - path to the .glb, e.g. './assets/models/pylon.glb'
+ * @param {number} [scale] - uniform scale applied to the loaded model
+ * @returns {THREE.Group}
+ */
+export function loadGlb(path, scale = 1) {
+  const holder = new THREE.Group();
+  loader.load(
+    path,
+    (gltf) => {
+      gltf.scene.scale.setScalar(scale);
+      holder.add(gltf.scene);
+      console.log(`${path} loaded!`);
+    },
+    undefined,
+    (error) => {
+      console.error(`Failed to load ${path}: `, error);
+    }
+  );
+  return holder;
+}
+
 export function loadFuelCell(){
   const fuelCell = new THREE.Group();
   loader.load(
