@@ -4,8 +4,16 @@
 // interactable flag, prompt shape, update hooks, and per-prop state.
 // Uses useTextures:false to keep the test DOM-free.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
+
+// Mock loadFuelCell so createFuelCellSpawn can run without a browser
+// (GLTFLoader fails on relative URLs in node).
+vi.mock('../src/core/AssetLoader.js', () => ({
+  loadFuelCell: () => new THREE.Group(),
+  loadGlb: (path, scale) => new THREE.Group(),
+}));
+
 import {
   createBlockoutMaterials,
   createPylon,
@@ -84,9 +92,7 @@ describe('L2 prop builders — userData contract', () => {
     expect(typeof camera.userData.update).toBe('function');
   });
 
-  // Skipped: createFuelCellSpawn calls loadFuelCell() which tries to parse
-  // a relative URL in node — requires a browser environment.
-  it.skip('createFuelCellSpawn returns a pickup-ready cell (requires browser)', () => {
+  it('createFuelCellSpawn returns a pickup-ready cell', () => {
     const fuelSystem = new FuelSystem(0);
     const cell = createFuelCellSpawn(fuelSystem);
     expect(cell.userData.isFuelCell).toBe(true);
