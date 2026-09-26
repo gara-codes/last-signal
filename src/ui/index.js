@@ -26,7 +26,9 @@
 //                  (labels, denied state and detail, object anchor — see the header of hud.js).
 //                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
 //                  "Open Door" + "2 / 4 Fuel Cells" when denied) and the anchor position.
-//   sfx / music    Audio manager — settings.subscribe() and read sfxVolume / musicVolume (0-100).
+//   sfx / music    Wired: src/audio/audio-manager.js subscribes via ui.settings and applies
+//                  sfxVolume / musicVolume (0-100) to its two buses live. Still needs real
+//                  assets in place of the placeholder tones preloaded in main.js.
 //   captions       The AI-voice caption bar reads settings.get().captions (also mirrored on
 //                  body[data-captions]); the bar itself is not built yet.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,

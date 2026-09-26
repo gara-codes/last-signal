@@ -10,6 +10,7 @@ import { PlayerController } from './systems/physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
 import { initUI, STATES } from './ui/index.js';
+import { AudioManager } from './audio/audio-manager.js';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -20,6 +21,19 @@ const renderer = rendererSetup.getRenderer();
 // UI (main menu, loading, pause, options, credits, HUD). Must run before the level and player
 // are created so their asset loads are counted by the loading screen.
 const ui = initUI({ canvas: renderer.domElement });
+
+// Audio — sfx/music buses driven by the Options sliders (see src/audio/audio-manager.js).
+// AudioContext needs a user gesture before it can play, so init() waits for the first
+// pointerdown/keydown; preloading the placeholder tones can start immediately.
+const audio = new AudioManager();
+audio.bindSettings(ui.settings);
+window.addEventListener('pointerdown', () => audio.init(), { once: true });
+window.addEventListener('keydown', () => audio.init(), { once: true });
+audio.preload('sfx-test-blip', 'assets/audio/sfx/_placeholder-blip.mp3');
+audio.preload('music-test-loop', 'assets/audio/music/_placeholder-loop.mp3');
+// TODO(remove): smoke-test hooks — drop once real SFX/music replace the placeholders.
+// Console: __audio.play('sfx-test-blip')  /  __audio.playMusic('music-test-loop')
+window.__audio = audio;
 
 const cameraSetup = new Camera();
 const camera = cameraSetup.getCamera();
@@ -37,7 +51,9 @@ const lightingRig = new LightingRig(scene, level1.group, {
 
 const halObject = level1.group.getObjectByName('hal-9000');
 if (!halObject) {
-  console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
+  console.warn(
+    'main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.'
+  );
 }
 const halWorldPosition = halObject ? new THREE.Vector3() : null;
 if (halObject) halObject.getWorldPosition(halWorldPosition);
