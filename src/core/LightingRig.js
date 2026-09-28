@@ -2,14 +2,14 @@
 import * as THREE from 'three';
 
 const L1_AMBIENT_COLOR = 0xcfe8ff;
-const L1_AMBIENT_INTENSITY = 0.5;
+const L1_AMBIENT_INTENSITY = 0.9;
 
 const L1_HEMI_SKY_COLOR = 0xdfeeff;
 const L1_HEMI_GROUND_COLOR = 0x8899aa;
-const L1_HEMI_INTENSITY = 0.5;
+const L1_HEMI_INTENSITY = 0.9;
 
 const L1_STRIP_COLOR = 0xffffff;
-const L1_STRIP_INTENSITY = 1.2;
+const L1_STRIP_INTENSITY = 2.2;
 // Raised from 25 so the falloff cutoff comfortably reaches the center pillar
 // (~28-29 units from a ring light at radius=28) instead of leaving it lit by
 // ambient/hemisphere fill only. `distance` is a hard cutoff, not part of the
