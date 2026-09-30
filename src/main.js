@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
+import { LightingRigL2 } from './core/LightingRigL2.js';
 import { Camera } from './core/Camera.js';
 import { FlyCam } from './core/FlyCam.js';
 import { getCappedDelta } from './core/capped-delta.js';
@@ -93,6 +94,13 @@ const lightingRig = !isL2
   ? new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 })
   : null;
 
+// L2 lighting pass — replaces the blockout's placeholder fill lights.
+let lightingRigL2 = null;
+if (isL2) {
+  renderer.shadowMap.enabled = true; // a couple of L2 lights cast shadows
+  lightingRigL2 = new LightingRigL2(scene, level.group);
+}
+
 const halObject = !isL2 ? level.group.getObjectByName('hal-9000') : null;
 if (!isL2 && !halObject) {
   console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
@@ -125,6 +133,7 @@ function animate() {
     flyCam.update(delta, input);
     const camera = flyCam.getCamera();
     level.update(delta, camera, input);
+    lightingRigL2.update(delta);
   } else {
     // L1 drum path — player physics + third-person camera.
     playerController.update(delta, input);
