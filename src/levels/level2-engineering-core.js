@@ -7,12 +7,12 @@
 //   level.update(delta, viewer, input);   // viewer = camera or player proxy
 //   level.dispose();
 //
-// The blockout ships with a flycam (no flat controller yet — Alex owns that).
-// collisionData is the documented hand-off: plain AABBs + floorSpec, ready
-// for the flat controller to consume without geometry changes.
+// The flat controller (main.js) and third-person Camera now drive this
+// level in place of the dev flycam. collisionData is the documented
+// hand-off: plain AABBs + floorSpec, consumed as-is by FlatPhysicsController.
 //
 // Scope parked (named owners, not wired here):
-//   oxygen drain, gravity snap-back, repair spending, AI dialogue/lying,
+//   oxygen drain activation, gravity snap-back, AI dialogue/lying,
 //   L1→L2 transition beat, banked-fuel handoff.
 
 import * as THREE from 'three';
@@ -20,6 +20,9 @@ import { validateLayout, PLACEMENTS, cellToWorld, DECK_Y, GROUND_Y } from './lev
 import { createBlockoutMaterials } from './level2/props.js';
 import { buildLevelGeometry, placeAnchors } from './level2/maze-builder.js';
 import { FuelSystem } from '../systems/fuel-system.js';
+import { SystemRepairAllocation } from '../systems/system-repair-allocation.js';
+import { CommandCenterOverride, Checkpoint } from '../systems/command-center.js';
+import { OxygenSystem } from '../systems/oxygen-system.js';
 import { updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { setInteractPrompt } from '../ui/hud.js';
 
@@ -188,6 +191,28 @@ export function createLevel2(options = {}) {
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
 
+  const repairs = new SystemRepairAllocation();
+  registries.repairs = repairs;
+  group.userData.repairs = repairs; // debug / HUD read, and L3's exportFlags() source
+
+  const override = new CommandCenterOverride();
+  registries.override = override;
+  group.userData.override = override; // debug read
+
+  const checkpoint = new Checkpoint();
+  group.userData.checkpoint = checkpoint; // debug read
+
+  // Instantiated so the checkpoint snapshot below has real oxygen/health
+  // numbers to record — its update() is deliberately never called here, so
+  // oxygen does not actually drain yet. Turning the hazard on is a separate
+  // decision from the checkpoint's data shape (see the final report).
+  const oxygenSystem = new OxygenSystem();
+
+  // hasOverrideItem flips false -> true exactly once (inside the override
+  // terminal's interact(), dispatched below); watched here so the checkpoint
+  // is saved at that one moment rather than every frame after.
+  let hadOverrideItem = false;
+
   // Stub: the late-L2 lying phase (strip reprogramming, cold HUD lines)
   // wires here once power-allocation lands.
   function onCommandDoorOpen() {
@@ -212,6 +237,23 @@ export function createLevel2(options = {}) {
     if (input?.interact && nearby) {
       nearby.userData.interact?.();
     }
+
+    // Checkpoint right before the backtrack begins: the moment the override
+    // item is collected, the player is about to head back toward the
+    // command door, so this is where the design doc's "checkpoint right
+    // before the backtrack begins" lands.
+    if (override.hasOverrideItem && !hadOverrideItem) {
+      checkpoint.save({
+        x: viewer.position.x,
+        y: viewer.position.y,
+        z: viewer.position.z,
+        facing: viewer.rotation.y,
+        oxygen: oxygenSystem.oxygen,
+        health: oxygenSystem.health,
+        fuelCount: fuelSystem.count,
+      });
+    }
+    hadOverrideItem = override.hasOverrideItem;
   }
 
   // ----- dispose ---------------------------------------------------------
