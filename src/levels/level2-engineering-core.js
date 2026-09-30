@@ -136,6 +136,22 @@ function computeSpawnView() {
   return { position, lookAt };
 }
 
+/**
+ * Floor-level spawn for the player controller (as opposed to computeSpawnView's
+ * eye-height flycam pose) — feet at the spawn cell's storey floor, facing the
+ * hall centre so the starting orientation matches the flycam's establishing shot.
+ * @returns {{x:number, y:number, z:number, yaw:number}}
+ */
+function computePlayerSpawn() {
+  const spot = PLACEMENTS.spawn;
+  const { x, z } = cellToWorld(spot.col, spot.row);
+  const floorY = spot.storey === 'upper' ? DECK_Y : GROUND_Y;
+  // yaw=0 in FlatPhysicsController faces +Z; atan2(dx, dz) toward the hall
+  // centre matches that convention.
+  const yaw = Math.atan2(0 - x, 0 - z);
+  return { x, y: floorY, z, yaw };
+}
+
 // ---------------------------------------------------------------------------
 // createLevel2 — the public factory.
 // ---------------------------------------------------------------------------
@@ -226,6 +242,7 @@ export function createLevel2(options = {}) {
     update,
     collisionData: geometry.collision.finalize(),
     getSpawnView: computeSpawnView,
+    getPlayerSpawn: computePlayerSpawn,
     // Debug handles — console access for the flycam and fuel reads.
     __anchors: anchors,
     __lighting: lighting,
