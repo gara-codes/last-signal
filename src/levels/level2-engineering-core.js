@@ -12,8 +12,8 @@
 // hand-off: plain AABBs + floorSpec, consumed as-is by FlatPhysicsController.
 //
 // Scope parked (named owners, not wired here):
-//   oxygen drain activation, gravity snap-back, AI dialogue/lying,
-//   L1→L2 transition beat, banked-fuel handoff.
+//   gravity snap-back, AI dialogue/lying, L1→L2 transition beat,
+//   banked-fuel handoff. Oxygen drain IS wired (see update() below).
 
 import * as THREE from 'three';
 import { validateLayout, PLACEMENTS, cellToWorld, DECK_Y, GROUND_Y } from './level2/grid-data.js';
@@ -202,11 +202,11 @@ export function createLevel2(options = {}) {
   const checkpoint = new Checkpoint();
   group.userData.checkpoint = checkpoint; // debug read
 
-  // Instantiated so the checkpoint snapshot below has real oxygen/health
-  // numbers to record — its update() is deliberately never called here, so
-  // oxygen does not actually drain yet. Turning the hazard on is a separate
-  // decision from the checkpoint's data shape (see the final report).
+  // Ticked every frame in update() below; exposed on group.userData so
+  // main.js can read oxygenSystem.fraction and push it to the HUD, same
+  // pattern as fuelSystem/repairs/override/checkpoint above.
   const oxygenSystem = new OxygenSystem();
+  group.userData.oxygenSystem = oxygenSystem; // debug / HUD read
 
   // hasOverrideItem flips false -> true exactly once (inside the override
   // terminal's interact(), dispatched below); watched here so the checkpoint
@@ -232,6 +232,14 @@ export function createLevel2(options = {}) {
 
     updateInteractables(registries.updatables, delta);
     tickFuelProximity(registries.fuelCells, viewer);
+
+    // isRunning: input.running is the same raw value FlatPhysicsController's
+    // own isRunning is set from each frame (flat-physics-controller.js:
+    // "this.isRunning = running; // read by the oxygen system") — reading
+    // it here avoids threading a playerController reference through
+    // level.update()'s existing (delta, viewer, input) contract, since only
+    // the player model (viewer), not the controller, is passed in.
+    oxygenSystem.update(delta, input?.running ?? false);
 
     const nearby = resolvePrompt(registries.interactables, viewer);
     if (input?.interact && nearby) {

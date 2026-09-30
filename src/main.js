@@ -133,6 +133,11 @@ function animate() {
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
+  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
+  if (isL2 && level.group.userData.oxygenSystem) {
+    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  }
+
   // L1-only: HAL proximity flicker.
   if (!isL2 && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
