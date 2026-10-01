@@ -287,10 +287,10 @@ function placeAtCell(group, object, spot, yOffset = 0) {
   return object;
 }
 
-function addCommandDoor(group, mats, collision, onDoorOpen) {
+function addCommandDoor(group, mats, collision, onDoorOpen, override) {
   const spot = PLACEMENTS.commandDoor;
   const { z } = cellToWorld(spot.col, spot.row);
-  const door = createCommandDoor(mats, { onOpen: onDoorOpen });
+  const door = createCommandDoor(mats, { onOpen: onDoorOpen, override });
   door.position.set(HALL.minX + WALL_THICKNESS / 2 + 0.31, DECK_Y + 3.2, z);
   group.add(door);
   // Locked slab blocks the doorway until the override phase unlocks it.
@@ -358,12 +358,12 @@ export function buildLevelGeometry(mats) {
  *   fuelCells     — proximity pickup candidates
  */
 export function placeAnchors(mats, levelGroup, registries, onDoorOpen) {
-  const { interactables, updatables, fuelCells } = registries;
+  const { interactables, updatables, fuelCells, repairs, fuelSystem, override } = registries;
 
   const stations = {
-    oxygen: createOxygenStation(mats),
-    gravity: createGravityStation(mats),
-    comms: createCommsStation(mats),
+    oxygen: createOxygenStation(mats, { repairs, fuelSystem }),
+    gravity: createGravityStation(mats, { repairs, fuelSystem }),
+    comms: createCommsStation(mats, { repairs, fuelSystem }),
   };
   for (const [system, object] of Object.entries(stations)) {
     placeAtCell(levelGroup, object, PLACEMENTS.stations[system]);
@@ -371,11 +371,11 @@ export function placeAnchors(mats, levelGroup, registries, onDoorOpen) {
     updatables.push(object);
   }
 
-  const commandDoor = addCommandDoor(levelGroup, mats, registries.collision, onDoorOpen);
+  const commandDoor = addCommandDoor(levelGroup, mats, registries.collision, onDoorOpen, override);
   interactables.push(commandDoor);
   updatables.push(commandDoor);
 
-  const overrideTerminal = createOverrideTerminal(mats);
+  const overrideTerminal = createOverrideTerminal(mats, { fuelSystem, override });
   placeAtCell(levelGroup, overrideTerminal, PLACEMENTS.overrideTerminal);
   interactables.push(overrideTerminal);
 

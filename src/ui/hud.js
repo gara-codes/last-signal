@@ -1,7 +1,7 @@
 // src/ui/hud.js
 //
-// Always-on HUD overlay: the Fuel Cells counter (Tier 1 item 1) and the interaction prompt.
-// More panels (oxygen, health, AI-link chip, captions) land here as their values exist.
+// Always-on HUD overlay: the Fuel Cells counter (Tier 1 item 1), the Oxygen bar (L2), and the
+// interaction prompt. More panels (health, AI-link chip, captions) land here as their values exist.
 //
 // Panels are edge-anchored (see .ui-anchor in ui.css): they hug the real screen edges at any
 // window size or aspect ratio, and scale with the window like the menus do.
@@ -39,6 +39,31 @@ function fuelIcon() {
     svg('rect', { x: 5, y: 4.5, width: 10, height: 13.5, rx: 1 }),
     svg('line', { x1: 5, y1: 9.5, x2: 15, y2: 9.5, 'stroke-opacity': 0.5 })
   );
+}
+
+// Oxygen bar under 25% reads as critical — same threshold and "brighter, more
+// saturated" intent as theme.css's --ui-critical comment.
+const OXYGEN_CRITICAL_FRACTION = 0.25;
+
+function createOxygenBar() {
+  const fill = el('div', { className: 'hud-oxygen__fill' });
+  const element = el(
+    'div',
+    { className: 'hud-oxygen ui-anchor ui-anchor--tl ui-panel ui-chamfer-panel' },
+    el('div', { className: 'hud-oxygen__label ui-label', text: 'Oxygen' }),
+    el('div', { className: 'hud-oxygen__track' }, fill)
+  );
+
+  let shownPct = null; // null forces the first setFraction call to touch the DOM
+  function setFraction(fraction) {
+    const pct = Math.round(Math.max(0, Math.min(1, fraction)) * 100);
+    if (pct === shownPct) return;
+    shownPct = pct;
+    fill.style.width = `${pct}%`;
+    fill.classList.toggle('is-critical', fraction < OXYGEN_CRITICAL_FRACTION);
+  }
+
+  return { element, setFraction };
 }
 
 // Four corner brackets that frame the object the prompt belongs to (from the mockup).
@@ -135,6 +160,8 @@ export function createHud() {
     )
   );
 
+  const oxygen = createOxygenBar();
+
   const prompt = createInteractPrompt();
   activePrompt = prompt;
 
@@ -142,6 +169,7 @@ export function createHud() {
     'div',
     { className: 'ui-hud', attrs: { hidden: true, 'aria-label': 'Heads-up display' } },
     fuel,
+    oxygen.element,
     prompt.element
   );
 
@@ -156,10 +184,14 @@ export function createHud() {
   }
 
   setFuelCount(0);
+  oxygen.setFraction(1);
 
   return {
     element,
     setFuelCount,
+    // main.js reads level2.group.userData.oxygenSystem.fraction each frame
+    // and calls this — same pattern as setFuelCount, mirrored deliberately.
+    setOxygen: oxygen.setFraction,
     setInteractPrompt,
     setVisible(visible) {
       element.hidden = !visible;
