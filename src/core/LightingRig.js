@@ -18,6 +18,12 @@ const L1_STRIP_DISTANCE = 32;
 const L1_STRIP_DECAY = 2;
 
 const FLICKER_RADIUS = 8;
+// Flicker swing is a fraction of each light's base intensity, so the effect
+// keeps the same relative strength if the base values are retuned.
+const AMBIENT_FLICKER_SWING = 0.2;
+const AMBIENT_FLICKER_NOISE = 0.2;
+const STRIP_FLICKER_SWING = 0.4;
+const STRIP_FLICKER_NOISE = 0.25;
 
 export class LightingRig {
   // levelGroup: pass level1.group so lights inherit its rotation/transform
@@ -75,7 +81,9 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     const isNear = distance < this.flickerRadius;
 
     if (isNear) {
-      const ambientFlicker = Math.sin(this.flickerTime * 15) * 0.1 + Math.random() * 0.1;
+      const ambientFlicker = (Math.sin(this.flickerTime * 15) * AMBIENT_FLICKER_SWING +
+          Math.random() * AMBIENT_FLICKER_NOISE) *
+        this.baseAmbientIntensity;
       this.ambientLight.intensity = Math.max(0.1, this.baseAmbientIntensity - Math.abs(ambientFlicker));
     } else {
       this.ambientLight.intensity = this.baseAmbientIntensity;
@@ -84,7 +92,9 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     this.stripLights.forEach((light, i) => {
       const base = this.baseIntensities[i];
       if (isNear) {
-        const flicker = Math.sin(this.flickerTime * 20 + i * 3) * 0.5 + Math.random() * 0.3;
+        const flicker = (Math.sin(this.flickerTime * 20 + i * 3) * STRIP_FLICKER_SWING +
+          Math.random() * STRIP_FLICKER_NOISE) *
+        base;
         light.intensity = Math.max(0.1, base + flicker);
       } else {
         light.intensity = base;

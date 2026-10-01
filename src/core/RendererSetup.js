@@ -15,7 +15,6 @@ export class RendererSetup {
       antialias: true,
     });
 
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = readExposure();
 
