@@ -24,6 +24,8 @@
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
 //   oxygen bar     Wired (L2 only): main.js reads level2.group.userData.oxygenSystem.fraction
 //                  every frame and calls ui.setOxygen() — same pattern as fuel count.
+//   health bar     Wired (L2 only): main.js reads level2.group.userData.oxygenSystem.healthFraction
+//                  every frame and calls ui.setHealth() — same pattern as the oxygen bar.
 //   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
 //                  (labels, denied state and detail, object anchor — see the header of hud.js).
 //                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
@@ -106,5 +108,6 @@ export function initUI({ canvas = null } = {}) {
     setLevel,
     setFuelCount: (count) => hud.setFuelCount(count),
     setOxygen: (fraction) => hud.setOxygen(fraction),
+    setHealth: (fraction) => hud.setHealth(fraction),
   };
 }

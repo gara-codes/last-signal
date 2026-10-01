@@ -1,7 +1,7 @@
 // src/ui/hud.js
 //
-// Always-on HUD overlay: the Fuel Cells counter (Tier 1 item 1), the Oxygen bar (L2), and the
-// interaction prompt. More panels (health, AI-link chip, captions) land here as their values exist.
+// Always-on HUD overlay: the Fuel Cells counter (Tier 1 item 1), the Oxygen and Health bars (L2),
+// and the interaction prompt. More panels (AI-link chip, captions) land here as their values exist.
 //
 // Panels are edge-anchored (see .ui-anchor in ui.css): they hug the real screen edges at any
 // window size or aspect ratio, and scale with the window like the menus do.
@@ -41,17 +41,22 @@ function fuelIcon() {
   );
 }
 
-// Oxygen bar under 25% reads as critical — same threshold and "brighter, more
+// Bars under 25% read as critical — same threshold and "brighter, more
 // saturated" intent as theme.css's --ui-critical comment.
-const OXYGEN_CRITICAL_FRACTION = 0.25;
+const BAR_CRITICAL_FRACTION = 0.25;
 
-function createOxygenBar() {
-  const fill = el('div', { className: 'hud-oxygen__fill' });
+/**
+ * Builds a labeled track+fill bar panel — shared shape for Oxygen and
+ * Health. `className` is the BEM block (e.g. 'hud-oxygen'), used for both
+ * the panel and its '__label'/'__track'/'__fill' children.
+ */
+function createBarPanel(className, label) {
+  const fill = el('div', { className: `${className}__fill` });
   const element = el(
     'div',
-    { className: 'hud-oxygen ui-anchor ui-anchor--tl ui-panel ui-chamfer-panel' },
-    el('div', { className: 'hud-oxygen__label ui-label', text: 'Oxygen' }),
-    el('div', { className: 'hud-oxygen__track' }, fill)
+    { className: `${className} ui-anchor ui-anchor--tl ui-panel ui-chamfer-panel` },
+    el('div', { className: `${className}__label ui-label`, text: label }),
+    el('div', { className: `${className}__track` }, fill)
   );
 
   let shownPct = null; // null forces the first setFraction call to touch the DOM
@@ -60,7 +65,7 @@ function createOxygenBar() {
     if (pct === shownPct) return;
     shownPct = pct;
     fill.style.width = `${pct}%`;
-    fill.classList.toggle('is-critical', fraction < OXYGEN_CRITICAL_FRACTION);
+    fill.classList.toggle('is-critical', fraction < BAR_CRITICAL_FRACTION);
   }
 
   return { element, setFraction };
@@ -160,7 +165,8 @@ export function createHud() {
     )
   );
 
-  const oxygen = createOxygenBar();
+  const oxygen = createBarPanel('hud-oxygen', 'Oxygen');
+  const health = createBarPanel('hud-health', 'Health');
 
   const prompt = createInteractPrompt();
   activePrompt = prompt;
@@ -170,6 +176,7 @@ export function createHud() {
     { className: 'ui-hud', attrs: { hidden: true, 'aria-label': 'Heads-up display' } },
     fuel,
     oxygen.element,
+    health.element,
     prompt.element
   );
 
@@ -185,13 +192,16 @@ export function createHud() {
 
   setFuelCount(0);
   oxygen.setFraction(1);
+  health.setFraction(1);
 
   return {
     element,
     setFuelCount,
-    // main.js reads level2.group.userData.oxygenSystem.fraction each frame
-    // and calls this — same pattern as setFuelCount, mirrored deliberately.
+    // main.js reads level2.group.userData.oxygenSystem.fraction/.healthFraction
+    // each frame and calls these — same pattern as setFuelCount, mirrored
+    // deliberately for both bars.
     setOxygen: oxygen.setFraction,
+    setHealth: health.setFraction,
     setInteractPrompt,
     setVisible(visible) {
       element.hidden = !visible;

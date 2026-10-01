@@ -49,12 +49,13 @@
   color: var(--ui-text);
 }
 
-/* ---- Oxygen panel (top-left, below Fuel Cells) ---- */
-.hud-oxygen {
-  /* Placed under .hud-fuel (--y: 56px, ~64px tall) with an 8px gap — a
-     reasonable estimate, not pixel-checked against the real fuel panel yet. */
+/* ---- Oxygen + Health panels (top-left, stacked below Fuel Cells) ----
+   Same shape for both, --y positions them in the stack: Fuel (56px, ~64px
+   tall) -> Oxygen (128px) -> Health (200px) with ~8px gaps — reasonable
+   estimates, not pixel-checked against the real panels yet. */
+.hud-oxygen,
+.hud-health {
   --x: 56px;
-  --y: 128px;
 
   width: 236px;
   padding: 12px 14px;
@@ -63,19 +64,30 @@
   gap: 6px;
 }
 
-.hud-oxygen__label {
+.hud-oxygen {
+  --y: 128px;
+}
+
+.hud-health {
+  --y: 200px;
+}
+
+.hud-oxygen__label,
+.hud-health__label {
   font-size: var(--fs-xs);
   color: var(--ui-text-dim);
 }
 
-.hud-oxygen__track {
+.hud-oxygen__track,
+.hud-health__track {
   height: 8px;
   border-radius: 4px;
   background: var(--ui-track);
   overflow: hidden;
 }
 
-.hud-oxygen__fill {
+.hud-oxygen__fill,
+.hud-health__fill {
   height: 100%;
   background: var(--accent);
   transition:
@@ -84,7 +96,8 @@
 }
 
 /* Matches theme.css's documented pattern (--ui-critical) for health/oxygen warnings. */
-.hud-oxygen__fill.is-critical {
+.hud-oxygen__fill.is-critical,
+.hud-health__fill.is-critical {
   background: var(--ui-critical);
 }
 

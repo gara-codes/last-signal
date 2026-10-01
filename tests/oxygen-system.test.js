@@ -75,4 +75,35 @@ describe('OxygenSystem', () => {
     expect(o2.oxygen).toBe(50);
     expect(o2.fraction).toBe(1);
   });
+
+  it('takeDamage reduces health directly, independent of oxygen', () => {
+    const o2 = new OxygenSystem();
+    o2.takeDamage(30);
+    expect(o2.health).toBe(70);
+    expect(o2.oxygen).toBe(100); // untouched — this isn't the oxygen-depletion path
+    expect(o2.isDepleted).toBe(false);
+    expect(o2.healthFraction).toBeCloseTo(0.7);
+  });
+
+  it('takeDamage clamps at zero and marks the player dead', () => {
+    const o2 = new OxygenSystem();
+    o2.takeDamage(150);
+    expect(o2.health).toBe(0);
+    expect(o2.isDead).toBe(true);
+    expect(o2.healthFraction).toBe(0);
+  });
+
+  it('takeDamage stacks across multiple calls', () => {
+    const o2 = new OxygenSystem();
+    o2.takeDamage(20);
+    o2.takeDamage(25);
+    expect(o2.health).toBe(55);
+  });
+
+  it('takeDamage ignores non-positive amounts', () => {
+    const o2 = new OxygenSystem();
+    o2.takeDamage(0);
+    o2.takeDamage(-10);
+    expect(o2.health).toBe(100);
+  });
 });

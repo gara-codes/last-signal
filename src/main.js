@@ -11,6 +11,7 @@ import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { FlatPhysicsController } from './systems/flat-physics-controller.js';
 import { InputManager } from './core/InputManager.js';
+import { checkLossState } from './systems/win-loss-conditions.js';
 import './ui/theme.css';
 import { initUI, STATES } from './ui/index.js';
 
@@ -120,10 +121,19 @@ function animate() {
 
   const input = inputManager.getInput();
 
+  // L2-only loss check (OxygenSystem.isDead — oxygen depletion or
+  // takeDamage(), e.g. zero-g fall damage). Minimum viable reaction per the
+  // role doc: freeze player movement; an actual "you died" screen is
+  // Shannon's HUD/menu territory, not built here.
+  const oxygenSystem = isL2 ? level.group.userData.oxygenSystem : null;
+  const hasLost = oxygenSystem ? checkLossState(oxygenSystem).hasLost : false;
+
   // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
   // object + the same third-person Camera, reading position/orientation
   // through the shared player.userData.getSurfaceBasis() interface.
-  playerController.update(delta, input);
+  if (!hasLost) {
+    playerController.update(delta, input);
+  }
   cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
   level.update(delta, player, input);
 
@@ -133,9 +143,10 @@ function animate() {
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
-  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
-  if (isL2 && level.group.userData.oxygenSystem) {
-    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  // L2-only: oxygen/health bars, read the same way (live value each frame, not event-hooked).
+  if (oxygenSystem) {
+    ui.setOxygen(oxygenSystem.fraction);
+    ui.setHealth(oxygenSystem.healthFraction);
   }
 
   // L1-only: HAL proximity flicker.
