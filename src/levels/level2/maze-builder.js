@@ -9,6 +9,9 @@
 //   collisionData.railAABBs    atrium railings (solid, full height of deck)
 //   collisionData.rampSurfaces walkable slopes { minX..maxZ, lowSide }
 //   collisionData.floorSpec    storey heights so the controller can resolve floors
+//   collisionData.pocketBounds zero-g pocket AABB (the atrium void shaft), or
+//                              null if the grid has no void cells — derived
+//                              from UPPER_GRID via grid-data.js's computeVoidBounds()
 
 import * as THREE from 'three';
 import {
@@ -26,6 +29,7 @@ import {
   STRIP_ROUTES,
   carveRamps,
   cellToWorld,
+  computeVoidBounds,
   getCell,
   isSolid,
   isVoid,
@@ -72,6 +76,7 @@ function createCollisionRegistry() {
     wallAABBs,
     railAABBs,
     rampSurfaces,
+    pocketBounds: null, // set by buildLevelGeometry() once the upper grid is known
     addWall: (cx, cy, cz, sx, sy, sz, name = 'wall') => addBox(wallAABBs, cx, cy, cz, sx, sy, sz, name),
     addRail: (cx, cy, cz, sx, sy, sz, name = 'rail') => addBox(railAABBs, cx, cy, cz, sx, sy, sz, name),
     finalize() {
@@ -79,6 +84,7 @@ function createCollisionRegistry() {
         wallAABBs,
         railAABBs,
         rampSurfaces,
+        pocketBounds: this.pocketBounds,
         floorSpec: { groundY: 0, deckY: DECK_Y, cellSize: CELL_SIZE, hall: { ...HALL } },
       };
     },
@@ -347,6 +353,7 @@ export function buildLevelGeometry(mats) {
   for (const ramp of RAMPS) addRamp(group, mats, ramp, collision);
   addGridModules(group, mats, ground, 'ground', collision);
   addGridModules(group, mats, upper, 'upper', collision);
+  collision.pocketBounds = computeVoidBounds(upper); // the zero-g pocket — see grid-data.js
 
   return { group, collision, ground, upper };
 }

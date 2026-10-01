@@ -193,6 +193,47 @@ export function storeyFloorY(storey) {
 }
 
 /**
+ * World-space AABB bounding every '~' (atrium void) cell in a grid — the
+ * open zero-g pocket occupies the headroom above the deck in this footprint.
+ * Derived from the authored grid (not separately authored zone data), so a
+ * maze edit that reshapes the void automatically reshapes the pocket.
+ *
+ * Y spans DECK_Y..CEILING_Y, not GROUND_Y..CEILING_Y: '~' only guarantees no
+ * *deck* slab at that cell, it says nothing about what's on the ground floor
+ * below. Checked against the actual data — GROUND_GRID has solid pylon
+ * modules under several of these cells (e.g. a fully solid row) — so the
+ * pocket is capped at the deck. Below DECK_Y is ordinary grounded-physics
+ * territory (with real wall collision), not part of the zero-g pocket.
+ * @param {string[]} [grid] - defaults to UPPER_GRID; '~' is upper-only.
+ * @returns {{minX:number,maxX:number,minY:number,maxY:number,minZ:number,maxZ:number}|null}
+ *   null if the grid has no void cells.
+ */
+export function computeVoidBounds(grid = UPPER_GRID) {
+  let minCol = Infinity;
+  let maxCol = -Infinity;
+  let minRow = Infinity;
+  let maxRow = -Infinity;
+  for (let row = 0; row < grid.length; row++) {
+    for (let col = 0; col < grid[row].length; col++) {
+      if (!isVoid(grid[row][col])) continue;
+      if (col < minCol) minCol = col;
+      if (col > maxCol) maxCol = col;
+      if (row < minRow) minRow = row;
+      if (row > maxRow) maxRow = row;
+    }
+  }
+  if (minCol === Infinity) return null;
+  return {
+    minX: HALL.minX + minCol * CELL_SIZE,
+    maxX: HALL.minX + (maxCol + 1) * CELL_SIZE,
+    minZ: HALL.minZ + minRow * CELL_SIZE,
+    maxZ: HALL.minZ + (maxRow + 1) * CELL_SIZE,
+    minY: DECK_Y,
+    maxY: CEILING_Y,
+  };
+}
+
+/**
  * Returns a NEW grid with every ramp footprint cell forced to '.', leaving
  * the authored arrays pristine. Run before walkability checks — the carve
  * is part of the layout contract.
