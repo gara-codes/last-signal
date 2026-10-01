@@ -29,7 +29,7 @@ const UPPER_INTENSITY = 45; // candela, lights hung under the ceiling
 const GROUND_INTENSITY = 55; // candela, lights under the deck slab
 // Point light `distance` is a cutoff window, not a hard edge: brightness is
 // already ~35% of its inverse-square value at 0.8 * distance and zero at it.
-const LIGHT_DISTANCE = 26;
+export const LIGHT_DISTANCE = 26;
 const LIGHT_DECAY = 2;
 
 // Heights, derived from the blockout so they follow if the hall is resized.
@@ -81,7 +81,7 @@ export const L2_LIGHT_LAYOUT = [
   { id: 'ground-west', tier: 'ground', col: 1, row: 3, unstable: true },
 ];
 
-const TIER_SETTINGS = {
+export const TIER_SETTINGS = {
   upper: { y: UPPER_LIGHT_Y, intensity: UPPER_INTENSITY },
   ground: { y: GROUND_LIGHT_Y, intensity: GROUND_INTENSITY },
 };
@@ -105,6 +105,18 @@ function smoothNoise(x) {
   return hashNoise(i) * (1 - u) + hashNoise(i + 1) * u;
 }
 
+// Walls, floors and decks live under the maze builder's 'l2-geometry' group;
+// emissive meshes (glow strips) are excluded since they're thin and self-lit.
+function isStructure(mesh) {
+  const emissive = mesh.material && mesh.material.emissiveIntensity > 0 &&
+    mesh.material.emissive && mesh.material.emissive.getHex() !== 0;
+  if (emissive) return false;
+  for (let o = mesh.parent; o; o = o.parent) {
+    if (o.name === 'l2-geometry') return true;
+  }
+  return false;
+}
+
 export class LightingRigL2 {
   // levelGroup: pass level2.group; lights are parented to it (local coords).
   constructor(scene, levelGroup, config = {}) {
@@ -118,7 +130,10 @@ export class LightingRigL2 {
     this.powerLevel = 1;
 
     // The blockout ships its own bright placeholder ambient/hemisphere in the
-    // level group; left in, they would wash out the whole pass.
+    // level group; left in, they would wash out the whole pass. Removed at
+    // runtime so src/levels stays untouched; dispose() does NOT restore them
+    // (or the mesh shadow flags below), so the rig must live as long as the level.
+    // Only direct children are checked — the blockout adds them at the top level.
     const placeholders = levelGroup.children.filter(
       (child) => child.isAmbientLight || child.isHemisphereLight
     );
@@ -163,13 +178,14 @@ export class LightingRigL2 {
     });
 
     // Shadows only do anything if the level's meshes opt in (the renderer
-    // must also have shadowMap.enabled — main.js does that for L2).
+    // must also have shadowMap.enabled — main.js does that for L2). Every mesh
+    // receives, but only structure casts: props and glow meshes casting would
+    // add draw cost to each of the 12 shadow passes for little visual gain.
     if (anyShadow) {
       levelGroup.traverse((obj) => {
-        if (obj.isMesh) {
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-        }
+        if (!obj.isMesh) return;
+        obj.receiveShadow = true;
+        obj.castShadow = isStructure(obj);
       });
     }
 
@@ -209,6 +225,7 @@ export class LightingRigL2 {
   // 0–1 power level scaling the strips; ambient/hemisphere stay put so the
   // hall never goes pitch black. Not wired to anything yet.
   setPowerLevel(level) {
+    if (!Number.isFinite(level)) return; // NaN would zero every strip
     this.powerLevel = THREE.MathUtils.clamp(level, 0, 1);
   }
 

@@ -7,19 +7,22 @@
 //   level.update(delta, viewer, input);   // viewer = camera or player proxy
 //   level.dispose();
 //
-// The blockout ships with a flycam (no flat controller yet — Alex owns that).
-// collisionData is the documented hand-off: plain AABBs + floorSpec, ready
-// for the flat controller to consume without geometry changes.
+// The flat controller (main.js) and third-person Camera now drive this
+// level in place of the dev flycam. collisionData is the documented
+// hand-off: plain AABBs + floorSpec, consumed as-is by FlatPhysicsController.
 //
 // Scope parked (named owners, not wired here):
-//   oxygen drain, gravity snap-back, repair spending, AI dialogue/lying,
-//   L1→L2 transition beat, banked-fuel handoff.
+//   gravity snap-back, AI dialogue/lying, L1→L2 transition beat,
+//   banked-fuel handoff. Oxygen drain IS wired (see update() below).
 
 import * as THREE from 'three';
 import { validateLayout, PLACEMENTS, cellToWorld, DECK_Y, GROUND_Y } from './level2/grid-data.js';
 import { createBlockoutMaterials } from './level2/props.js';
 import { buildLevelGeometry, placeAnchors } from './level2/maze-builder.js';
 import { FuelSystem } from '../systems/fuel-system.js';
+import { SystemRepairAllocation } from '../systems/system-repair-allocation.js';
+import { CommandCenterOverride, Checkpoint } from '../systems/command-center.js';
+import { OxygenSystem } from '../systems/oxygen-system.js';
 import { updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { setInteractPrompt } from '../ui/hud.js';
 
@@ -136,6 +139,22 @@ function computeSpawnView() {
   return { position, lookAt };
 }
 
+/**
+ * Floor-level spawn for the player controller (as opposed to computeSpawnView's
+ * eye-height flycam pose) — feet at the spawn cell's storey floor, facing the
+ * hall centre so the starting orientation matches the flycam's establishing shot.
+ * @returns {{x:number, y:number, z:number, yaw:number}}
+ */
+function computePlayerSpawn() {
+  const spot = PLACEMENTS.spawn;
+  const { x, z } = cellToWorld(spot.col, spot.row);
+  const floorY = spot.storey === 'upper' ? DECK_Y : GROUND_Y;
+  // yaw=0 in FlatPhysicsController faces +Z; atan2(dx, dz) toward the hall
+  // centre matches that convention.
+  const yaw = Math.atan2(0 - x, 0 - z);
+  return { x, y: floorY, z, yaw };
+}
+
 // ---------------------------------------------------------------------------
 // createLevel2 — the public factory.
 // ---------------------------------------------------------------------------
@@ -172,6 +191,28 @@ export function createLevel2(options = {}) {
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
 
+  const repairs = new SystemRepairAllocation();
+  registries.repairs = repairs;
+  group.userData.repairs = repairs; // debug / HUD read, and L3's exportFlags() source
+
+  const override = new CommandCenterOverride();
+  registries.override = override;
+  group.userData.override = override; // debug read
+
+  const checkpoint = new Checkpoint();
+  group.userData.checkpoint = checkpoint; // debug read
+
+  // Ticked every frame in update() below; exposed on group.userData so
+  // main.js can read oxygenSystem.fraction and push it to the HUD, same
+  // pattern as fuelSystem/repairs/override/checkpoint above.
+  const oxygenSystem = new OxygenSystem();
+  group.userData.oxygenSystem = oxygenSystem; // debug / HUD read
+
+  // hasOverrideItem flips false -> true exactly once (inside the override
+  // terminal's interact(), dispatched below); watched here so the checkpoint
+  // is saved at that one moment rather than every frame after.
+  let hadOverrideItem = false;
+
   // Stub: the late-L2 lying phase (strip reprogramming, cold HUD lines)
   // wires here once power-allocation lands.
   function onCommandDoorOpen() {
@@ -192,10 +233,35 @@ export function createLevel2(options = {}) {
     updateInteractables(registries.updatables, delta);
     tickFuelProximity(registries.fuelCells, viewer);
 
+    // isRunning: input.running is the same raw value FlatPhysicsController's
+    // own isRunning is set from each frame (flat-physics-controller.js:
+    // "this.isRunning = running; // read by the oxygen system") — reading
+    // it here avoids threading a playerController reference through
+    // level.update()'s existing (delta, viewer, input) contract, since only
+    // the player model (viewer), not the controller, is passed in.
+    oxygenSystem.update(delta, input?.running ?? false);
+
     const nearby = resolvePrompt(registries.interactables, viewer);
     if (input?.interact && nearby) {
       nearby.userData.interact?.();
     }
+
+    // Checkpoint right before the backtrack begins: the moment the override
+    // item is collected, the player is about to head back toward the
+    // command door, so this is where the design doc's "checkpoint right
+    // before the backtrack begins" lands.
+    if (override.hasOverrideItem && !hadOverrideItem) {
+      checkpoint.save({
+        x: viewer.position.x,
+        y: viewer.position.y,
+        z: viewer.position.z,
+        facing: viewer.rotation.y,
+        oxygen: oxygenSystem.oxygen,
+        health: oxygenSystem.health,
+        fuelCount: fuelSystem.count,
+      });
+    }
+    hadOverrideItem = override.hasOverrideItem;
   }
 
   // ----- dispose ---------------------------------------------------------
@@ -226,6 +292,7 @@ export function createLevel2(options = {}) {
     update,
     collisionData: geometry.collision.finalize(),
     getSpawnView: computeSpawnView,
+    getPlayerSpawn: computePlayerSpawn,
     // Debug handles — console access for the flycam and fuel reads.
     __anchors: anchors,
     __lighting: lighting,

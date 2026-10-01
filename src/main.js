@@ -5,18 +5,18 @@ import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
 import { LightingRigL2 } from './core/LightingRigL2.js';
 import { Camera } from './core/Camera.js';
-import { FlyCam } from './core/FlyCam.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
+import { FlatPhysicsController } from './systems/flat-physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
 import { initUI, STATES } from './ui/index.js';
 
-// Dev swap: ?level=l2 loads the Engineering Core blockout with a flycam.
-// Default (no param) = L1 untouched.
+// Dev swap: ?level=l2 loads the Engineering Core blockout with the flat
+// controller + third-person camera. Default (no param) = L1 untouched.
 const urlParams = new window.URLSearchParams(window.location.search);
 const isL2 = urlParams.get('level') === 'l2';
 
@@ -32,25 +32,28 @@ const ui = initUI({ canvas: renderer.domElement });
 
 // Level + camera branch — L1 (default) vs L2 (?level=l2 dev swap).
 
-let level, cameraSetup, flyCam, player, playerController, fuelSystem;
+let level, cameraSetup, player, playerController, fuelSystem;
 
 if (isL2) {
-  // L2 blockout — flycam validation, no player model or drum physics yet.
+  // L2 — the Engineering Core blockout, flat-maze FlatPhysicsController +
+  // the same third-person Camera class L1 uses (dev flycam retired now
+  // that the real controller exists).
   ui.setLevel('l2');
   level = createLevel2();
   scene.add(level.group);
 
-  flyCam = new FlyCam();
-  cameraSetup = null; // FlyCam owns its own PerspectiveCamera
+  cameraSetup = new Camera();
 
-  const spawnView = level.getSpawnView();
-  flyCam.setPositionAndLook(spawnView.position, spawnView.lookAt);
+  player = loadAstronaut();
+  scene.add(player);
 
-  player = null; // L2 blockout has no player model — flycam is the viewer
-  playerController = null; // Alex's flat controller lands later
+  playerController = new FlatPhysicsController(player, level.collisionData);
+  const spawn = level.getPlayerSpawn();
+  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+
   fuelSystem = level.group.userData.fuelSystem;
 
-  window.__game = { level2: level, flyCam };
+  window.__game = { level2: level, player, playerController };
 } else {
   // L1 — the shipped level, drum-locked PlayerController + third-person camera.
   level = createLevel1();
@@ -58,7 +61,6 @@ if (isL2) {
   scene.add(level.group);
 
   cameraSetup = new Camera();
-  flyCam = null;
 
   player = loadAstronaut();
   scene.add(player);
@@ -119,52 +121,43 @@ function animate() {
   // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
   // Paused keeps drawing the (frozen) scene behind the dimmed overlay.
   if (uiState === STATES.PAUSED) {
-    const cam = isL2 ? flyCam.getCamera() : cameraSetup.getCamera();
-    renderer.render(scene, cam);
+    renderer.render(scene, cameraSetup.getCamera());
     return;
   }
   if (uiState !== STATES.PLAYING) return;
 
   const input = inputManager.getInput();
 
-  if (isL2) {
-    // L2 flycam path — no player physics, camera is the viewer.
-    flyCam.applyLookDelta(input.mouseDX, input.mouseDY);
-    flyCam.update(delta, input);
-    const camera = flyCam.getCamera();
-    level.update(delta, camera, input);
-    lightingRigL2.update(delta);
-  } else {
-    // L1 drum path — player physics + third-person camera.
-    playerController.update(delta, input);
-    cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
-    level.update(delta, player, input);
+  // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
+  // object + the same third-person Camera, reading position/orientation
+  // through the shared player.userData.getSurfaceBasis() interface.
+  playerController.update(delta, input);
+  cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
+  level.update(delta, player, input);
+  if (lightingRigL2) lightingRigL2.update(delta);
 
-    // Camera now reads live data straight from the player, via the shared
-    // interface Alex exposes on player.userData.
-    const basis = player.userData.getSurfaceBasis();
-    cameraSetup.update(basis);
-  }
+  const basis = player.userData.getSurfaceBasis();
+  cameraSetup.update(basis);
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
+
+  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
+  if (isL2 && level.group.userData.oxygenSystem) {
+    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  }
 
   // L1-only: HAL proximity flicker.
   if (!isL2 && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
 
-  const cam = isL2 ? flyCam.getCamera() : cameraSetup.getCamera();
-  renderer.render(scene, cam);
+  renderer.render(scene, cameraSetup.getCamera());
 }
 
 animate();
 
 window.addEventListener('resize', () => {
-  if (isL2) {
-    flyCam.resize();
-  } else {
-    cameraSetup.resize();
-  }
+  cameraSetup.resize();
   rendererSetup.resize();
 });
