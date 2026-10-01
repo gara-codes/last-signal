@@ -102,6 +102,13 @@ if (!isL2 && !halObject) {
 const halWorldPosition = halObject ? new THREE.Vector3() : null;
 if (halObject) halObject.getWorldPosition(halWorldPosition);
 
+// L1->L2 transition beat (L1 side only — L2 now has a real FlatPhysicsController,
+// but the actual scripted swap into it still lives in level1's onExitOpen
+// callback; this just pans/dips and hands the follow-cam back until that
+// handoff is wired up).
+const exitDoorObject = !isL2 ? level.group.getObjectByName('l1-blastdoor-2') : null;
+let l1TransitionFired = false;
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -128,7 +135,7 @@ function animate() {
   level.update(delta, player, input);
 
   const basis = player.userData.getSurfaceBasis();
-  cameraSetup.update(basis);
+  cameraSetup.update(basis, delta);
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
@@ -138,10 +145,28 @@ function animate() {
     ui.setOxygen(level.group.userData.oxygenSystem.fraction);
   }
 
-  // L1-only: HAL proximity flicker.
+  if (!isL2 && !l1TransitionFired && level.group.userData.l1Complete) {
+    l1TransitionFired = true;
+    lightingRig.triggerPowerDip(1.5);
+    if (exitDoorObject) {
+      const doorPosition = exitDoorObject.getWorldPosition(new THREE.Vector3());
+      // "Up" derived from the door's own position on the drum (toward the
+      // central X-axis), not the player's current basis — the player may
+      // still be a step away when the hatch finishes opening, and the
+      // transit chamber is small enough that a mismatched up sends the
+      // camera into a wall. Small magnitude (2) to stay inside the
+      // chamber's 10-unit cross-section instead of clipping its ceiling.
+      const doorUp = new THREE.Vector3(0, doorPosition.y, doorPosition.z).normalize().multiplyScalar(-1);
+      const pos = doorPosition.clone().addScaledVector(doorUp, 2);
+      cameraSetup.playTransitionPan(pos, doorPosition, { panDuration: 1, holdDuration: 2 });
+    }
+  }
+
+  // L1-only: HAL proximity flicker + power dip.
   if (!isL2 && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
+  if (!isL2) lightingRig.updatePowerDip(delta);
 
   renderer.render(scene, cameraSetup.getCamera());
 }
