@@ -74,6 +74,16 @@ export class OxygenSystem {
     return true;
   }
 
+  /**
+   * Reduces health directly, independent of the oxygen-depletion drain path
+   * above (e.g. fall damage from a zero-g snap-back). Clamped at 0.
+   * @param {number} amount - HP to remove (negative/zero amounts are a no-op)
+   */
+  takeDamage(amount) {
+    if (amount <= 0) return;
+    this.health = Math.max(0, this.health - amount);
+  }
+
   /** @returns {number} oxygen as a 0-1 fraction (for HUD) */
   get fraction() {
     return this.oxygen / this.maxOxygen;
