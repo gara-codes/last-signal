@@ -127,6 +127,13 @@ function animate() {
 
   const input = inputManager.getInput();
 
+  // cameraYaw: FlatPhysicsController (L2) uses this to make WASD
+  // camera-relative; PlayerController (L1) ignores it, since the drum's
+  // own movement is relative to the player's facing instead. One-frame
+  // stale (from last frame's camera), same as applyLookDelta below —
+  // imperceptible at frame rate.
+  input.cameraYaw = cameraSetup.getWorldYaw(player.userData.getSurfaceBasis());
+
   // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
   // object + the same third-person Camera, reading position/orientation
   // through the shared player.userData.getSurfaceBasis() interface.

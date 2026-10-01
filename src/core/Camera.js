@@ -59,6 +59,23 @@ export class Camera {
   }
 
   /**
+   * The camera's current horizontal facing as a world-space angle, in the
+   * convention FlatPhysicsController expects: atan2(x, z), 0 = world +Z.
+   * Used to make flat-level movement (L2) camera-relative. this.yaw on its
+   * own isn't this angle — it's an orbit offset relative to the player's
+   * own basis.forward (see update() below), not an absolute world angle —
+   * so this re-derives the actual direction the same way update() does,
+   * minus pitch (vertical look shouldn't steer horizontal movement).
+   * L1 doesn't need this: its own movement is relative to the player's own
+   * facing, not the camera's, so physics-controller.js never reads it.
+   */
+  getWorldYaw(basis) {
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(basis.up, this.yaw);
+    const direction = basis.forward.clone().applyQuaternion(yawQuat);
+    return Math.atan2(direction.x, direction.z);
+  }
+
+  /**
    * Scripted pan away from the normal follow-cam to a fixed target, holds
    * there, then hands control back to update()'s per-frame follow-cam
    * automatically. Used for one-off beats (e.g. the exit hatch opening)
