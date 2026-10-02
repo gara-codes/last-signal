@@ -7,6 +7,7 @@ import { Camera } from './core/Camera.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
+import { HALL, GROUND_Y, CEILING_Y } from './levels/level2/grid-data.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { FlatPhysicsController } from './systems/flat-physics-controller.js';
@@ -42,6 +43,18 @@ if (isL2) {
   scene.add(level.group);
 
   cameraSetup = new Camera();
+  // L2's actual bounds (HALL.minX..maxX, GROUND_Y..CEILING_Y, HALL.minZ..maxZ)
+  // — the drum's cylinder clamp doesn't apply here at all.
+  cameraSetup.setBounds({
+    type: 'box',
+    minX: HALL.minX,
+    maxX: HALL.maxX,
+    minY: GROUND_Y,
+    maxY: CEILING_Y,
+    minZ: HALL.minZ,
+    maxZ: HALL.maxZ,
+    margin: 1,
+  });
 
   player = loadAstronaut();
   scene.add(player);
@@ -60,6 +73,9 @@ if (isL2) {
   scene.add(level.group);
 
   cameraSetup = new Camera();
+  // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
+  // HEIGHT_HALF — update alongside those two if the drum size changes.
+  cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
 
   player = loadAstronaut();
   scene.add(player);
