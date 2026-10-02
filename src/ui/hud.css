@@ -49,6 +49,45 @@
   color: var(--ui-text);
 }
 
+/* ---- Oxygen panel (top-left, below Fuel Cells) ---- */
+.hud-oxygen {
+  /* Placed under .hud-fuel (--y: 56px, ~64px tall) with an 8px gap — a
+     reasonable estimate, not pixel-checked against the real fuel panel yet. */
+  --x: 56px;
+  --y: 128px;
+
+  width: 236px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-oxygen__label {
+  font-size: var(--fs-xs);
+  color: var(--ui-text-dim);
+}
+
+.hud-oxygen__track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--ui-track);
+  overflow: hidden;
+}
+
+.hud-oxygen__fill {
+  height: 100%;
+  background: var(--accent);
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* Matches theme.css's documented pattern (--ui-critical) for health/oxygen warnings. */
+.hud-oxygen__fill.is-critical {
+  background: var(--ui-critical);
+}
+
 /* ---- Interaction prompt: "[E] Collect Fuel Cell" (mockup HUD L1) ----
    Docked bottom-centre unless the level gives it an object to lock onto; then the brackets and
    stem appear and the whole thing is positioned from --px/--py (window px, set by hud.js). */

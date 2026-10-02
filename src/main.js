@@ -4,13 +4,21 @@ import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
 import { Camera } from './core/Camera.js';
+import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
+import { createLevel2 } from './levels/level2-engineering-core.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
+import { FlatPhysicsController } from './systems/flat-physics-controller.js';
 import { InputManager } from './core/InputManager.js';
 import './ui/theme.css';
 import { initUI, STATES } from './ui/index.js';
 import { AudioManager } from './audio/audio-manager.js';
+
+// Dev swap: ?level=l2 loads the Engineering Core blockout with the flat
+// controller + third-person camera. Default (no param) = L1 untouched.
+const urlParams = new window.URLSearchParams(window.location.search);
+const isL2 = urlParams.get('level') === 'l2';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -35,47 +43,55 @@ audio.preload('music-test-loop', 'assets/audio/music/_placeholder-loop.mp3');
 // Console: __audio.play('sfx-test-blip')  /  __audio.playMusic('music-test-loop')
 window.__audio = audio;
 
-const cameraSetup = new Camera();
-const camera = cameraSetup.getCamera();
+// Level + camera branch — L1 (default) vs L2 (?level=l2 dev swap).
 
-// Level 1 — must exist before LightingRig, since lights are parented to its group
-const level1 = createLevel1();
-level1.group.rotation.z = Math.PI / 2;
-scene.add(level1.group);
+let level, cameraSetup, player, playerController, fuelSystem;
 
-const lightingRig = new LightingRig(scene, level1.group, {
-  lightCount: 8,
-  radius: 28,
-  ceilingHeight: 8,
-});
+if (isL2) {
+  // L2 — the Engineering Core blockout, flat-maze FlatPhysicsController +
+  // the same third-person Camera class L1 uses (dev flycam retired now
+  // that the real controller exists).
+  ui.setLevel('l2');
+  level = createLevel2();
+  scene.add(level.group);
 
-const halObject = level1.group.getObjectByName('hal-9000');
-if (!halObject) {
-  console.warn(
-    'main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.'
-  );
+  cameraSetup = new Camera();
+
+  player = loadAstronaut();
+  scene.add(player);
+
+  playerController = new FlatPhysicsController(player, level.collisionData);
+  const spawn = level.getPlayerSpawn();
+  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+
+  fuelSystem = level.group.userData.fuelSystem;
+
+  window.__game = { level2: level, player, playerController };
+} else {
+  // L1 — the shipped level, drum-locked PlayerController + third-person camera.
+  level = createLevel1();
+  level.group.rotation.z = Math.PI / 2;
+  scene.add(level.group);
+
+  cameraSetup = new Camera();
+
+  player = loadAstronaut();
+  scene.add(player);
+
+  playerController = new PlayerController(player);
+  level.attachCollision(playerController);
+
+  fuelSystem = level.group.userData.fuelSystem;
+  if (!fuelSystem) {
+    console.warn(
+      'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
+    );
+  }
+
+  window.__game = { level1: level, player, playerController };
 }
-const halWorldPosition = halObject ? new THREE.Vector3() : null;
-if (halObject) halObject.getWorldPosition(halWorldPosition);
 
-// Player Model
-const player = loadAstronaut();
-scene.add(player);
-
-// The level's FuelSystem (pickups add to it, doors spend from it). It hangs off the level group
-// as userData.fuelSystem; the HUD counter reads its live count every frame below.
-const fuelSystem = level1.group.userData.fuelSystem;
-if (!fuelSystem) {
-  console.warn(
-    'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
-  );
-}
-
-const playerController = new PlayerController(player);
 const inputManager = new InputManager(renderer.domElement);
-level1.attachCollision(playerController); // Register walls + closed doors as movement blockers
-
-window.__game = { level1, player, playerController };
 const clock = new THREE.Clock();
 
 // Space pressed on a menu button also queues a jump in InputManager; flush it so resuming
@@ -88,43 +104,60 @@ ui.subscribe((state) => {
 //   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
 //   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
 
+// L1-only systems — LightingRig + HAL proximity flicker are drum-specific.
+const lightingRig = !isL2
+  ? new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 })
+  : null;
+
+const halObject = !isL2 ? level.group.getObjectByName('hal-9000') : null;
+if (!isL2 && !halObject) {
+  console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
+}
+const halWorldPosition = halObject ? new THREE.Vector3() : null;
+if (halObject) halObject.getWorldPosition(halWorldPosition);
+
 function animate() {
   requestAnimationFrame(animate);
 
   // Capped so a tab-refocus pause (or coming back from a menu) can't produce one giant step —
   // that would tunnel the player straight through the wall blockers
-  const delta = Math.min(clock.getDelta(), 0.05);
+  const delta = getCappedDelta(clock);
   const uiState = ui.getState();
 
   // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
   // Paused keeps drawing the (frozen) scene behind the dimmed overlay.
   if (uiState === STATES.PAUSED) {
-    renderer.render(scene, camera);
+    renderer.render(scene, cameraSetup.getCamera());
     return;
   }
   if (uiState !== STATES.PLAYING) return;
 
   const input = inputManager.getInput();
+
+  // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
+  // object + the same third-person Camera, reading position/orientation
+  // through the shared player.userData.getSurfaceBasis() interface.
   playerController.update(delta, input);
   cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
+  level.update(delta, player, input);
 
-  if (level1.update) {
-    level1.update(delta, player, input);
-  }
+  const basis = player.userData.getSurfaceBasis();
+  cameraSetup.update(basis);
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
-  if (halWorldPosition) {
+  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
+  if (isL2 && level.group.userData.oxygenSystem) {
+    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  }
+
+  // L1-only: HAL proximity flicker.
+  if (!isL2 && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
 
-  // Camera now reads live data straight from the player, via the shared
-  // interface Alex exposes on player.userData.
-  const basis = player.userData.getSurfaceBasis();
-  cameraSetup.update(basis);
-
-  renderer.render(scene, camera);
+  renderer.render(scene, cameraSetup.getCamera());
 }
 
 animate();

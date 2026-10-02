@@ -54,11 +54,14 @@ export class InputManager {
   getInput() {
     let axialAxis = 0;
     let tangentAxis = 0;
+    let vertical = 0;
 
     if (this._keys.has('KeyW')) axialAxis -= 1;
     if (this._keys.has('KeyS')) axialAxis += 1;
     if (this._keys.has('KeyD')) tangentAxis += 1;
     if (this._keys.has('KeyA')) tangentAxis -= 1;
+    if (this._keys.has('Space')) vertical += 1;
+    if (this._keys.has('KeyC')) vertical -= 1;
 
     const running = this._keys.has('ShiftLeft') || this._keys.has('ShiftRight');
 
@@ -73,6 +76,6 @@ export class InputManager {
     this._mouseDX = 0;
     this._mouseDY = 0;
 
-    return { axialAxis, tangentAxis, running, jump, interact, mouseDX, mouseDY };
+    return { axialAxis, tangentAxis, vertical, running, jump, interact, mouseDX, mouseDY };
   }
 }
