@@ -22,15 +22,30 @@
 //   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
 //                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
-//   oxygen bar     Wired (L2 only): main.js reads level2.group.userData.oxygenSystem.fraction
-//                  every frame and calls ui.setOxygen() — same pattern as fuel count.
+//   oxygen/health  Wired (L2): main.js reads level.group.userData.oxygenSystem every frame and
+//                  calls ui.setOxygen(fraction) / ui.setHealth(health / 100). The meters only
+//                  show on L2/L3 (the level sets that via setLevel).
+//   warnings       Gravity (Natasha/Alex — gravity-system.js is empty so far). One banner slot:
+//                    ui.setWarning('Life Support Fault Detected')                one-shot cue
+//                    ui.setWarning('Gravity Field Destabilizing', { icon: 'gravity', pulse: true })
+//                    ui.setGraceWindow(0..1)   grace bar under the banner (1 = full); null hides
+//                    ui.triggerAlarm()         two light drops (one slow dim w/ Reduce Flashing)
+//                    ui.setWarning(null)       clears the banner and its bar
+//   L3 threats     ui.setHullBreach(secondsLeft | null) and ui.setScrubbersOffline(bool) — the
+//                  marker only if Scrubbers are still broken on entry to L3
+//                  (repairs.getState('oxygen-scrubbers') !== 'repaired').
+//   power readout  ui.setPower(0-100) once power-allocation.js is live; until then each level
+//                  shows the mockup's value (100 / 61 / 19).
 //   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
 //                  (labels, denied state and detail, object anchor — see the header of hud.js).
 //                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
 //                  "Open Door" + "2 / 4 Fuel Cells" when denied) and the anchor position.
 //   sfx / music    Audio manager — settings.subscribe() and read sfxVolume / musicVolume (0-100).
-//   captions       The AI-voice caption bar reads settings.get().captions (also mirrored on
-//                  body[data-captions]); the bar itself is not built yet.
+//   captions       Whoever plays an AI voice line calls ui.setCaption('line') and
+//                  ui.setCaption(null) when it ends. Options > AI Voice Captions hides the bar
+//                  (body[data-captions]).
+//   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css handles
+//                  it, nothing to wire.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,
 //                  pause overlay and loading screen follow the level.
 //   Continue       Whether "Quit to Main Menu" keeps the run is Alex's call — flip
@@ -68,6 +83,7 @@ export function initUI({ canvas = null } = {}) {
   function setLevel(id) {
     levelId = id;
     document.body.dataset.level = id;
+    hud.setLevel(id);
   }
   setLevel(levelId);
 
@@ -81,6 +97,7 @@ export function initUI({ canvas = null } = {}) {
       canvas.style.filter = factor === 1 ? '' : `brightness(${factor})`;
     }
     document.body.dataset.captions = values.captions ? 'on' : 'off';
+    document.body.dataset.reduceFlashing = values.reduceFlashing ? 'on' : 'off';
   }
   settings.subscribe(applySettings);
   applySettings(settings.get());
@@ -106,5 +123,13 @@ export function initUI({ canvas = null } = {}) {
     setLevel,
     setFuelCount: (count) => hud.setFuelCount(count),
     setOxygen: (fraction) => hud.setOxygen(fraction),
+    setHealth: (fraction) => hud.setHealth(fraction),
+    setPower: (percent) => hud.setPower(percent),
+    setCaption: (text, options) => hud.setCaption(text, options),
+    setWarning: (label, options) => hud.setWarning(label, options),
+    setGraceWindow: (fraction) => hud.setGraceWindow(fraction),
+    triggerAlarm: () => hud.triggerAlarm(),
+    setHullBreach: (seconds) => hud.setHullBreach(seconds),
+    setScrubbersOffline: (offline) => hud.setScrubbersOffline(offline),
   };
 }

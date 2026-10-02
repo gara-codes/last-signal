@@ -51,6 +51,11 @@ let swapTimer = null;
 const SWAP_DELAY = 0.45;
 const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
 
+// L2 arrival cue: the HUD warning banner reads "Life Support Fault Detected" for this long
+// (game time, so it holds while paused). The same banner slot carries the gravity warning later.
+const FAULT_CUE_SECONDS = 5;
+let faultCueTimer = null;
+
 // Full-screen black overlay that hides the L1 -> L2 cut. Opacity is driven
 // by CSS transitions, so there's no per-frame work.
 const fadeOverlay = document.createElement('div');
@@ -122,6 +127,8 @@ function loadL1() {
  */
 function loadL2({ startingReserve = 0 } = {}) {
   ui.setLevel('l2');
+  ui.setWarning('Life Support Fault Detected');
+  faultCueTimer = FAULT_CUE_SECONDS;
   level = createLevel2({ startingReserve });
   scene.add(level.group);
 
@@ -227,9 +234,11 @@ function animate() {
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
-  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
-  if (inL2 && level.group.userData.oxygenSystem) {
-    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  // L2-only: oxygen + health meters, read the same way (live value each frame, not event-hooked).
+  const oxygenSystem = inL2 ? level.group.userData.oxygenSystem : null;
+  if (oxygenSystem) {
+    ui.setOxygen(oxygenSystem.fraction);
+    ui.setHealth(oxygenSystem.health / 100);
   }
 
   if (!inL2 && !l1TransitionFired && level.group.userData.l1Complete) {
@@ -244,6 +253,14 @@ function animate() {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
   if (!inL2) lightingRig.updatePowerDip(delta);
+
+  if (faultCueTimer !== null) {
+    faultCueTimer -= delta;
+    if (faultCueTimer <= 0) {
+      faultCueTimer = null;
+      ui.setWarning(null);
+    }
+  }
 
   // Once the pan + dip have played out, replace L1 with L2. Done at the end
   // of the frame's updates so nothing above touches a disposed level.

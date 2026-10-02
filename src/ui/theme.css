@@ -10,9 +10,8 @@
  * if they land on different values first, update this file to match.
  *
  * STATUS: menu-suite foundation lock (main menu, options, pause, loading, credits).
- * Values come from the HUD & menu mockup (Version 16). Level-HUD-only values (L3 red family,
- * L2 amber alphas, repair-console/graph tokens, HUD-only type sizes) are deliberately NOT
- * here yet — they land in the level lock once those screens settle.
+ * Values come from the HUD & menu mockup (Version 16); the level HUD lock below (AI link, L3
+ * red family, banner/caption fills) comes from the final HUD mockup (Version 22).
  * L2 amber (--state-warning) is still provisional (Gara hasn't built the L2 lighting pass).
  */
 
@@ -122,6 +121,19 @@
   --chamfer-md: 10px; /* menu rows, HUD panels */
   --chamfer-lg: 12px; /* credits panels */
   --chamfer-xl: 16px; /* options panel */
+
+  /* ---- level HUD lock (final HUD mockup, Version 22) ---- */
+  --ai-presence: #ff2626; /* AI link dot: fixed on every level, never the level accent, so the
+                             AI always reads as "other" against the room */
+  --hud-oxygen: var(--state-clean); /* oxygen meter: icy blue on every level until it runs low */
+  --ui-critical-soft: #ff9b9b; /* label text on a critical panel */
+  --ui-critical-bg: rgba(20, 6, 6, 0.9); /* critical panel fill */
+  --hud-caption-bg: rgba(4, 5, 6, 0.72); /* AI-voice caption bar */
+  --hud-warning-banner-bg: rgba(20, 15, 4, 0.92); /* L2 warning banner */
+  --hud-hostile-banner-bg: rgba(24, 6, 5, 0.94); /* L3 warning banner */
+  --hud-hostile-panel: rgba(16, 8, 7, 0.85); /* L3 HUD panels: red-shifted --ui-panel */
+  --hud-hostile-text-dim: #a08a86; /* L3 HUD labels + sector readout: red-shifted grey */
+  --hud-hostile-wash: rgba(178, 58, 48, 0.16); /* L3 pulsing danger wash (--state-hostile) */
 
   /* ---- stacking order (shared scale — keep every new screen on this, not one-off z-index) ---- */
   --z-hud: 10; /* always-on HUD panels */

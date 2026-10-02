@@ -82,6 +82,15 @@ describe('createSettings', () => {
     expect(settings.get()).not.toHaveProperty('difficulty');
   });
 
+  it('reduceFlashing defaults off, only accepts booleans and persists', () => {
+    const storage = fakeStorage();
+    const settings = createSettings({ storage });
+    expect(settings.get().reduceFlashing).toBe(false);
+    expect(settings.set('reduceFlashing', 1)).toBe(false);
+    expect(settings.set('reduceFlashing', true)).toBe(true);
+    expect(createSettings({ storage }).get().reduceFlashing).toBe(true);
+  });
+
   it('loads saved values and repairs bad ones', () => {
     const storage = fakeStorage({
       [SETTINGS_KEY]: JSON.stringify({
@@ -90,6 +99,7 @@ describe('createSettings', () => {
         brightness: 999,
         hudOpacity: 42,
         captions: 'nope',
+        reduceFlashing: 'on',
         extra: 1,
       }),
     });
@@ -99,6 +109,7 @@ describe('createSettings', () => {
     expect(values.brightness).toBe(100);
     expect(values.hudOpacity).toBe(40);
     expect(values.captions).toBe(DEFAULT_SETTINGS.captions);
+    expect(values.reduceFlashing).toBe(DEFAULT_SETTINGS.reduceFlashing);
     expect(values).not.toHaveProperty('extra');
   });
 
