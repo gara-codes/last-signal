@@ -7,6 +7,7 @@ import { Camera } from './core/Camera.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
+import { HALL, GROUND_Y, CEILING_Y } from './levels/level2/grid-data.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
 import { FlatPhysicsController } from './systems/flat-physics-controller.js';
@@ -33,33 +34,61 @@ const ui = initUI({ canvas: renderer.domElement });
 
 let level, cameraSetup, player, playerController, fuelSystem;
 
-if (isL2) {
-  // L2 — the Engineering Core blockout, flat-maze FlatPhysicsController +
-  // the same third-person Camera class L1 uses (dev flycam retired now
-  // that the real controller exists).
-  ui.setLevel('l2');
-  level = createLevel2();
-  scene.add(level.group);
+// Which level is live. Starts from the dev param; flips to true when L1's
+// exit hatch hands off to L2 (see swapToL2 below).
+let inL2 = isL2;
 
-  cameraSetup = new Camera();
+// L1-only systems — LightingRig + HAL proximity flicker are drum-specific.
+let lightingRig = null;
+let halObject = null;
+let halWorldPosition = null;
+let l1TransitionFired = false;
 
-  player = loadAstronaut();
-  scene.add(player);
+// L1->L2 swap state: null while idle, otherwise the countdown (seconds) until
+// the swap runs. The power dip plays first; the fade starts at its darkest
+// point so the dip is seen rather than hidden under the overlay.
+let swapTimer = null;
+let fadeStarted = false;
+const SWAP_DELAY = 0.7; // dip length = time from hatch open to the swap
+const FADE_OUT = 0.3; // last stretch of the dip, spent fading to black
+const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
 
-  playerController = new FlatPhysicsController(player, level.collisionData);
-  const spawn = level.getPlayerSpawn();
-  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+// Full-screen black overlay that hides the L1 -> L2 cut. Opacity is driven
+// by CSS transitions, so there's no per-frame work.
+const fadeOverlay = document.createElement('div');
+fadeOverlay.style.cssText =
+  'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:50;';
+document.body.append(fadeOverlay);
+function fadeTo(opacity, seconds) {
+  fadeOverlay.style.transition = `opacity ${seconds}s ease-in-out`;
+  fadeOverlay.style.opacity = String(opacity);
+}
 
-  fuelSystem = level.group.userData.fuelSystem;
+function setupL2Camera() {
+  // L2's actual bounds (HALL.minX..maxX, GROUND_Y..CEILING_Y, HALL.minZ..maxZ)
+  // — the drum's cylinder clamp doesn't apply here at all.
+  cameraSetup.setBounds({
+    type: 'box',
+    minX: HALL.minX,
+    maxX: HALL.maxX,
+    minY: GROUND_Y,
+    maxY: CEILING_Y,
+    minZ: HALL.minZ,
+    maxZ: HALL.maxZ,
+    margin: 1,
+  });
+}
 
-  window.__game = { level2: level, player, playerController };
-} else {
+function loadL1() {
   // L1 — the shipped level, drum-locked PlayerController + third-person camera.
   level = createLevel1();
   level.group.rotation.z = Math.PI / 2;
   scene.add(level.group);
 
   cameraSetup = new Camera();
+  // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
+  // HEIGHT_HALF — update alongside those two if the drum size changes.
+  cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
 
   player = loadAstronaut();
   scene.add(player);
@@ -74,7 +103,79 @@ if (isL2) {
     );
   }
 
+  lightingRig = new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 });
+
+  halObject = level.group.getObjectByName('hal-9000');
+  if (!halObject) {
+    console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
+  }
+  halWorldPosition = halObject ? new THREE.Vector3() : null;
+  if (halObject) halObject.getWorldPosition(halWorldPosition);
+
+
   window.__game = { level1: level, player, playerController };
+}
+
+/**
+ * Builds L2 from scratch (dev swap, `?level=l2`) or carrying L1's state
+ * forward. The player model and camera are reused across the swap — only
+ * the controller and level are replaced.
+ * @param {{ startingReserve?: number }} [carry]
+ */
+function loadL2({ startingReserve = 0 } = {}) {
+  ui.setLevel('l2');
+  level = createLevel2({ startingReserve });
+  scene.add(level.group);
+
+  if (!cameraSetup) cameraSetup = new Camera();
+  setupL2Camera();
+
+  if (!player) {
+    player = loadAstronaut();
+    scene.add(player);
+  }
+
+  playerController = new FlatPhysicsController(player, level.collisionData);
+  const spawn = level.getPlayerSpawn();
+  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+
+  fuelSystem = level.group.userData.fuelSystem;
+
+  window.__game = { level2: level, player, playerController };
+}
+
+/**
+ * The real L1 -> L2 handoff: tears L1 down (GPU resources included), then
+ * builds L2 with L1's banked fuel as its starting reserve. Runs from the
+ * animate loop once the transition beat has had time to play.
+ */
+function swapToL2() {
+  const banked = fuelSystem ? fuelSystem.banked : 0;
+
+  // L1 teardown — level.dispose() frees geometry/materials and the HUD prompt;
+  // the rig's lights live in the scene/level group so they go separately.
+  scene.remove(level.group);
+  level.dispose();
+  lightingRig.dispose();
+  lightingRig = null;
+  halObject = null;
+  halWorldPosition = null;
+
+  inL2 = true;
+  loadL2({ startingReserve: banked });
+
+  // Reset camera look state so L2 doesn't inherit L1's orbit offset
+  cameraSetup.yaw = 0;
+  cameraSetup.pitch = 0;
+  ui.setFuelCount(fuelSystem.banked);
+
+  fadeTo(0, FADE_IN);
+}
+
+if (isL2) {
+  loadL2();
+} else {
+  loadL1();
 }
 
 const inputManager = new InputManager(renderer.domElement);
@@ -89,18 +190,6 @@ ui.subscribe((state) => {
 // TODO(wire): see the WIRING notes at the top of src/ui/index.js —
 //   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
 //   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
-
-// L1-only systems — LightingRig + HAL proximity flicker are drum-specific.
-const lightingRig = !isL2
-  ? new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 })
-  : null;
-
-const halObject = !isL2 ? level.group.getObjectByName('hal-9000') : null;
-if (!isL2 && !halObject) {
-  console.warn('main.js: "hal-9000" not found in level group — proximity flicker will be disabled for this level.');
-}
-const halWorldPosition = halObject ? new THREE.Vector3() : null;
-if (halObject) halObject.getWorldPosition(halWorldPosition);
 
 function animate() {
   requestAnimationFrame(animate);
@@ -120,6 +209,13 @@ function animate() {
 
   const input = inputManager.getInput();
 
+  // cameraYaw: FlatPhysicsController (L2) uses this to make WASD
+  // camera-relative; PlayerController (L1) ignores it, since the drum's
+  // own movement is relative to the player's facing instead. One-frame
+  // stale (from last frame's camera), same as applyLookDelta below —
+  // imperceptible at frame rate.
+  input.cameraYaw = cameraSetup.getWorldYaw(player.userData.getSurfaceBasis());
+
   // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
   // object + the same third-person Camera, reading position/orientation
   // through the shared player.userData.getSurfaceBasis() interface.
@@ -128,19 +224,41 @@ function animate() {
   level.update(delta, player, input);
 
   const basis = player.userData.getSurfaceBasis();
-  cameraSetup.update(basis);
+  cameraSetup.update(basis, delta);
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
   // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
-  if (isL2 && level.group.userData.oxygenSystem) {
+  if (inL2 && level.group.userData.oxygenSystem) {
     ui.setOxygen(level.group.userData.oxygenSystem.fraction);
   }
 
-  // L1-only: HAL proximity flicker.
-  if (!isL2 && halWorldPosition) {
+  if (!inL2 && !l1TransitionFired && level.group.userData.l1Complete) {
+    l1TransitionFired = true;
+    swapTimer = SWAP_DELAY;
+    fadeStarted = false;
+    lightingRig.triggerPowerDip(SWAP_DELAY);
+  }
+
+  // L1-only: HAL proximity flicker + power dip.
+  if (!inL2 && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
+  }
+  if (!inL2) lightingRig.updatePowerDip(delta);
+
+  // Once the pan + dip have played out, replace L1 with L2. Done at the end
+  // of the frame's updates so nothing above touches a disposed level.
+  if (swapTimer !== null) {
+    swapTimer -= delta;
+    if (!fadeStarted && swapTimer <= FADE_OUT) {
+      fadeStarted = true;
+      fadeTo(1, Math.max(swapTimer, 0.05)); // swapToL2() fades back in
+    }
+    if (swapTimer <= 0) {
+      swapTimer = null;
+      swapToL2();
+    }
   }
 
   renderer.render(scene, cameraSetup.getCamera());

@@ -389,6 +389,7 @@ export function createLevel1() {
   const { room, exitDoor } = createTransitPoint(interactables, () => {
     console.log(`LEVEL 1 COMPLETE - banked for L2: ${fuelSystem.banked}`);
     //Beta: level-swap lives here; `banked` becomes L2's starting reserve
+    level1Group.userData.l1Complete = true; // main.js watches this to fire the transition beat
   });
   applyFuelGate(exitDoor, new DoorGate('l1-blastdoor-2', 2), fuelSystem);
 

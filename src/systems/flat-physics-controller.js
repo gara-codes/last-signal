@@ -237,7 +237,10 @@ export class FlatPhysicsController {
 
   _syncBasis() {
     const forward = new THREE.Vector3(Math.sin(this.facingYaw), 0, Math.cos(this.facingYaw));
-    this.player.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.facingYaw);
+    // + PI: the astronaut model's front faces the group's -Z (L1's lookAt-based
+    // controller makes -Z the heading; AssetLoader rotates the model to match),
+    // so without it the character walks facing away from its heading here.
+    this.player.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.facingYaw + Math.PI);
     this.player.position.copy(this.position);
 
     this._basis.position.copy(this.position);
