@@ -73,9 +73,37 @@ export class LightingRig {
     }
 
     this.baseIntensities = this.stripLights.map((light) => light.intensity);
+
+    // One-shot power dip — e.g. the L1->L2 transition beat, door power
+    // rerouting. Inactive (_dipTimer <= 0) until triggerPowerDip() is
+    // called; when active it overrides updateProximityFlicker's writes,
+    // so call updatePowerDip() after it each frame.
+    this._dipTimer = 0;
+    this._dipDuration = 0;
+  }
+
+  /** Starts a power dip: quick drop, brief near-dark hold, eased recovery. */
+  triggerPowerDip(duration = 1.5) {
+    this._dipTimer = duration;
+    this._dipDuration = duration;
+  }
+
+  updatePowerDip(delta) {
+    if (this._dipTimer <= 0) return;
+    this._dipTimer = Math.max(0, this._dipTimer - delta);
+
+    const u = 1 - this._dipTimer / this._dipDuration; // 0 -> 1 as the dip plays out
+    const dipFactor = 1 - 0.85 * Math.sin(Math.PI * u); // 1 -> ~0.15 (mid) -> 1
+
+    this.ambientLight.intensity = this.baseAmbientIntensity * dipFactor;
+    this.hemiLight.intensity = L1_HEMI_INTENSITY * dipFactor;
+    this.stripLights.forEach((light, i) => {
+      light.intensity = this.baseIntensities[i] * dipFactor;
+    });
   }
 
 updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
+    if (this._dipTimer > 0) return; // power dip owns the lights while active
     this.flickerTime += delta;
     const distance = playerPosition.distanceTo(aiWorldPosition);
     const isNear = distance < this.flickerRadius;
