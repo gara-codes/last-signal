@@ -23,7 +23,7 @@
 //
 //   import { setInteractPrompt } from '../ui/hud.js';
 //   setInteractPrompt('Open Door', { detail: '2 Fuel Cells', target: door });     // locked on
-//   setInteractPrompt('Open Door', { detail: '2 Fuel Cells', denied: true, target: door });
+//   setInteractPrompt('Open Door', { detail: '1 / 2 Fuel Cells', denied: true, target: door });
 //   setInteractPrompt('Collect Fuel Cell', { hint: true, target: cell });  // no [E] badge
 //   setInteractPrompt('Grab Handhold', { tone: 'hazard', target: handhold });
 //   setInteractPrompt(null);                                                       // hide

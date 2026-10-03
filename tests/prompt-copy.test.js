@@ -17,13 +17,18 @@ describe('fuelCellsText', () => {
 });
 
 describe('costPrompt', () => {
-  it('always shows the cost, muted only when unaffordable', () => {
+  it('shows the cost when affordable, muted have / need when not', () => {
     expect(costPrompt('Open Door', 2, 3)).toEqual({
       label: 'Open Door',
       detail: '2 Fuel Cells',
       denied: false,
     });
-    expect(costPrompt('Open Door', 2, 1).denied).toBe(true);
+    expect(costPrompt('Open Door', 2, 1)).toEqual({
+      label: 'Open Door',
+      detail: '1 / 2 Fuel Cells',
+      denied: true,
+    });
+    expect(costPrompt('Reroute Power', 1, 0).detail).toBe('0 / 1 Fuel Cell');
     expect(costPrompt('Open Door', 2, 2).denied).toBe(false);
   });
 });
@@ -48,7 +53,7 @@ describe('promptForInteractable', () => {
     const door = { userData: { state: 'locked', fuelGate: { cost: 2 } } };
     expect(promptForInteractable(door, fuel(1))).toEqual({
       label: 'Open Door',
-      detail: '2 Fuel Cells',
+      detail: '1 / 2 Fuel Cells',
       denied: true,
     });
     expect(promptForInteractable(door, fuel(2)).denied).toBe(false);

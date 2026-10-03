@@ -5,8 +5,8 @@
 //
 // Copy rules (Shannon, Oct 2026):
 //   - Anything that costs fuel shows what it costs, always: "[E] Open Door | 2 Fuel Cells".
-//     When the player can't afford it the same prompt goes muted (denied). No "1 / 2" fraction —
-//     the Fuel Cells panel already shows what they have.
+//     When the player can't afford it the prompt goes muted (denied) and the detail becomes
+//     have / need: "[E] Open Door | 1 / 2 Fuel Cells".
 //   - Fuel cells are auto-pickup, so their prompt is a hint: brackets + label, no [E] badge.
 //   - Repair stations always open their console: "[E] Access Console | Gravity Stabilizers",
 //     detail "Fully Repaired" once done. The cost/denial lives inside the console.
@@ -18,13 +18,16 @@ export function fuelCellsText(count) {
 }
 
 /**
- * A prompt for an action that spends fuel: always shows the cost, muted when unaffordable.
+ * A prompt for an action that spends fuel: shows the cost ("2 Fuel Cells"); when unaffordable
+ * it is muted and shows have / need instead ("1 / 2 Fuel Cells").
  * @param {string} label   e.g. 'Open Door'
  * @param {number} cost    fuel cells the action spends
  * @param {number} banked  fuel cells the player has
  */
 export function costPrompt(label, cost, banked) {
-  return { label, detail: fuelCellsText(cost), denied: !(Number(banked) >= cost) };
+  const have = Math.max(0, Math.floor(Number(banked) || 0));
+  if (have >= cost) return { label, detail: fuelCellsText(cost), denied: false };
+  return { label, detail: `${have} / ${fuelCellsText(cost)}`, denied: true };
 }
 
 export const FUEL_CELL_HINT = Object.freeze({ label: 'Collect Fuel Cell', hint: true });

@@ -4,7 +4,7 @@
 // hud.js turns the result into markup. Looks (final HUD mockup; copy lives in prompt-copy.js):
 //
 //   normal   "[E] Open Door | 2 Fuel Cells"          clean-blue key badge
-//   denied   the same, muted — no accent, no red — reads as "not yet"
+//   denied   "[E] Open Door | 1 / 2 Fuel Cells", muted — no accent, no red — reads as "not yet"
 //   hint     "Collect Fuel Cell" with no [E] badge   a cue for something that happens on its own
 //   hazard   "[E] Grab Handhold"                     key + brackets in the level's warning colour
 //   anchored any of the above, with corner brackets and a stem locked onto the object in

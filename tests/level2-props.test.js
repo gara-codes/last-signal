@@ -92,7 +92,7 @@ describe('L2 prop builders — userData contract', () => {
     expect(terminal.userData.interactable).toBe(true);
     expect(terminal.userData.getPrompt(new FuelSystem(0))).toEqual({
       label: 'Reroute Power',
-      detail: '1 Fuel Cell',
+      detail: '0 / 1 Fuel Cell',
       denied: true,
     });
     expect(terminal.userData.getPrompt(new FuelSystem(1)).denied).toBe(false);
