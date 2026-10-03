@@ -151,8 +151,10 @@
   position: absolute;
   bottom: 120px;
   left: 120px;
-  width: 132px;
-  padding: 12px 14px;
+  /* same sizing as the HUD's Fuel Cells panel (hud.css .hud-fuel) */
+  width: max-content;
+  min-width: 132px;
+  padding: 12px 18px 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;

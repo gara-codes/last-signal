@@ -5,6 +5,7 @@ import {
   normalizeSlider,
   brightnessToFactor,
   hudOpacityToCss,
+  hudOpacityLayers,
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
   SLIDERS,
@@ -191,5 +192,14 @@ describe('slider -> effect mappings', () => {
     expect(hudOpacityToCss(20)).toBe(0.2);
     expect(hudOpacityToCss(50)).toBe(0.5);
     expect(hudOpacityToCss(100)).toBe(1);
+  });
+
+  it('splits HUD opacity: boxes fade fully, text and icons half as far', () => {
+    expect(hudOpacityLayers(100)).toEqual({ box: 1, content: 1, boxFactor: 1 });
+    const low = hudOpacityLayers(20);
+    expect(low.box).toBe(0.2);
+    expect(low.content).toBe(0.6);
+    expect(low.content * low.boxFactor).toBeCloseTo(0.2, 2);
+    expect(hudOpacityLayers(0)).toEqual(low); // the 20% floor still applies
   });
 });

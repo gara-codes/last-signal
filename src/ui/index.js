@@ -67,7 +67,7 @@
 import './ui.css';
 import { installStageScaling } from './stage.js';
 import { createUiState, STATES } from './ui-state.js';
-import { createSettings, brightnessToFactor, hudOpacityToCss } from './settings.js';
+import { createSettings, brightnessToFactor, hudOpacityLayers } from './settings.js';
 import { createTipPicker } from './tips.js';
 import { trackAssetProgress } from './asset-progress.js';
 import { createHud } from './hud.js';
@@ -100,10 +100,12 @@ export function initUI({ canvas = null } = {}) {
   setLevel(levelId);
 
   function applySettings(values) {
-    document.documentElement.style.setProperty(
-      '--hud-opacity',
-      String(hudOpacityToCss(values.hudOpacity))
-    );
+    // HUD Opacity: boxes fade to the slider value, text/icons only half as far (settings.js).
+    const hudLayers = hudOpacityLayers(values.hudOpacity);
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--hud-opacity', String(hudLayers.box));
+    rootStyle.setProperty('--hud-content-opacity', String(hudLayers.content));
+    rootStyle.setProperty('--hud-box-factor', String(hudLayers.boxFactor));
     if (canvas) {
       const factor = brightnessToFactor(values.brightness);
       canvas.style.filter = factor === 1 ? '' : `brightness(${factor})`;

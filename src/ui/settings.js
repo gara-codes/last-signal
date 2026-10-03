@@ -91,6 +91,21 @@ export function hudOpacityToCss(percent) {
   return Math.min(SLIDER_MAX, Math.max(floor, percent)) / 100;
 }
 
+/**
+ * HUD Opacity split into two layers, so text and icons stay readable at the low end while the
+ * panel boxes fade fully:
+ *   box      what the panel backgrounds/borders end up at — the slider value itself (0.2-1)
+ *   content  text, icons, pips: fades at half the rate (100% -> 1, 20% -> 0.6)
+ *   boxFactor  extra fade applied to the box layer on top of `content`, so that
+ *              content * boxFactor === box
+ */
+export function hudOpacityLayers(percent) {
+  const box = hudOpacityToCss(percent);
+  const content = 1 - (1 - box) / 2;
+  const round = (n) => Math.round(n * 1000) / 1000;
+  return { box, content: round(content), boxFactor: round(box / content) };
+}
+
 function defaultStorage() {
   try {
     return globalThis.localStorage ?? null;
