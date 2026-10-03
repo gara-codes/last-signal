@@ -48,13 +48,16 @@
 //                  it, nothing to wire.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,
 //                  pause overlay and loading screen follow the level.
+//   level loads    ui.enterLevel('l2' | 'l3') during a transition: sets the theme and shows the
+//                  loading screen (real asset progress, min 0.7s), then play resumes on its own.
+//                  main.js does this for L1 -> L2; L2 -> L3 should do the same.
 //   Continue       Whether "Quit to Main Menu" keeps the run is Alex's call — flip
 //                  keepSessionOnQuit below.
 // ---------------------------------------------------------------------------------------------
 
 import './ui.css';
 import { installStageScaling } from './stage.js';
-import { createUiState, STATES } from './ui-state.js';
+import { createUiState, STATES, ACTIONS } from './ui-state.js';
 import { createSettings, brightnessToFactor, hudOpacityToCss } from './settings.js';
 import { createTipPicker } from './tips.js';
 import { trackAssetProgress } from './asset-progress.js';
@@ -121,6 +124,11 @@ export function initUI({ canvas = null } = {}) {
     subscribe: (listener) => state.subscribe(listener),
     registerHooks: (partial) => Object.assign(hooks, partial),
     setLevel,
+    /** Level transition: theme the destination and show the loading screen until it loads. */
+    enterLevel(id) {
+      setLevel(id);
+      return state.send(ACTIONS.ENTER_LEVEL);
+    },
     setFuelCount: (count) => hud.setFuelCount(count),
     setOxygen: (fraction) => hud.setOxygen(fraction),
     setHealth: (fraction) => hud.setHealth(fraction),
