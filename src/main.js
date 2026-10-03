@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
+import { LightingRigL2 } from './core/LightingRigL2.js';
 import { Camera } from './core/Camera.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
@@ -40,6 +41,8 @@ let inL2 = isL2;
 
 // L1-only systems — LightingRig + HAL proximity flicker are drum-specific.
 let lightingRig = null;
+// L2 lighting pass — built in loadL2, replaces the blockout's placeholder fill lights.
+let lightingRigL2 = null;
 let halObject = null;
 let halWorldPosition = null;
 let l1TransitionFired = false;
@@ -141,6 +144,9 @@ function loadL2({ startingReserve = 0 } = {}) {
 
   fuelSystem = level.group.userData.fuelSystem;
 
+  renderer.shadowMap.enabled = true; // a couple of L2 lights cast shadows
+  lightingRigL2 = new LightingRigL2(scene, level.group);
+
   window.__game = { level2: level, player, playerController };
 }
 
@@ -222,6 +228,7 @@ function animate() {
   playerController.update(delta, input);
   cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
   level.update(delta, player, input);
+  if (lightingRigL2) lightingRigL2.update(delta);
 
   const basis = player.userData.getSurfaceBasis();
   cameraSetup.update(basis, delta);
