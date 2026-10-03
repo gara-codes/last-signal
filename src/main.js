@@ -45,10 +45,12 @@ let halWorldPosition = null;
 let l1TransitionFired = false;
 
 // L1->L2 swap state: null while idle, otherwise the countdown (seconds) until
-// the swap runs. The power dip + fade-out play over this, so keep it short —
-// the hatch's own open animation has already taken its 2.5s by now.
+// the swap runs. The power dip plays first; the fade starts at its darkest
+// point so the dip is seen rather than hidden under the overlay.
 let swapTimer = null;
-const SWAP_DELAY = 0.45;
+let fadeStarted = false;
+const SWAP_DELAY = 0.7; // dip length = time from hatch open to the swap
+const FADE_OUT = 0.3; // last stretch of the dip, spent fading to black
 const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
 
 // Full-screen black overlay that hides the L1 -> L2 cut. Opacity is driven
@@ -235,8 +237,8 @@ function animate() {
   if (!inL2 && !l1TransitionFired && level.group.userData.l1Complete) {
     l1TransitionFired = true;
     swapTimer = SWAP_DELAY;
+    fadeStarted = false;
     lightingRig.triggerPowerDip(SWAP_DELAY);
-    fadeTo(1, SWAP_DELAY); // black out under the dip; swapToL2() fades back in
   }
 
   // L1-only: HAL proximity flicker + power dip.
@@ -249,6 +251,10 @@ function animate() {
   // of the frame's updates so nothing above touches a disposed level.
   if (swapTimer !== null) {
     swapTimer -= delta;
+    if (!fadeStarted && swapTimer <= FADE_OUT) {
+      fadeStarted = true;
+      fadeTo(1, Math.max(swapTimer, 0.05)); // swapToL2() fades back in
+    }
     if (swapTimer <= 0) {
       swapTimer = null;
       swapToL2();
