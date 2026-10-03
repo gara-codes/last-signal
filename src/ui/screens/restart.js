@@ -11,7 +11,7 @@
 // Fed by main.js through ui.showRestart(info) — see restart-model.js for `info`.
 
 import './restart.css';
-import { el, svg } from '../dom.js';
+import { el, svg, cornerBrackets } from '../dom.js';
 import { restartView } from './restart-model.js';
 
 function signalLostIcon() {
@@ -66,7 +66,7 @@ export function createRestartScreen(api) {
   const lastSector = el('span', { className: 'restart__sector-name' });
 
   const restartButton = el('button', {
-    className: 'restart__button restart__button--primary ui-label',
+    className: 'restart__button restart__button--primary ui-label ui-chamfer-row',
     attrs: { type: 'button' },
     on: {
       click: () => {
@@ -75,7 +75,7 @@ export function createRestartScreen(api) {
     },
   });
   const menuButton = el('button', {
-    className: 'restart__button restart__button--secondary ui-label',
+    className: 'restart__button restart__button--secondary ui-label ui-chamfer-row',
     text: 'Return to Main Menu',
     attrs: { type: 'button' },
     on: { click: () => api.quitToMenu() },
@@ -109,7 +109,8 @@ export function createRestartScreen(api) {
         className: 'restart__note ui-mono',
         text: 'Progress within this sector is not retained',
       })
-    )
+    ),
+    cornerBrackets()
   );
 
   // Arrow keys move between the two buttons; Enter/Space press the focused one natively.

@@ -9,6 +9,11 @@
   --restart-bg: #020202;
 }
 
+/* corner brackets stay the clean blue of the primary button on every level */
+.ui-screen--restart .ui-corners {
+  color: var(--state-clean);
+}
+
 /* no technical grid; a heavier vignette than the other screens */
 .ui-screen.ui-screen--restart::before {
   display: none;
@@ -91,6 +96,9 @@
 
 .restart__title {
   margin: 0;
+  /* letter-spacing also trails the last letter; pad the start by the same so the word itself
+     sits on the centre line */
+  padding-left: 0.22em;
   font-size: var(--fs-pause);
   letter-spacing: 0.22em;
   color: var(--ui-text);
@@ -103,14 +111,16 @@
   color: var(--hud-hostile-text-dim);
 }
 
-/* run stats */
+/* run stats: three equal columns, so the middle stat sits exactly on the screen's centre line
+   whatever the label lengths */
 .restart__stats {
   position: absolute;
   top: 400px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 56px;
+  display: grid;
+  grid-template-columns: repeat(3, 200px);
+  justify-items: center;
 }
 
 .restart__stat {
@@ -229,6 +239,8 @@
 }
 
 .restart__button {
+  --chamfer: var(--chamfer-sm);
+
   appearance: none;
   margin: 0;
   border: 0;
@@ -253,11 +265,10 @@
   font-size: var(--fs-xs);
 }
 
+/* the clipped corner would cut off an outline or ring, so focus/hover brighten instead */
 .restart__button--primary:focus-visible,
 .restart__button--primary:hover {
-  box-shadow:
-    0 0 0 2px var(--ui-bg),
-    0 0 0 3px var(--state-clean);
+  background: var(--ui-text);
 }
 
 .restart__button--secondary:focus-visible,
@@ -269,7 +280,10 @@
 .restart__button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  box-shadow: none;
+}
+
+.restart__button--primary:disabled {
+  background: var(--state-clean);
 }
 
 .restart__note {
