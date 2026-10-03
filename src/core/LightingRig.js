@@ -2,14 +2,14 @@
 import * as THREE from 'three';
 
 const L1_AMBIENT_COLOR = 0xcfe8ff;
-const L1_AMBIENT_INTENSITY = 0.5;
+const L1_AMBIENT_INTENSITY = 0.9;
 
 const L1_HEMI_SKY_COLOR = 0xdfeeff;
 const L1_HEMI_GROUND_COLOR = 0x8899aa;
-const L1_HEMI_INTENSITY = 0.5;
+const L1_HEMI_INTENSITY = 0.9;
 
 const L1_STRIP_COLOR = 0xffffff;
-const L1_STRIP_INTENSITY = 1.2;
+const L1_STRIP_INTENSITY = 2.2;
 // Raised from 25 so the falloff cutoff comfortably reaches the center pillar
 // (~28-29 units from a ring light at radius=28) instead of leaving it lit by
 // ambient/hemisphere fill only. `distance` is a hard cutoff, not part of the
@@ -18,6 +18,12 @@ const L1_STRIP_DISTANCE = 32;
 const L1_STRIP_DECAY = 2;
 
 const FLICKER_RADIUS = 8;
+// Flicker swing is a fraction of each light's base intensity, so the effect
+// keeps the same relative strength if the base values are retuned.
+const AMBIENT_FLICKER_SWING = 0.2;
+const AMBIENT_FLICKER_NOISE = 0.2;
+const STRIP_FLICKER_SWING = 0.4;
+const STRIP_FLICKER_NOISE = 0.25;
 
 export class LightingRig {
   // levelGroup: pass level1.group so lights inherit its rotation/transform
@@ -103,7 +109,9 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     const isNear = distance < this.flickerRadius;
 
     if (isNear) {
-      const ambientFlicker = Math.sin(this.flickerTime * 15) * 0.1 + Math.random() * 0.1;
+      const ambientFlicker = (Math.sin(this.flickerTime * 15) * AMBIENT_FLICKER_SWING +
+          Math.random() * AMBIENT_FLICKER_NOISE) *
+        this.baseAmbientIntensity;
       this.ambientLight.intensity = Math.max(0.1, this.baseAmbientIntensity - Math.abs(ambientFlicker));
     } else {
       this.ambientLight.intensity = this.baseAmbientIntensity;
@@ -112,7 +120,9 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     this.stripLights.forEach((light, i) => {
       const base = this.baseIntensities[i];
       if (isNear) {
-        const flicker = Math.sin(this.flickerTime * 20 + i * 3) * 0.5 + Math.random() * 0.3;
+        const flicker = (Math.sin(this.flickerTime * 20 + i * 3) * STRIP_FLICKER_SWING +
+          Math.random() * STRIP_FLICKER_NOISE) *
+        base;
         light.intensity = Math.max(0.1, base + flicker);
       } else {
         light.intensity = base;
