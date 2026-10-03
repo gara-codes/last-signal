@@ -26,7 +26,7 @@
 //                  calls ui.setOxygen(fraction) / ui.setHealth(health / 100). The meters only
 //                  show on L2/L3 (the level sets that via setLevel).
 //   warnings       Gravity (Natasha/Alex — gravity-system.js is empty so far). One banner slot:
-//                    ui.setWarning('Life Support Fault Detected')                one-shot cue
+//                    ui.setWarning('Life Support Fault Detected', { pulse: true })  L2 arrival cue
 //                    ui.setWarning('Gravity Field Destabilizing', { icon: 'gravity', pulse: true })
 //                    ui.setGraceWindow(0..1)   grace bar under the banner (1 = full); null hides
 //                    ui.triggerAlarm()         two light drops (one slow dim w/ Reduce Flashing)

@@ -133,7 +133,6 @@
   --hud-hostile-banner-bg: rgba(24, 6, 5, 0.94); /* L3 warning banner */
   --hud-hostile-panel: rgba(16, 8, 7, 0.85); /* L3 HUD panels: red-shifted --ui-panel */
   --hud-hostile-text-dim: #a08a86; /* L3 HUD labels + sector readout: red-shifted grey */
-  --hud-hostile-wash: rgba(178, 58, 48, 0.16); /* L3 pulsing danger wash (--state-hostile) */
 
   /* ---- stacking order (shared scale — keep every new screen on this, not one-off z-index) ---- */
   --z-hud: 10; /* always-on HUD panels */

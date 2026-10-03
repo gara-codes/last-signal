@@ -472,8 +472,8 @@ export function createHud() {
   const banner = createBanner();
   const threats = createThreats();
 
-  // Full-screen layers: the L3 red danger wash and the gravity alarm's light drop.
-  const dangerWash = el('div', { className: 'hud-danger-wash' });
+  // Full-screen layer for the gravity alarm's light drop. (Room tint and any L3 red wash belong
+  // to the lighting/shader pass, not the HUD.)
   const alarm = el('div', { className: 'hud-alarm' });
 
   const prompt = createInteractPrompt();
@@ -482,7 +482,6 @@ export function createHud() {
   const element = el(
     'div',
     { className: 'ui-hud', attrs: { hidden: true, 'aria-label': 'Heads-up display' } },
-    dangerWash,
     cornerBrackets(),
     status,
     sector.element,

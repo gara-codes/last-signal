@@ -127,7 +127,7 @@ function loadL1() {
  */
 function loadL2({ startingReserve = 0 } = {}) {
   ui.setLevel('l2');
-  ui.setWarning('Life Support Fault Detected');
+  ui.setWarning('Life Support Fault Detected', { pulse: true });
   faultCueTimer = FAULT_CUE_SECONDS;
   level = createLevel2({ startingReserve });
   scene.add(level.group);

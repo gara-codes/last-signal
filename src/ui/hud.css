@@ -425,23 +425,6 @@ body[data-level='l3'] .hud-caption__speaker {
 
 /* ---- full-screen layers ---- */
 
-/* L3: subtle pulsing red wash over the scene */
-.hud-danger-wash {
-  display: none;
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 75% 100% at 50% 50%,
-    var(--hud-hostile-wash) 0%,
-    transparent 65%
-  );
-}
-
-body[data-level='l3'] .hud-danger-wash {
-  display: block;
-  animation: hud-pulse 1.1s ease-in-out infinite;
-}
-
 /* gravity alarm: two hard light drops ~0.2s apart (onset to onset), played once per call */
 @keyframes hud-alarm-flash {
   0%,
@@ -589,7 +572,6 @@ body[data-level='l3'] .hud-danger-wash {
 /* ---- Options > Reduce Flashing: everything that flashes holds steady instead ---- */
 body[data-reduce-flashing='on'] .hud-pulse,
 body[data-reduce-flashing='on'] .hud-ai__dot,
-body[data-reduce-flashing='on'] .hud-danger-wash,
 body[data-reduce-flashing='on'] .hud-meter[data-tone='critical'],
 body[data-reduce-flashing='on'] .hud-meter[data-tone='critical'] .hud-meter__pct {
   animation: none;
