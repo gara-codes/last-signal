@@ -157,10 +157,6 @@ function loadL2({ startingReserve = 0 } = {}) {
 function swapToL2() {
   const banked = fuelSystem ? fuelSystem.banked : 0;
 
-  // Loading screen (under the black fade) while L2 builds; the fade-in below reveals it, and it
-  // hands back to play once L2's assets are in.
-  ui.enterLevel('l2');
-
   // L1 teardown — level.dispose() frees geometry/materials and the HUD prompt;
   // the rig's lights live in the scene/level group so they go separately.
   scene.remove(level.group);

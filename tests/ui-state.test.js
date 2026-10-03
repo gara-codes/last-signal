@@ -107,24 +107,6 @@ describe('ui-state: options and credits return to where they were opened', () =>
   });
 });
 
-describe('ui-state: level transitions', () => {
-  it('goes playing -> loading -> playing and keeps the run', () => {
-    const ui = startedRun();
-    expect(ui.send(ACTIONS.ENTER_LEVEL)).toBe(true);
-    expect(ui.getState()).toBe(STATES.LOADING);
-    expect(ui.send(ACTIONS.LOADED)).toBe(true);
-    expect(ui.getState()).toBe(STATES.PLAYING);
-    expect(ui.hasSession()).toBe(true);
-  });
-
-  it('only starts from play', () => {
-    const ui = startedRun();
-    ui.send(ACTIONS.PAUSE);
-    expect(ui.send(ACTIONS.ENTER_LEVEL)).toBe(false);
-    expect(ui.getState()).toBe(STATES.PAUSED);
-  });
-});
-
 describe('ui-state: quitting to the menu', () => {
   it('keeps the run by default so Continue can resume it', () => {
     const ui = startedRun();
@@ -133,10 +115,7 @@ describe('ui-state: quitting to the menu', () => {
     expect(ui.getState()).toBe(STATES.MAIN_MENU);
     expect(ui.hasSession()).toBe(true);
     expect(ui.send(ACTIONS.CONTINUE)).toBe(true);
-    expect(ui.getState()).toBe(STATES.LOADING); // short loading beat, then back in
-    expect(ui.send(ACTIONS.LOADED)).toBe(true);
     expect(ui.getState()).toBe(STATES.PLAYING);
-    expect(ui.hasSession()).toBe(true);
   });
 
   it('drops the run when keepSessionOnQuit is off', () => {

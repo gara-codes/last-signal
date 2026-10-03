@@ -15,9 +15,8 @@ export const STATES = {
 
 export const ACTIONS = {
   NEW_GAME: 'new-game', // main menu -> loading
-  CONTINUE: 'continue', // main menu -> loading -> playing (only with a session in progress)
+  CONTINUE: 'continue', // main menu -> playing (only with a session in progress)
   LOADED: 'loaded', // loading -> playing
-  ENTER_LEVEL: 'enter-level', // playing -> loading: a level transition (L1 -> L2, L2 -> L3)
   PAUSE: 'pause', // playing -> paused
   RESUME: 'resume', // paused -> playing
   OPEN_OPTIONS: 'open-options', // main menu | paused -> options
@@ -58,13 +57,7 @@ export function createUiState({ initial = STATES.MAIN_MENU, keepSessionOnQuit = 
 
       case ACTIONS.CONTINUE:
         if (state !== STATES.MAIN_MENU || !sessionActive) return false;
-        // Through the loading screen too (short: nothing new to load), so every way into play
-        // looks the same.
-        return move(STATES.LOADING);
-
-      case ACTIONS.ENTER_LEVEL:
-        if (state !== STATES.PLAYING) return false;
-        return move(STATES.LOADING);
+        return move(STATES.PLAYING);
 
       case ACTIONS.LOADED:
         if (state !== STATES.LOADING) return false;
