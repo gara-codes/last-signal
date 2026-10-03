@@ -47,6 +47,12 @@
 //                  (body[data-captions]).
 //   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
 //                  repair consoles handle it, nothing to wire.
+//   death          Wired (L2): main.js calls ui.showRestart({ levelId, fuelCells, repairs,
+//                  checkpointReached }) once oxygenSystem.isDead. Restart needs resetLevel();
+//                  until then only Return to Main Menu works. L3 should call it the same way.
+//   logs           ui.openLog([{ id, title, body: ['line', { redacted: 16 }, ...], corrupted }],
+//                  index) from whatever the player reads (no logs are placed yet). Pauses the
+//                  world; E / Esc closes.
 //   repair console Wired (L2): E at a station opens its console (props.js), E again repairs a
 //                  step, Esc / walking away closes it. API: ui/screens/repair-console/.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,
@@ -134,6 +140,10 @@ export function initUI({ canvas = null } = {}) {
     triggerAlarm: () => hud.triggerAlarm(),
     setHullBreach: (seconds) => hud.setHullBreach(seconds),
     setScrubbersOffline: (offline) => hud.setScrubbersOffline(offline),
+    /** Death: the Restart ("Signal Lost") screen. See screens/restart-model.js for `info`. */
+    showRestart: (info) => manager.showRestart(info),
+    /** Open the log reading overlay (pauses the world). See screens/log-overlay.js. */
+    openLog: (entries, index) => manager.openLog(entries, index),
     /** Lock the interaction prompt onto its object; call once a frame after the camera moves. */
     syncPrompt: (camera) => hud.syncInteractPrompt(camera),
   };

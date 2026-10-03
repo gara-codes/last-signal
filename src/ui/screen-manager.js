@@ -12,6 +12,8 @@ import { createPauseScreen } from './screens/pause.js';
 import { createLoadingScreen } from './screens/loading.js';
 import { createCreditsScreen } from './credits.js';
 import { createRepairConsole } from './screens/repair-console/repair-console.js';
+import { createRestartScreen } from './screens/restart.js';
+import { createLogOverlay } from './screens/log-overlay.js';
 
 // The browser releases the mouse on Escape and then may ALSO deliver the Escape keydown. If the
 // lock-release already paused the game, that keydown must not immediately resume it.
@@ -31,10 +33,15 @@ export function createScreenManager({
   const root = el('div', { className: 'ui-root', attrs: { id: 'ui-root' } });
   let mouseReleasedByBrowser = false;
   let lastLockLossAt = -Infinity;
+  // After a death the world is left dead even once the run is dropped, so starting again needs
+  // resetLevel() just like starting over a live run does.
+  let worldSpent = false;
 
   const api = {
     settings,
     hasSession: () => state.hasSession(),
+    /** True when New Game must reset the world first: a run exists, or the last one died. */
+    needsReset: () => state.hasSession() || worldSpent,
     canReset: () => typeof hooks.resetLevel === 'function',
     getLevelId,
     pickTip: () => tipPicker.next(getLevelId()),
@@ -45,7 +52,8 @@ export function createScreenManager({
     newGame() {
       // Starting over while a run exists needs resetLevel() (main-menu.js disables the row
       // when it isn't registered). A full wipe: back to L1, zero fuel, no repairs, no checkpoint.
-      if (state.hasSession()) hooks.resetLevel?.({ full: true });
+      if (api.needsReset()) hooks.resetLevel?.({ full: true });
+      worldSpent = false;
       setLevel(firstLevelId); // the loading screen takes the destination level's theme
       state.send(ACTIONS.NEW_GAME);
     },
@@ -67,7 +75,14 @@ export function createScreenManager({
       // Shown through the loading screen; the mouse is re-locked now, while we still have the
       // click (browsers only allow pointer lock from a user gesture).
       hooks.resetLevel({ full: false });
-      if (state.send(ACTIONS.RESTART_LEVEL)) hooks.lockPointer?.();
+      if (state.send(ACTIONS.RESTART_LEVEL)) {
+        worldSpent = false;
+        hooks.lockPointer?.();
+      }
+    },
+    /** Log overlay: E (a key press, so the mouse can be re-locked) or Esc / the Close button. */
+    closeLog({ relock = false } = {}) {
+      if (state.send(ACTIONS.CLOSE_LOG) && relock) hooks.lockPointer?.();
     },
   };
 
@@ -77,6 +92,8 @@ export function createScreenManager({
     [STATES.PAUSED]: createPauseScreen(api),
     [STATES.OPTIONS]: createOptionsScreen(api),
     [STATES.CREDITS]: createCreditsScreen(api),
+    [STATES.DEAD]: createRestartScreen(api),
+    [STATES.READING]: createLogOverlay(api),
   };
 
   // L2 repair consoles: an overlay during play (the world keeps running), above the HUD and
@@ -104,7 +121,9 @@ export function createScreenManager({
     hud.setDimmed(current === STATES.PAUSED);
     repairConsole.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
     repairConsole.setPaused(current === STATES.PAUSED);
-    if (current === STATES.MAIN_MENU || current === STATES.LOADING) repairConsole.close();
+    if (current !== STATES.PLAYING && current !== STATES.PAUSED && current !== STATES.OPTIONS) {
+      repairConsole.close();
+    }
     document.body.dataset.uiState = current;
   }
 
@@ -147,5 +166,23 @@ export function createScreenManager({
 
   render(state.getState());
 
-  return { root, api };
+  return {
+    root,
+    api,
+    /** Death: show the Restart screen with this run's summary (see screens/restart-model.js). */
+    showRestart(info) {
+      screens[STATES.DEAD].setInfo(info);
+      if (!state.send(ACTIONS.DIE)) return false;
+      worldSpent = true;
+      document.exitPointerLock?.(); // the buttons need the mouse
+      return true;
+    },
+    /** Open the log overlay on entries[index]; pauses the world and frees the mouse. */
+    openLog(entries, index = 0) {
+      screens[STATES.READING].setEntries(entries, index);
+      if (!state.send(ACTIONS.OPEN_LOG)) return false;
+      document.exitPointerLock?.();
+      return true;
+    },
+  };
 }

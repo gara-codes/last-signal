@@ -48,14 +48,14 @@ import {
   splitCountdown,
   powerText,
 } from './hud-readouts.js';
-import { getLevel, FIRST_LEVEL_ID } from '../config/levels.js';
+import { getLevel, sectorLabel, FIRST_LEVEL_ID } from '../config/levels.js';
 
 // Per-level HUD content. `power` is the readout shown until something calls setPower() (there
 // is no live power value yet — see power-allocation.js). `vitals`: show Oxygen + Health.
 const HUD_LEVELS = {
-  l1: { sector: 1, power: 100, aiLink: 'PASSIVE', vitals: false, threats: false },
-  l2: { sector: 2, power: 61, aiLink: 'TRACKING', vitals: true, threats: false },
-  l3: { sector: 3, power: 19, aiLink: 'HOSTILE', vitals: true, threats: true },
+  l1: { power: 100, aiLink: 'PASSIVE', vitals: false, threats: false },
+  l2: { power: 61, aiLink: 'TRACKING', vitals: true, threats: false },
+  l3: { power: 19, aiLink: 'HOSTILE', vitals: true, threats: true },
 };
 
 // ---- icons (paths straight from the mockup) ----
@@ -549,7 +549,7 @@ export function createHud() {
     banner.set(null);
     banner.setGrace(null);
     ai.setStatus(hudLevel.aiLink);
-    sector.setName(`${level.name.toUpperCase()} // SEC. ${hudLevel.sector}`);
+    sector.setName(sectorLabel(level.id).toUpperCase());
     powerOverride = null;
     sector.setPower(powerText(hudLevel.power));
   }

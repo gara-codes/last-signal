@@ -11,19 +11,24 @@ export const STATES = {
   PAUSED: 'paused',
   OPTIONS: 'options',
   CREDITS: 'credits',
+  DEAD: 'dead', // the Restart ("Signal Lost") screen
+  READING: 'reading', // the log reading overlay; the world is paused underneath
 };
 
 export const ACTIONS = {
   NEW_GAME: 'new-game', // main menu -> loading
   CONTINUE: 'continue', // main menu -> loading -> playing (only with a session in progress)
   LOADED: 'loaded', // loading -> playing
-  RESTART_LEVEL: 'restart-level', // paused -> loading -> playing (Pause > Restart Level)
+  RESTART_LEVEL: 'restart-level', // paused | dead -> loading -> playing (Restart Level)
+  DIE: 'die', // playing -> dead (Restart screen)
+  OPEN_LOG: 'open-log', // playing -> reading (log overlay)
+  CLOSE_LOG: 'close-log', // reading -> playing
   PAUSE: 'pause', // playing -> paused
   RESUME: 'resume', // paused -> playing
   OPEN_OPTIONS: 'open-options', // main menu | paused -> options
   OPEN_CREDITS: 'open-credits', // main menu -> credits
   BACK: 'back', // options | credits -> wherever they were opened from
-  QUIT_TO_MENU: 'quit-to-menu', // paused -> main menu
+  QUIT_TO_MENU: 'quit-to-menu', // paused | dead -> main menu
   ESCAPE: 'escape', // the Escape key, meaning depends on the current state
   POINTER_LOCK_LOST: 'pointer-lock-lost', // browser released the mouse (Escape does this too)
 };
@@ -62,8 +67,20 @@ export function createUiState({ initial = STATES.MAIN_MENU, keepSessionOnQuit = 
         return move(STATES.LOADING);
 
       case ACTIONS.RESTART_LEVEL:
-        if (state !== STATES.PAUSED) return false;
+        if (state !== STATES.PAUSED && state !== STATES.DEAD) return false;
         return move(STATES.LOADING);
+
+      case ACTIONS.DIE:
+        if (state !== STATES.PLAYING) return false;
+        return move(STATES.DEAD);
+
+      case ACTIONS.OPEN_LOG:
+        if (state !== STATES.PLAYING) return false;
+        return move(STATES.READING);
+
+      case ACTIONS.CLOSE_LOG:
+        if (state !== STATES.READING) return false;
+        return move(STATES.PLAYING);
 
       case ACTIONS.LOADED:
         if (state !== STATES.LOADING) return false;
@@ -92,14 +109,16 @@ export function createUiState({ initial = STATES.MAIN_MENU, keepSessionOnQuit = 
         return move(returnTo);
 
       case ACTIONS.QUIT_TO_MENU:
-        if (state !== STATES.PAUSED) return false;
-        if (!keepSessionOnQuit) sessionActive = false;
+        if (state !== STATES.PAUSED && state !== STATES.DEAD) return false;
+        // A dead run can't be continued; a paused one is kept unless keepSessionOnQuit is off.
+        if (state === STATES.DEAD || !keepSessionOnQuit) sessionActive = false;
         return move(STATES.MAIN_MENU);
 
       case ACTIONS.ESCAPE:
         if (state === STATES.PLAYING) return send(ACTIONS.PAUSE);
         if (state === STATES.PAUSED) return send(ACTIONS.RESUME);
         if (state === STATES.OPTIONS || state === STATES.CREDITS) return send(ACTIONS.BACK);
+        if (state === STATES.READING) return send(ACTIONS.CLOSE_LOG);
         return false;
 
       default:

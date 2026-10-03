@@ -125,6 +125,54 @@ describe('ui-state: restarting the level', () => {
   });
 });
 
+describe('ui-state: death and the Restart screen', () => {
+  it('goes playing -> dead, and restarts through loading', () => {
+    const ui = startedRun();
+    expect(ui.send(ACTIONS.DIE)).toBe(true);
+    expect(ui.getState()).toBe(STATES.DEAD);
+    expect(ui.send(ACTIONS.ESCAPE)).toBe(false); // no pausing a death
+    expect(ui.send(ACTIONS.RESTART_LEVEL)).toBe(true);
+    expect(ui.getState()).toBe(STATES.LOADING);
+    expect(ui.send(ACTIONS.LOADED)).toBe(true);
+    expect(ui.getState()).toBe(STATES.PLAYING);
+  });
+
+  it('quitting from death drops the run, so Continue is off', () => {
+    const ui = startedRun();
+    ui.send(ACTIONS.DIE);
+    expect(ui.send(ACTIONS.QUIT_TO_MENU)).toBe(true);
+    expect(ui.getState()).toBe(STATES.MAIN_MENU);
+    expect(ui.hasSession()).toBe(false);
+    expect(ui.send(ACTIONS.CONTINUE)).toBe(false);
+  });
+
+  it('only dies from play', () => {
+    const ui = startedRun();
+    ui.send(ACTIONS.PAUSE);
+    expect(ui.send(ACTIONS.DIE)).toBe(false);
+  });
+});
+
+describe('ui-state: reading a log', () => {
+  it('opens from play and closes with Close or Escape', () => {
+    const ui = startedRun();
+    expect(ui.send(ACTIONS.OPEN_LOG)).toBe(true);
+    expect(ui.getState()).toBe(STATES.READING);
+    expect(ui.send(ACTIONS.POINTER_LOCK_LOST)).toBe(false); // freeing the mouse doesn't pause
+    expect(ui.send(ACTIONS.ESCAPE)).toBe(true);
+    expect(ui.getState()).toBe(STATES.PLAYING);
+    ui.send(ACTIONS.OPEN_LOG);
+    expect(ui.send(ACTIONS.CLOSE_LOG)).toBe(true);
+    expect(ui.getState()).toBe(STATES.PLAYING);
+  });
+
+  it('only opens from play', () => {
+    const ui = startedRun();
+    ui.send(ACTIONS.PAUSE);
+    expect(ui.send(ACTIONS.OPEN_LOG)).toBe(false);
+  });
+});
+
 describe('ui-state: quitting to the menu', () => {
   it('keeps the run by default so Continue can resume it', () => {
     const ui = startedRun();

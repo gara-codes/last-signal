@@ -240,6 +240,17 @@ function animate() {
   if (oxygenSystem) {
     ui.setOxygen(oxygenSystem.fraction);
     ui.setHealth(oxygenSystem.health / 100);
+
+    // Death -> the Restart ("Signal Lost") screen, with this run's summary.
+    if (oxygenSystem.isDead) {
+      const data = level.group.userData;
+      ui.showRestart({
+        levelId: 'l2',
+        fuelCells: fuelSystem ? fuelSystem.banked : 0,
+        repairs: data.repairs?.exportFlags() ?? {},
+        checkpointReached: data.checkpoint?.hasSnapshot() ?? false,
+      });
+    }
   }
 
   if (!inL2 && !l1TransitionFired && level.group.userData.l1Complete) {

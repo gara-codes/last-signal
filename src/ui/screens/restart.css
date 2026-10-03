@@ -1,0 +1,295 @@
+/* Restart ("Signal Lost") screen — final mockup. Laid out on the 1600x900 stage (see ui.css).
+   Same look on every level: near-black with a faint hostile-red glow, no grid. */
+
+.ui-screen.ui-screen--restart {
+  background:
+    radial-gradient(ellipse 62.5% 88.9% at 50% 45%, var(--restart-glow) 0%, transparent 60%),
+    var(--restart-bg);
+  --restart-glow: color-mix(in srgb, var(--state-hostile) 10%, transparent);
+  --restart-bg: #020202;
+}
+
+/* no technical grid; a heavier vignette than the other screens */
+.ui-screen.ui-screen--restart::before {
+  display: none;
+}
+
+.ui-screen.ui-screen--restart::after {
+  box-shadow: inset 0 0 260px 90px rgba(0, 0, 0, 0.9);
+}
+
+/* faint scanline sweep */
+.restart__scan {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.restart__scan > div {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+  animation: restart-scan 6s linear infinite;
+}
+
+@keyframes restart-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(500%);
+  }
+}
+
+.restart__icon {
+  position: absolute;
+  top: 210px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ui-text-tertiary);
+  opacity: 0.85;
+}
+
+.restart__icon-slash {
+  stroke: var(--ui-critical);
+  stroke-width: 2;
+}
+
+.restart__heading {
+  position: absolute;
+  top: 280px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+  animation: restart-flicker 4.5s linear infinite;
+}
+
+/* two quick dips, then steady (Reduce Flashing turns it off, end of file) */
+@keyframes restart-flicker {
+  0%,
+  19%,
+  21%,
+  23%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  22% {
+    opacity: 0.55;
+  }
+}
+
+.restart__title {
+  margin: 0;
+  font-size: var(--fs-pause);
+  letter-spacing: 0.22em;
+  color: var(--ui-text);
+}
+
+.restart__subtitle {
+  margin-top: 12px;
+  font-size: var(--fs-md);
+  letter-spacing: 0.06em;
+  color: var(--hud-hostile-text-dim);
+}
+
+/* run stats */
+.restart__stats {
+  position: absolute;
+  top: 400px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 56px;
+}
+
+.restart__stat {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.restart__stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+.restart__stat-value--cells {
+  color: var(--state-clean);
+}
+
+.restart__stat-value--sectors {
+  color: var(--state-warning);
+}
+
+.restart__stat-label {
+  margin-top: 6px;
+  font-size: var(--fs-2xs);
+  color: var(--ui-text-tertiary);
+}
+
+/* systems row: the repair consoles' System state strip, one per system in its own colour */
+.restart__systems {
+  position: absolute;
+  top: 482px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 28px;
+  white-space: nowrap;
+}
+
+.restart__system {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.restart__system--gravity {
+  --sys: var(--sys-gravity);
+  --sys-hi: var(--sys-gravity-hi);
+}
+
+.restart__system--comms {
+  --sys: var(--sys-comms);
+  --sys-hi: var(--sys-comms-hi);
+}
+
+.restart__system--oxygen {
+  --sys: var(--sys-oxygen);
+  --sys-hi: var(--sys-oxygen-hi);
+}
+
+.restart__system-name {
+  font-size: var(--fs-xs);
+  color: var(--sys);
+}
+
+.restart__strip {
+  display: flex;
+  gap: 3px;
+}
+
+.restart__strip i {
+  display: block;
+  width: 16px;
+  height: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.restart__strip i.done {
+  background: var(--sys);
+  border-color: var(--sys);
+}
+
+.restart__strip i.now {
+  background: var(--sys-hi);
+  border-color: var(--sys-hi);
+}
+
+.restart__strip i.bad {
+  border-color: var(--ui-critical);
+}
+
+.restart__sector {
+  position: absolute;
+  top: 520px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.06em;
+  color: var(--ui-text-tertiary);
+}
+
+.restart__sector-name {
+  color: var(--state-clean);
+}
+
+/* actions */
+.restart__actions {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.restart__button {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+}
+
+.restart__button--primary {
+  padding: 14px 54px;
+  background: var(--state-clean);
+  color: var(--backdrop-mid, #050607);
+  font-size: var(--fs-md);
+}
+
+.restart__button--secondary {
+  padding: 10px 40px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #c7d0d6;
+  font-size: var(--fs-xs);
+}
+
+.restart__button--primary:focus-visible,
+.restart__button--primary:hover {
+  box-shadow:
+    0 0 0 2px var(--ui-bg),
+    0 0 0 3px var(--state-clean);
+}
+
+.restart__button--secondary:focus-visible,
+.restart__button--secondary:hover {
+  border-color: var(--state-clean);
+  color: var(--ui-text);
+}
+
+.restart__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.restart__note {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10.5px;
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-faint);
+}
+
+body[data-reduce-flashing='on'] .restart__heading {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .restart__heading,
+  .restart__scan > div {
+    animation: none;
+  }
+}
