@@ -21,10 +21,6 @@ export class Camera {
     this.yaw = 0;
     this.pitch = 0;
 
-    // Scripted transition pan (e.g. L1->L2 door reveal) — null when
-    // inactive, in which case update() runs the normal follow-cam below.
-    this._transition = null;
-
     // Level-specific containment — null means no clamping at all, which
     // is wrong for every real level, so every call site must set this
     // once after construction. See setBounds() for the two shapes.
@@ -90,52 +86,7 @@ export class Camera {
     return Math.atan2(direction.x, direction.z);
   }
 
-  /**
-   * Scripted pan away from the normal follow-cam to a fixed target, holds
-   * there, then hands control back to update()'s per-frame follow-cam
-   * automatically. Used for one-off beats (e.g. the exit hatch opening)
-   * rather than tuning the chase-cam offset for a moment it only needs
-   * once.
-   * @param {THREE.Vector3} targetPosition
-   * @param {THREE.Vector3} targetLookAt
-   * @param {{panDuration?: number, holdDuration?: number}} [options]
-   */
-  playTransitionPan(targetPosition, targetLookAt, { panDuration = 1, holdDuration = 2 } = {}) {
-    const currentLookAt = this.camera.position
-      .clone()
-      .add(this.camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(10));
-
-    this._transition = {
-      fromPosition: this.camera.position.clone(),
-      fromLookAt: currentLookAt,
-      toPosition: targetPosition.clone(),
-      toLookAt: targetLookAt.clone(),
-      panDuration,
-      holdDuration,
-      elapsed: 0,
-    };
-  }
-
-  update(basis, delta = 0) {
-    if (this._transition) {
-      const t = this._transition;
-      t.elapsed += delta;
-
-      if (t.elapsed >= t.panDuration + t.holdDuration) {
-        this._transition = null; // done — resume the follow-cam below this frame
-      } else {
-        const panT = THREE.MathUtils.clamp(t.elapsed / t.panDuration, 0, 1);
-        const eased = panT * panT * (3 - 2 * panT); // smoothstep
-        const position = t.fromPosition.clone().lerp(t.toPosition, eased);
-        const lookAt = t.fromLookAt.clone().lerp(t.toLookAt, eased);
-
-        this.camera.up.copy(basis.up); // stay drum-correct even mid-pan
-        this.camera.position.copy(position);
-        this.camera.lookAt(lookAt);
-        return;
-      }
-    }
-
+  update(basis) {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
