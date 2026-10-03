@@ -63,8 +63,10 @@ export function createScreenManager({
     restartLevel() {
       if (typeof hooks.resetLevel !== 'function') return;
       // Mid-run recovery: the current level again, from its checkpoint if one has been passed.
+      // Shown through the loading screen; the mouse is re-locked now, while we still have the
+      // click (browsers only allow pointer lock from a user gesture).
       hooks.resetLevel({ full: false });
-      api.resume();
+      if (state.send(ACTIONS.RESTART_LEVEL)) hooks.lockPointer?.();
     },
   };
 

@@ -15,8 +15,9 @@ export const STATES = {
 
 export const ACTIONS = {
   NEW_GAME: 'new-game', // main menu -> loading
-  CONTINUE: 'continue', // main menu -> playing (only with a session in progress)
+  CONTINUE: 'continue', // main menu -> loading -> playing (only with a session in progress)
   LOADED: 'loaded', // loading -> playing
+  RESTART_LEVEL: 'restart-level', // paused -> loading -> playing (Pause > Restart Level)
   PAUSE: 'pause', // playing -> paused
   RESUME: 'resume', // paused -> playing
   OPEN_OPTIONS: 'open-options', // main menu | paused -> options
@@ -57,7 +58,12 @@ export function createUiState({ initial = STATES.MAIN_MENU, keepSessionOnQuit = 
 
       case ACTIONS.CONTINUE:
         if (state !== STATES.MAIN_MENU || !sessionActive) return false;
-        return move(STATES.PLAYING);
+        // A short loading beat (nothing new to load) so coming back in reads as a scene change.
+        return move(STATES.LOADING);
+
+      case ACTIONS.RESTART_LEVEL:
+        if (state !== STATES.PAUSED) return false;
+        return move(STATES.LOADING);
 
       case ACTIONS.LOADED:
         if (state !== STATES.LOADING) return false;

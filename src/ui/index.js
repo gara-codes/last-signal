@@ -15,7 +15,8 @@
 //                    resetLevel({ full: true })   New Game over an existing run: back to L1,
 //                                                 zero banked fuel, no repair flags, checkpoint
 //                                                 ignored.
-//                    resetLevel({ full: false })  Pause > Restart Level: the current level again,
+//                    resetLevel({ full: false })  Pause > Restart Level (shown through the loading
+//                                                 screen): the current level again,
 //                                                 from its checkpoint if one has been passed.
 //   lockPointer()  Nonku's mouse-look — Resume calls it (from a click, as browsers require) to
 //                  re-lock the mouse:  ui.registerHooks({ lockPointer });
