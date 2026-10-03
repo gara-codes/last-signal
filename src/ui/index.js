@@ -53,6 +53,9 @@
 //   logs           ui.openLog([{ id, title, body: ['line', { redacted: 16 }, ...], corrupted }],
 //                  index) from whatever the player reads (no logs are placed yet). Pauses the
 //                  world; E / Esc closes.
+//   ship status    Hold TAB in play (ui/ship-status.js). Wired: main.js registers
+//                  ui.registerHooks({ getRepairFlags }) — L2's live repairs.exportFlags(); L3
+//                  should return the flags L2 handed over. L1 needs none (all nominal).
 //   repair console Wired (L2): E at a station opens its console (props.js), E again repairs a
 //                  step, Esc / walking away closes it. API: ui/screens/repair-console/.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,

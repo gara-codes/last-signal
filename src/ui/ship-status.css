@@ -1,0 +1,273 @@
+/* TAB Ship Status — side panel on the right (final design). Panel values at the 1600x900 design
+   scale; edge-anchored like the HUD (.ui-anchor in ui.css). */
+
+.ship[hidden] {
+  display: none !important;
+}
+
+/* above the HUD (and the repair console never coexists with it), under pause/menus */
+.ship {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+}
+
+/* the world stays live and only lightly dimmed; darker behind the panel */
+.ship__dim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(2, 3, 4, 0.15) 0%,
+    rgba(2, 3, 4, 0.35) 50%,
+    rgba(2, 3, 4, 0.8) 70%
+  );
+}
+
+/* while it's open the HUD's top-right readouts would peek between the boxes */
+body[data-ship-status='open'] .hud-sector,
+body[data-ship-status='open'] .hud-threats {
+  visibility: hidden;
+}
+
+.ship__panel {
+  --x: 56px;
+  --y: 76px;
+  --ship-c: var(--state-warning);
+  --ship-obj-bg: rgba(20, 15, 4, 0.75);
+
+  width: 452px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ship[data-level='l1'] .ship__panel {
+  --ship-c: var(--state-clean);
+  --ship-obj-bg: rgba(8, 12, 16, 0.75);
+}
+
+.ship[data-level='l3'] .ship__panel {
+  --ship-c: var(--ui-critical);
+  --ship-obj-bg: rgba(24, 6, 5, 0.8);
+}
+
+.ship__location {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-wide);
+  color: var(--ui-text-tertiary);
+}
+
+.ship[data-level='l3'] .ship__location {
+  color: var(--ui-critical);
+}
+
+.ship__name {
+  font-size: var(--fs-panel-title);
+  letter-spacing: var(--ls-normal);
+}
+
+.ship__objective {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--ship-c) 45%, transparent);
+  background: var(--ship-obj-bg);
+}
+
+.ship__objective-key {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--ship-c);
+  white-space: nowrap;
+}
+
+.ship__objective-text {
+  font-size: 15px;
+}
+
+/* ---- one uniform box per system ---- */
+.ship-box {
+  --c: var(--sys-c);
+  --hi: var(--sys-hi);
+  --line: color-mix(in srgb, var(--sys-c) 38%, transparent);
+
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 16px 14px;
+  background: rgba(8, 11, 14, 0.86);
+  border: 1px solid var(--line);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
+}
+
+.ship-box--gravity {
+  --sys-c: var(--sys-gravity);
+  --sys-hi: var(--sys-gravity-hi);
+}
+
+.ship-box--comms {
+  --sys-c: var(--sys-comms);
+  --sys-hi: var(--sys-comms-hi);
+}
+
+.ship-box--oxygen {
+  --sys-c: var(--sys-oxygen);
+  --sys-hi: var(--sys-oxygen-hi);
+}
+
+/* L1: everything in L1 blue */
+.ship[data-level='l1'] .ship-box {
+  --c: var(--state-clean);
+  --hi: var(--ui-text);
+  --line: color-mix(in srgb, var(--state-clean) 32%, transparent);
+}
+
+/* L3: red frame, steps faded out */
+.ship[data-level='l3'] .ship-box {
+  --line: color-mix(in srgb, var(--ui-critical) 35%, transparent);
+}
+
+.ship-box__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ship-box__icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--c);
+  color: var(--c);
+}
+
+.ship-box__name {
+  font-size: 15px;
+  letter-spacing: var(--ls-normal);
+}
+
+.ship-box__where {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--ui-text-tertiary);
+}
+
+.ship-box__word {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  color: var(--hi);
+}
+
+.ship-box__word[data-tone='bad'] {
+  color: var(--ui-critical);
+}
+
+.ship-box__word[data-tone='warn'] {
+  color: var(--state-warning);
+}
+
+.ship-box__word[data-tone='muted'] {
+  color: var(--ui-text-tertiary);
+}
+
+.ship[data-level='l1'] .ship-box__word {
+  color: var(--state-clean);
+}
+
+.ship-box canvas {
+  display: block;
+  width: 100%;
+}
+
+.ship-box__note {
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-tertiary);
+}
+
+.ship-box__note.is-bad {
+  color: var(--ui-critical);
+}
+
+.ship-box__segs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.ship-box__segs span {
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--ui-text-tertiary);
+}
+
+.ship-box__segs span.done {
+  background: var(--c);
+  border-color: var(--c);
+  color: #05080c;
+}
+
+.ship-box__segs span.now {
+  background: var(--hi);
+  border-color: var(--hi);
+  color: #05080c;
+}
+
+.ship-box__segs span.bad {
+  border-color: var(--ui-critical);
+  color: var(--ui-critical);
+}
+
+.ship[data-level='l3'] .ship-box__segs span {
+  opacity: 0.55;
+}
+
+/* L3 only: the AI's line */
+.ship__ai {
+  padding: 8px 14px;
+  background: var(--hud-caption-bg);
+  font-size: var(--fs-md);
+}
+
+.ship__ai-tag {
+  margin-right: 10px;
+  font-size: 10.5px;
+  letter-spacing: var(--ls-label);
+  color: var(--ui-critical);
+}
+
+.ship__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  color: var(--ui-text-tertiary);
+}
+
+.ship__key {
+  padding: 1px 6px;
+  border: 1px solid var(--ui-text-tertiary);
+}

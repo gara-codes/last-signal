@@ -14,6 +14,7 @@ import { createCreditsScreen } from './credits.js';
 import { createRepairConsole } from './screens/repair-console/repair-console.js';
 import { createRestartScreen } from './screens/restart.js';
 import { createLogOverlay } from './screens/log-overlay.js';
+import { createShipStatus } from './ship-status.js';
 
 // The browser releases the mouse on Escape and then may ALSO deliver the Escape keydown. If the
 // lock-release already paused the game, that keydown must not immediately resume it.
@@ -99,7 +100,13 @@ export function createScreenManager({
   // L2 repair consoles: an overlay during play (the world keeps running), above the HUD and
   // under pause/menus. Opened by the level; closed here on Esc and when play ends.
   const repairConsole = createRepairConsole();
-  root.append(hud.element, repairConsole.element);
+  // TAB Ship Status: hold to view during play (not over an open repair console).
+  const shipStatus = createShipStatus({
+    canOpen: () => state.getState() === STATES.PLAYING && !repairConsole.isOpen(),
+    getLevelId,
+    getRepairFlags: () => hooks.getRepairFlags?.() ?? null,
+  });
+  root.append(hud.element, repairConsole.element, shipStatus.element);
   for (const screen of Object.values(screens)) root.append(screen.element);
 
   let active = null;
@@ -121,6 +128,7 @@ export function createScreenManager({
     hud.setDimmed(current === STATES.PAUSED);
     repairConsole.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
     repairConsole.setPaused(current === STATES.PAUSED);
+    if (current !== STATES.PLAYING) shipStatus.hide();
     if (current !== STATES.PLAYING && current !== STATES.PAUSED && current !== STATES.OPTIONS) {
       repairConsole.close();
     }

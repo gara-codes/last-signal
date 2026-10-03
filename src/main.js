@@ -196,6 +196,11 @@ ui.subscribe((state) => {
 //   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
 //   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
 
+// TAB Ship Status reads the live repair states (none on L1: everything shows nominal there).
+ui.registerHooks({
+  getRepairFlags: () => (inL2 ? (level.group.userData.repairs?.exportFlags() ?? null) : null),
+});
+
 function animate() {
   requestAnimationFrame(animate);
 
