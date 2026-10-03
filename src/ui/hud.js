@@ -18,13 +18,20 @@
 // actually changes. Flashing/pulsing is CSS-only and switched off by Options > Reduce Flashing
 // (body[data-reduce-flashing], see hud.css).
 //
-// The interaction prompt is fed by the level, not by the UI state machine:
+// The interaction prompt is fed by the level, not by the UI state machine (copy for every kind
+// of object lives in prompt-copy.js):
 //
 //   import { setInteractPrompt } from '../ui/hud.js';
-//   setInteractPrompt('Collect Fuel Cell');                       // normal
-//   setInteractPrompt('Open Door', { denied: true, detail: '2 / 4 Fuel Cells' });
-//   setInteractPrompt('Interact', { anchor: { x, y } });          // locked onto an object
-//   setInteractPrompt(null);                                      // hide
+//   setInteractPrompt('Open Door', { detail: '2 Fuel Cells', target: door });     // locked on
+//   setInteractPrompt('Open Door', { detail: '2 Fuel Cells', denied: true, target: door });
+//   setInteractPrompt('Collect Fuel Cell', { hint: true, target: cell });  // no [E] badge
+//   setInteractPrompt('Grab Handhold', { tone: 'hazard', target: handhold });
+//   setInteractPrompt(null);                                                       // hide
+//
+// With a `target` (any THREE.Object3D) the prompt is drawn by syncInteractPrompt(camera), which
+// main.js calls once a frame after the camera moves: the brackets frame the object and the label
+// hangs under them. Without one it docks bottom-centre. `anchor: { x, y }` (window px) still
+// works for callers that project for themselves.
 //
 // It lives inside the HUD element, so it hides with the menus, dims under the pause scrim and
 // follows the HUD Opacity slider along with the rest of the HUD.
@@ -32,6 +39,7 @@
 import './hud.css';
 import { el, svg, cornerBrackets, createPips } from './dom.js';
 import { resolvePrompt, HIDDEN_PROMPT } from './interact-prompt.js';
+import { anchorOnScreen } from './prompt-anchor.js';
 import {
   METER_PIPS,
   OXYGEN_THRESHOLDS,
@@ -395,12 +403,13 @@ function reticle() {
 }
 
 function createInteractPrompt() {
+  const keyEl = el('span', { className: 'hud-prompt__key ui-mono', text: 'E' });
   const labelEl = el('span', { className: 'hud-prompt__label ui-label' });
   const detailEl = el('span', { className: 'hud-prompt__detail ui-mono', attrs: { hidden: true } });
   const box = el(
     'div',
     { className: 'hud-prompt__box ui-panel ui-chamfer-row' },
-    el('span', { className: 'hud-prompt__key ui-mono', text: 'E' }),
+    keyEl,
     labelEl,
     detailEl
   );
@@ -424,6 +433,9 @@ function createInteractPrompt() {
     detailEl.textContent = view.detail;
     detailEl.hidden = view.detail === '';
     element.classList.toggle('is-denied', view.denied);
+    element.classList.toggle('is-hint', view.hint);
+    element.classList.toggle('is-hazard', view.tone === 'hazard');
+    keyEl.hidden = view.hint;
 
     // Anchored: brackets + stem, positioned on the object. Otherwise docked bottom-centre.
     const anchored = view.anchor !== null;
@@ -444,14 +456,42 @@ function createInteractPrompt() {
 // The prompt of the HUD created most recently. The level imports setInteractPrompt() directly
 // (it has no handle on the UI), so this is the one piece of module-level state in the HUD.
 let activePrompt = null;
+// A prompt waiting for syncInteractPrompt() to place it on its target object.
+let pending = null;
 
 /**
  * Show, update or hide the interaction prompt. See the header of this file for the options.
- * @param {string|null} label  action label ("Interact"), or null to hide the prompt
- * @param {import('./interact-prompt.js').PromptOptions} [options]
+ * Safe to call every frame.
+ * @param {string|null} label  action label ("Open Door"), or null to hide the prompt
+ * @param {import('./interact-prompt.js').PromptOptions & {target?: object}} [options]
  */
 export function setInteractPrompt(label, options) {
+  if (label && options?.target) {
+    pending = { label, options };
+    return;
+  }
+  pending = null;
   activePrompt?.show(resolvePrompt(label, options));
+}
+
+/**
+ * Place a targeted prompt on its object through the camera. main.js calls this once a frame,
+ * after the camera update. Hides the prompt when the object is behind the camera.
+ * @param {import('three').Camera} camera
+ */
+export function syncInteractPrompt(camera) {
+  if (!pending || !activePrompt) return;
+  const { label, options } = pending;
+  let anchor = null;
+  if (camera) {
+    camera.updateMatrixWorld(); // the camera just moved; the renderer hasn't refreshed it yet
+    anchor = anchorOnScreen(options.target, camera, window.innerWidth, window.innerHeight);
+    if (!anchor) {
+      activePrompt.show(HIDDEN_PROMPT); // behind the camera
+      return;
+    }
+  }
+  activePrompt.show(resolvePrompt(label, { ...options, anchor }));
 }
 
 export function createHud() {
@@ -542,6 +582,7 @@ export function createHud() {
     setHullBreach: threats.setBreach,
     setScrubbersOffline: threats.setScrubbersOffline,
     setInteractPrompt,
+    syncInteractPrompt,
     setVisible(visible) {
       element.hidden = !visible;
     },

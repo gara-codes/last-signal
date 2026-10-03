@@ -230,6 +230,7 @@ function animate() {
 
   const basis = player.userData.getSurfaceBasis();
   cameraSetup.update(basis, delta);
+  ui.syncPrompt(cameraSetup.getCamera()); // brackets follow the object, never a frame behind
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);

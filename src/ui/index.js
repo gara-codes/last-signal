@@ -36,10 +36,10 @@
 //                  (repairs.getState('oxygen-scrubbers') !== 'repaired').
 //   power readout  ui.setPower(0-100) once power-allocation.js is live; until then each level
 //                  shows the mockup's value (100 / 61 / 19).
-//   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
-//                  (labels, denied state and detail, object anchor — see the header of hud.js).
-//                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
-//                  "Open Door" + "2 / 4 Fuel Cells" when denied) and the anchor position.
+//   interact       Wired: the levels call setInteractPrompt() from ui/hud.js with per-object
+//                  copy from ui/prompt-copy.js and the object as `target`; main.js calls
+//                  ui.syncPrompt(camera) after the camera moves to lock the brackets onto it.
+//                  New interactables: give them userData.prompt or userData.getPrompt().
 //   sfx / music    Audio manager — settings.subscribe() and read sfxVolume / musicVolume (0-100).
 //   captions       Whoever plays an AI voice line calls ui.setCaption('line') and
 //                  ui.setCaption(null) when it ends. Options > AI Voice Captions hides the bar
@@ -131,5 +131,7 @@ export function initUI({ canvas = null } = {}) {
     triggerAlarm: () => hud.triggerAlarm(),
     setHullBreach: (seconds) => hud.setHullBreach(seconds),
     setScrubbersOffline: (offline) => hud.setScrubbersOffline(offline),
+    /** Lock the interaction prompt onto its object; call once a frame after the camera moves. */
+    syncPrompt: (camera) => hud.syncInteractPrompt(camera),
   };
 }

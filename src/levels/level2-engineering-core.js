@@ -25,9 +25,11 @@ import { CommandCenterOverride, Checkpoint } from '../systems/command-center.js'
 import { OxygenSystem } from '../systems/oxygen-system.js';
 import { updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { setInteractPrompt } from '../ui/hud.js';
+import { promptForInteractable } from '../ui/prompt-copy.js';
 
 const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
+const FUEL_HINT_RADIUS = 7; // fuel cells within this range get the "Collect Fuel Cell" hint
 const EYE_HEIGHT = 1.7; // flycam spawn eye height above the deck/ground
 
 // Reusable scratch vectors — module-level singletons, never allocated inside
@@ -99,27 +101,41 @@ function tickFuelProximity(fuelCells, viewer) {
   }
 }
 
+/** Closest uncollected fuel cell within maxDistance of the viewer, or null. */
+function nearestFuelCell(fuelCells, viewer, maxDistance) {
+  let best = null;
+  let bestDist = maxDistance;
+  for (const cell of fuelCells) {
+    if (cell.userData.collected) continue;
+    cell.getWorldPosition(scratchPosition);
+    const distance = scratchPosition.distanceTo(viewer.position);
+    if (distance < bestDist) {
+      best = cell;
+      bestDist = distance;
+    }
+  }
+  return best;
+}
+
 /**
- * Dispatches the HUD prompt from the nearest interactable. Doors mid-open
- * or already open are excluded from the visible prompt (E has no effect)
- * but still receive the key press if the viewer is in range.
+ * Dispatches the HUD prompt from the nearest interactable (copy in
+ * ui/prompt-copy.js), locked onto that object. Doors mid-open or already
+ * open get no prompt (E has no effect) but still receive the key press if
+ * the viewer is in range. With nothing in reach, the nearest fuel cell gets
+ * a hint prompt.
  * @returns {object|null} the nearby interactable (for the caller to dispatch)
  */
-function resolvePrompt(interactables, viewer) {
-  const nearby = findNearestInteractable(interactables, viewer, INTERACT_RADIUS);
-  if (!nearby) {
-    setInteractPrompt(null);
-    return null;
+function resolvePrompt(registries, viewer) {
+  const nearby = findNearestInteractable(registries.interactables, viewer, INTERACT_RADIUS);
+  const prompt = promptForInteractable(nearby, registries.fuelSystem);
+  if (prompt) {
+    setInteractPrompt(prompt.label, { ...prompt, target: nearby });
+    return nearby;
   }
-  // Doors in 'opening'/'open' state: suppress the prompt but keep the object.
-  const state = nearby.userData.state;
-  const promptable = !state || state === 'locked' || state === 'unlocked';
-  if (promptable) {
-    const { label, detail, denied } = nearby.userData.prompt ?? {};
-    setInteractPrompt(label ?? 'Interact', { detail, denied });
-  } else {
-    setInteractPrompt(null);
-  }
+  const cell = nearestFuelCell(registries.fuelCells, viewer, FUEL_HINT_RADIUS);
+  if (cell)
+    setInteractPrompt(cell.userData.prompt.label, { ...cell.userData.prompt, target: cell });
+  else setInteractPrompt(null);
   return nearby;
 }
 
@@ -241,7 +257,7 @@ export function createLevel2(options = {}) {
     // the player model (viewer), not the controller, is passed in.
     oxygenSystem.update(delta, input?.running ?? false);
 
-    const nearby = resolvePrompt(registries.interactables, viewer);
+    const nearby = resolvePrompt(registries, viewer);
     if (input?.interact && nearby) {
       nearby.userData.interact?.();
     }

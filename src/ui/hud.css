@@ -526,9 +526,42 @@ body[data-level='l3'] .hud-caption__speaker {
 
 .hud-prompt__key {
   padding: 1px 6px;
-  border: 1px solid var(--accent); /* follows the level: blue L1, amber L2 */
-  color: var(--accent);
+  /* clean blue on every level (final mock); hazard prompts below take the warning colour */
+  border: 1px solid var(--state-clean);
+  color: var(--state-clean);
   font-size: var(--fs-xs);
+}
+
+.hud-prompt__box {
+  background: var(--hud-panel);
+}
+
+/* Hazard prompts (Grab Handhold): key, border and brackets in the level's warning colour —
+   amber on L2, critical red on L3. */
+.hud-prompt.is-hazard {
+  --prompt-hazard: var(--ui-warn);
+}
+
+body[data-level='l3'] .hud-prompt.is-hazard {
+  --prompt-hazard: var(--ui-critical);
+}
+
+.hud-prompt.is-hazard .hud-prompt__key {
+  border-color: var(--prompt-hazard);
+  color: var(--prompt-hazard);
+}
+
+.hud-prompt.is-hazard .hud-prompt__box {
+  border-color: color-mix(in srgb, var(--prompt-hazard) 50%, transparent);
+}
+
+.hud-prompt.is-hazard .hud-prompt__reticle {
+  color: var(--prompt-hazard);
+}
+
+/* Hint (auto-pickup fuel cells): no key badge, so the label gets the badge's left padding. */
+.hud-prompt.is-hint .hud-prompt__box {
+  padding-left: 14px;
 }
 
 .hud-prompt__label {
