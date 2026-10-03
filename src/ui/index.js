@@ -100,7 +100,7 @@ export function initUI({ canvas = null } = {}) {
   setLevel(levelId);
 
   function applySettings(values) {
-    // HUD Opacity: boxes fade to the slider value, text/icons only half as far (settings.js).
+    // HUD Opacity: boxes fade to the slider value, text/icons fade far less (settings.js).
     const hudLayers = hudOpacityLayers(values.hudOpacity);
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty('--hud-opacity', String(hudLayers.box));

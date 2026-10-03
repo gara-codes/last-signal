@@ -16,8 +16,8 @@
   pointer-events: none;
   z-index: var(--z-hud);
   /* Options > HUD Opacity, split in two (settings.js hudOpacityLayers): text and icons fade only
-     part of the way, and the box layers (.hud-box-layer below) fade the rest, so at the lowest
-     setting the panels are faint but their readouts stay legible. */
+     a little, and the box layers (the ::before backgrounds below) fade the rest, so at the lowest
+     setting the panels are faint but their readouts stay bright. */
   opacity: var(--hud-content-opacity, 1);
   transition:
     opacity 0.2s ease,

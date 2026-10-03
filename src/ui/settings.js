@@ -91,17 +91,21 @@ export function hudOpacityToCss(percent) {
   return Math.min(SLIDER_MAX, Math.max(floor, percent)) / 100;
 }
 
+// How fast text and icons fade relative to the boxes: 0.25 = a quarter of the rate, so at the
+// 20% floor the boxes are at 0.2 but the text is still at 0.8. Raise it to let text fade more.
+export const HUD_CONTENT_FADE_RATE = 0.25;
+
 /**
- * HUD Opacity split into two layers, so text and icons stay readable at the low end while the
+ * HUD Opacity split into two layers, so text and icons stay bright at the low end while the
  * panel boxes fade fully:
  *   box      what the panel backgrounds/borders end up at — the slider value itself (0.2-1)
- *   content  text, icons, pips: fades at half the rate (100% -> 1, 20% -> 0.6)
+ *   content  text, icons, pips: fades at HUD_CONTENT_FADE_RATE of that (100% -> 1, 20% -> 0.8)
  *   boxFactor  extra fade applied to the box layer on top of `content`, so that
  *              content * boxFactor === box
  */
 export function hudOpacityLayers(percent) {
   const box = hudOpacityToCss(percent);
-  const content = 1 - (1 - box) / 2;
+  const content = 1 - (1 - box) * HUD_CONTENT_FADE_RATE;
   const round = (n) => Math.round(n * 1000) / 1000;
   return { box, content: round(content), boxFactor: round(box / content) };
 }
