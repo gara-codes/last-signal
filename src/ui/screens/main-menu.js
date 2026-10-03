@@ -93,9 +93,9 @@ export function createMainMenuScreen(api) {
       // Continue resumes the in-memory run, so it only works once one exists.
       setRowEnabled(rows.continue, api.hasSession(), 'No run in progress');
 
-      // Starting over while a run exists needs resetLevel(); until that is wired, New Game is
-      // only available for a fresh session.
-      const canStart = !api.hasSession() || api.canReset();
+      // Starting over while a run exists (or after a death) needs resetLevel(); until that is
+      // wired, New Game is only available for a fresh session.
+      const canStart = !api.needsReset() || api.canReset();
       setRowEnabled(rows['new-game'], canStart, 'Restarting needs resetLevel() — not wired yet');
 
       nav.selectFirstEnabled();

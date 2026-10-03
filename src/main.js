@@ -53,6 +53,11 @@ const SWAP_DELAY = 0.7; // dip length = time from hatch open to the swap
 const FADE_OUT = 0.3; // last stretch of the dip, spent fading to black
 const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
 
+// L2 arrival cue: the HUD warning banner reads "Life Support Fault Detected" for this long
+// (game time, so it holds while paused). The same banner slot carries the gravity warning later.
+const FAULT_CUE_SECONDS = 5;
+let faultCueTimer = null;
+
 // Full-screen black overlay that hides the L1 -> L2 cut. Opacity is driven
 // by CSS transitions, so there's no per-frame work.
 const fadeOverlay = document.createElement('div');
@@ -124,6 +129,8 @@ function loadL1() {
  */
 function loadL2({ startingReserve = 0 } = {}) {
   ui.setLevel('l2');
+  ui.setWarning('Life Support Fault Detected', { pulse: true });
+  faultCueTimer = FAULT_CUE_SECONDS;
   level = createLevel2({ startingReserve });
   scene.add(level.group);
 
@@ -191,6 +198,11 @@ ui.subscribe((state) => {
 //   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
 //   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
 
+// TAB Ship Status reads the live repair states (none on L1: everything shows nominal there).
+ui.registerHooks({
+  getRepairFlags: () => (inL2 ? (level.group.userData.repairs?.exportFlags() ?? null) : null),
+});
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -225,13 +237,27 @@ function animate() {
 
   const basis = player.userData.getSurfaceBasis();
   cameraSetup.update(basis, delta);
+  ui.syncPrompt(cameraSetup.getCamera()); // brackets follow the object, never a frame behind
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
-  // L2-only: oxygen bar, read the same way (live value each frame, not event-hooked).
-  if (inL2 && level.group.userData.oxygenSystem) {
-    ui.setOxygen(level.group.userData.oxygenSystem.fraction);
+  // L2-only: oxygen + health meters, read the same way (live value each frame, not event-hooked).
+  const oxygenSystem = inL2 ? level.group.userData.oxygenSystem : null;
+  if (oxygenSystem) {
+    ui.setOxygen(oxygenSystem.fraction);
+    ui.setHealth(oxygenSystem.health / 100);
+
+    // Death -> the Restart ("Signal Lost") screen, with this run's summary.
+    if (oxygenSystem.isDead) {
+      const data = level.group.userData;
+      ui.showRestart({
+        levelId: 'l2',
+        fuelCells: fuelSystem ? fuelSystem.banked : 0,
+        repairs: data.repairs?.exportFlags() ?? {},
+        checkpointReached: data.checkpoint?.hasSnapshot() ?? false,
+      });
+    }
   }
 
   if (!inL2 && !l1TransitionFired && level.group.userData.l1Complete) {
@@ -246,6 +272,14 @@ function animate() {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
   if (!inL2) lightingRig.updatePowerDip(delta);
+
+  if (faultCueTimer !== null) {
+    faultCueTimer -= delta;
+    if (faultCueTimer <= 0) {
+      faultCueTimer = null;
+      ui.setWarning(null);
+    }
+  }
 
   // Once the pan + dip have played out, replace L1 with L2. Done at the end
   // of the frame's updates so nothing above touches a disposed level.

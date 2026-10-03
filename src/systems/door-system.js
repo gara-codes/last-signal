@@ -172,6 +172,7 @@ export function updateInteractables(interactables, delta) {
 
 export function applyFuelGate(door, gate, fuelSystem) {
   const baseInteract = door.userData.interact; //Save original method
+  door.userData.fuelGate = gate; // read by the HUD prompt (ui/prompt-copy.js) for the cost
 
   door.userData.interact = () => {
     if (door.userData.state !== 'locked') {

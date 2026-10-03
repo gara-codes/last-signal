@@ -13,8 +13,9 @@ export const REPAIR_STATES = {
 // The three systems the player can allocate repair cells to
 export const SYSTEM_IDS = ['oxygen-scrubbers', 'gravity-stabilizers', 'comms-array'];
 
-// Cost to fully repair each system
-const REPAIR_COST = 2; // fuel cells per full repair
+// Cost of one repair step (untouched -> partial, partial -> repaired). Exported so the repair
+// console can show it.
+export const REPAIR_COST = 2; // fuel cells per step
 
 export class SystemRepairAllocation {
   /**

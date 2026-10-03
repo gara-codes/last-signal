@@ -15,22 +15,49 @@
 //                    resetLevel({ full: true })   New Game over an existing run: back to L1,
 //                                                 zero banked fuel, no repair flags, checkpoint
 //                                                 ignored.
-//                    resetLevel({ full: false })  Pause > Restart Level: the current level again,
+//                    resetLevel({ full: false })  Pause > Restart Level (shown through the loading
+//                                                 screen): the current level again,
 //                                                 from its checkpoint if one has been passed.
 //   lockPointer()  Nonku's mouse-look — Resume calls it (from a click, as browsers require) to
 //                  re-lock the mouse:  ui.registerHooks({ lockPointer });
 //   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
 //                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
-//   oxygen bar     Wired (L2 only): main.js reads level2.group.userData.oxygenSystem.fraction
-//                  every frame and calls ui.setOxygen() — same pattern as fuel count.
-//   interact       Partly wired: the level calls setInteractPrompt() from ui/hud.js directly
-//                  (labels, denied state and detail, object anchor — see the header of hud.js).
-//                  Still to wire on the level side: per-object labels ("Collect Fuel Cell",
-//                  "Open Door" + "2 / 4 Fuel Cells" when denied) and the anchor position.
+//   oxygen/health  Wired (L2): main.js reads level.group.userData.oxygenSystem every frame and
+//                  calls ui.setOxygen(fraction) / ui.setHealth(health / 100). The meters only
+//                  show on L2/L3 (the level sets that via setLevel).
+//   warnings       Gravity (Natasha/Alex — gravity-system.js is empty so far). One banner slot:
+//                    ui.setWarning('Life Support Fault Detected', { pulse: true })  L2 arrival cue
+//                    ui.setWarning('Gravity Field Destabilizing', { icon: 'gravity', pulse: true })
+//                    ui.setGraceWindow(0..1)   grace bar under the banner (1 = full); null hides
+//                    ui.triggerAlarm()         two light drops (one slow dim w/ Reduce Flashing)
+//                    ui.setWarning(null)       clears the banner and its bar
+//   L3 threats     ui.setHullBreach(secondsLeft | null) and ui.setScrubbersOffline(bool) — the
+//                  marker only if Scrubbers are still broken on entry to L3
+//                  (repairs.getState('oxygen-scrubbers') !== 'repaired').
+//   power readout  ui.setPower(0-100) once power-allocation.js is live; until then each level
+//                  shows the mockup's value (100 / 61 / 19).
+//   interact       Wired: the levels call setInteractPrompt() from ui/hud.js with per-object
+//                  copy from ui/prompt-copy.js and the object as `target`; main.js calls
+//                  ui.syncPrompt(camera) after the camera moves to lock the brackets onto it.
+//                  New interactables: give them userData.prompt or userData.getPrompt().
 //   sfx / music    Audio manager — settings.subscribe() and read sfxVolume / musicVolume (0-100).
-//   captions       The AI-voice caption bar reads settings.get().captions (also mirrored on
-//                  body[data-captions]); the bar itself is not built yet.
+//   captions       Whoever plays an AI voice line calls ui.setCaption('line') and
+//                  ui.setCaption(null) when it ends. Options > AI Voice Captions hides the bar
+//                  (body[data-captions]).
+//   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
+//                  repair consoles handle it, nothing to wire.
+//   death          Wired (L2): main.js calls ui.showRestart({ levelId, fuelCells, repairs,
+//                  checkpointReached }) once oxygenSystem.isDead. Restart needs resetLevel();
+//                  until then only Return to Main Menu works. L3 should call it the same way.
+//   logs           ui.openLog([{ id, title, body: ['line', { redacted: 16 }, ...], corrupted }],
+//                  index) from whatever the player reads (no logs are placed yet). Pauses the
+//                  world; E / Esc closes.
+//   ship status    Hold TAB in play (ui/ship-status.js). Wired: main.js registers
+//                  ui.registerHooks({ getRepairFlags }) — L2's live repairs.exportFlags(); L3
+//                  should return the flags L2 handed over. L1 needs none (all nominal).
+//   repair console Wired (L2): E at a station opens its console (props.js), E again repairs a
+//                  step, Esc / walking away closes it. API: ui/screens/repair-console/.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,
 //                  pause overlay and loading screen follow the level.
 //   Continue       Whether "Quit to Main Menu" keeps the run is Alex's call — flip
@@ -40,7 +67,7 @@
 import './ui.css';
 import { installStageScaling } from './stage.js';
 import { createUiState, STATES } from './ui-state.js';
-import { createSettings, brightnessToFactor, hudOpacityToCss } from './settings.js';
+import { createSettings, brightnessToFactor, hudOpacityLayers } from './settings.js';
 import { createTipPicker } from './tips.js';
 import { trackAssetProgress } from './asset-progress.js';
 import { createHud } from './hud.js';
@@ -68,19 +95,23 @@ export function initUI({ canvas = null } = {}) {
   function setLevel(id) {
     levelId = id;
     document.body.dataset.level = id;
+    hud.setLevel(id);
   }
   setLevel(levelId);
 
   function applySettings(values) {
-    document.documentElement.style.setProperty(
-      '--hud-opacity',
-      String(hudOpacityToCss(values.hudOpacity))
-    );
+    // HUD Opacity: boxes fade to the slider value, text/icons fade far less (settings.js).
+    const hudLayers = hudOpacityLayers(values.hudOpacity);
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--hud-opacity', String(hudLayers.box));
+    rootStyle.setProperty('--hud-content-opacity', String(hudLayers.content));
+    rootStyle.setProperty('--hud-box-factor', String(hudLayers.boxFactor));
     if (canvas) {
       const factor = brightnessToFactor(values.brightness);
       canvas.style.filter = factor === 1 ? '' : `brightness(${factor})`;
     }
     document.body.dataset.captions = values.captions ? 'on' : 'off';
+    document.body.dataset.reduceFlashing = values.reduceFlashing ? 'on' : 'off';
   }
   settings.subscribe(applySettings);
   applySettings(settings.get());
@@ -106,5 +137,19 @@ export function initUI({ canvas = null } = {}) {
     setLevel,
     setFuelCount: (count) => hud.setFuelCount(count),
     setOxygen: (fraction) => hud.setOxygen(fraction),
+    setHealth: (fraction) => hud.setHealth(fraction),
+    setPower: (percent) => hud.setPower(percent),
+    setCaption: (text, options) => hud.setCaption(text, options),
+    setWarning: (label, options) => hud.setWarning(label, options),
+    setGraceWindow: (fraction) => hud.setGraceWindow(fraction),
+    triggerAlarm: () => hud.triggerAlarm(),
+    setHullBreach: (seconds) => hud.setHullBreach(seconds),
+    setScrubbersOffline: (offline) => hud.setScrubbersOffline(offline),
+    /** Death: the Restart ("Signal Lost") screen. See screens/restart-model.js for `info`. */
+    showRestart: (info) => manager.showRestart(info),
+    /** Open the log reading overlay (pauses the world). See screens/log-overlay.js. */
+    openLog: (entries, index) => manager.openLog(entries, index),
+    /** Lock the interaction prompt onto its object; call once a frame after the camera moves. */
+    syncPrompt: (camera) => hud.syncInteractPrompt(camera),
   };
 }

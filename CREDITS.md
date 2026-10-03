@@ -74,6 +74,15 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 | ---- | --------------- | --- | ------- | -------- | --------------- |
 | —    | —               | —   | —       | —        | —               |
 
+## Design references (inspiration only — nothing copied into the game)
+
+Artwork we studied while designing our own UI. None of it ships with the game: every panel was
+redrawn from our own wireframes. Listed because it shaped the look.
+
+| Item                              | Source / author         | URL                                       | Licence                                           | Used for                                                                                                   | Added by (date)      |
+| --------------------------------- | ----------------------- | ----------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------- |
+| HUD - Relativity (preview images) | RD Studios (ArtStation) | https://www.artstation.com/artwork/8l3AlR | None listed — paid template; previews viewed only | Visual reference for the L2 repair consoles, log overlay tabs and Comms waveform (own wireframes, redrawn) | Shannon (03-10-2026) |
+
 ## Tutorials, articles, videos & adapted code
 
 | What it covers | Source / author | URL | Used for | Added by (date) |

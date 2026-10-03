@@ -57,5 +57,15 @@ describe('resolvePrompt', () => {
     expect(resolvePrompt('Open Door', { anchor: { x: 1, y: 2 } }).key).not.toBe(base.key);
     expect(resolvePrompt('Grab Handhold').key).not.toBe(base.key);
     expect(resolvePrompt(null).key).toBe('hidden');
+    expect(resolvePrompt('Open Door', { hint: true }).key).not.toBe(base.key);
+    expect(resolvePrompt('Open Door', { tone: 'hazard' }).key).not.toBe(base.key);
+  });
+
+  it('carries hint and hazard tone, ignoring unknown tones', () => {
+    const view = resolvePrompt('Collect Fuel Cell', { hint: true });
+    expect(view.hint).toBe(true);
+    expect(view.tone).toBe('');
+    expect(resolvePrompt('Grab Handhold', { tone: 'hazard' }).tone).toBe('hazard');
+    expect(resolvePrompt('Grab Handhold', { tone: 'loud' }).tone).toBe('');
   });
 });
