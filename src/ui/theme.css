@@ -134,6 +134,15 @@
   --hud-hostile-panel: rgba(16, 8, 7, 0.85); /* L3 HUD panels: red-shifted --ui-panel */
   --hud-hostile-text-dim: #a08a86; /* L3 HUD labels + sector readout: red-shifted grey */
 
+  /* ---- L2 repair consoles: one colour per system (final mockup). Oxygen matches the HUD's
+     oxygen colour; the shared critical red is --ui-critical. ---- */
+  --sys-gravity: #b39dff; /* violet */
+  --sys-gravity-hi: #c9b6ff;
+  --sys-comms: #74e0a6; /* green */
+  --sys-comms-hi: #9ff0c3;
+  --sys-oxygen: #8fd0ff; /* icy blue */
+  --sys-oxygen-hi: #cfe8ff;
+
   /* ---- stacking order (shared scale — keep every new screen on this, not one-off z-index) ---- */
   --z-hud: 10; /* always-on HUD panels */
   --z-overlay: 20; /* pause overlay, log/text reading overlay, warning banners */

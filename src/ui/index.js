@@ -45,8 +45,10 @@
 //   captions       Whoever plays an AI voice line calls ui.setCaption('line') and
 //                  ui.setCaption(null) when it ends. Options > AI Voice Captions hides the bar
 //                  (body[data-captions]).
-//   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css handles
-//                  it, nothing to wire.
+//   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
+//                  repair consoles handle it, nothing to wire.
+//   repair console Wired (L2): E at a station opens its console (props.js), E again repairs a
+//                  step, Esc / walking away closes it. API: ui/screens/repair-console/.
 //   level theme    Level-transition code calls ui.setLevel('l2' | 'l3') so the accent/backdrop,
 //                  pause overlay and loading screen follow the level.
 //   Continue       Whether "Quit to Main Menu" keeps the run is Alex's call — flip

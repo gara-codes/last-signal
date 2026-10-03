@@ -26,6 +26,10 @@ import { OxygenSystem } from '../systems/oxygen-system.js';
 import { updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { setInteractPrompt } from '../ui/hud.js';
 import { promptForInteractable } from '../ui/prompt-copy.js';
+import {
+  isRepairConsoleOpen,
+  closeRepairConsole,
+} from '../ui/screens/repair-console/repair-console.js';
 
 const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
@@ -127,6 +131,16 @@ function nearestFuelCell(fuelCells, viewer, maxDistance) {
  */
 function resolvePrompt(registries, viewer) {
   const nearby = findNearestInteractable(registries.interactables, viewer, INTERACT_RADIUS);
+  // An open repair console: walking away from its station closes it; while it stays open the
+  // console shows its own prompt, so the world prompt hides.
+  if (isRepairConsoleOpen()) {
+    const repairId = nearby?.userData.repairId;
+    if (repairId && isRepairConsoleOpen(repairId)) {
+      setInteractPrompt(null);
+      return nearby;
+    }
+    closeRepairConsole();
+  }
   const prompt = promptForInteractable(nearby, registries.fuelSystem);
   if (prompt) {
     setInteractPrompt(prompt.label, { ...prompt, target: nearby });
@@ -284,6 +298,7 @@ export function createLevel2(options = {}) {
 
   function dispose() {
     setInteractPrompt(null);
+    closeRepairConsole();
     group.traverse((obj) => {
       if (obj.geometry && !isSharedDoorResource(obj.geometry)) {
         obj.geometry.dispose();

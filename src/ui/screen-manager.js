@@ -11,6 +11,7 @@ import { createOptionsScreen } from './screens/options.js';
 import { createPauseScreen } from './screens/pause.js';
 import { createLoadingScreen } from './screens/loading.js';
 import { createCreditsScreen } from './credits.js';
+import { createRepairConsole } from './screens/repair-console/repair-console.js';
 
 // The browser releases the mouse on Escape and then may ALSO deliver the Escape keydown. If the
 // lock-release already paused the game, that keydown must not immediately resume it.
@@ -78,7 +79,10 @@ export function createScreenManager({
     [STATES.CREDITS]: createCreditsScreen(api),
   };
 
-  root.append(hud.element);
+  // L2 repair consoles: an overlay during play (the world keeps running), above the HUD and
+  // under pause/menus. Opened by the level; closed here on Esc and when play ends.
+  const repairConsole = createRepairConsole();
+  root.append(hud.element, repairConsole.element);
   for (const screen of Object.values(screens)) root.append(screen.element);
 
   let active = null;
@@ -98,6 +102,9 @@ export function createScreenManager({
 
     hud.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
     hud.setDimmed(current === STATES.PAUSED);
+    repairConsole.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
+    repairConsole.setPaused(current === STATES.PAUSED);
+    if (current === STATES.MAIN_MENU || current === STATES.LOADING) repairConsole.close();
     document.body.dataset.uiState = current;
   }
 
@@ -112,6 +119,12 @@ export function createScreenManager({
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.repeat) return;
     if (window.performance.now() - lastLockLossAt < ESCAPE_AFTER_LOCK_LOSS_MS) return;
+    // Esc backs out of an open repair console first, instead of pausing.
+    if (state.getState() === STATES.PLAYING && repairConsole.isOpen()) {
+      repairConsole.close();
+      event.preventDefault();
+      return;
+    }
     if (state.send(ACTIONS.ESCAPE)) event.preventDefault();
   });
 
@@ -119,6 +132,13 @@ export function createScreenManager({
   // so losing it mid-game has to open the pause overlay.
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement || state.getState() !== STATES.PLAYING) return;
+    // Esc at a repair console: the browser drops the mouse first. Treat it as closing the console,
+    // not as pausing; a click on the game grabs the mouse again.
+    if (repairConsole.isOpen()) {
+      repairConsole.close();
+      lastLockLossAt = window.performance.now();
+      return;
+    }
     // Set before the state change so the pause screen's hint is right the first time it shows.
     mouseReleasedByBrowser = true;
     lastLockLossAt = window.performance.now();

@@ -16,9 +16,13 @@
 import * as THREE from 'three';
 import { createDoor } from '../../systems/door-system.js';
 import { loadFuelCell, loadGlb } from '../../core/AssetLoader.js';
-import { REPAIR_STATES } from '../../systems/system-repair-allocation.js';
+import { REPAIR_STATES, REPAIR_COST } from '../../systems/system-repair-allocation.js';
 import { TERMINAL_UNLOCK_COST } from '../../systems/command-center.js';
 import { costPrompt, stationPrompt, FUEL_CELL_HINT } from '../../ui/prompt-copy.js';
+import {
+  openRepairConsole,
+  isRepairConsoleOpen,
+} from '../../ui/screens/repair-console/repair-console.js';
 
 // props.js's own 'oxygen'/'gravity'/'comms' station ids never matched
 // system-repair-allocation.js's SYSTEM_IDS vocabulary — map between them.
@@ -199,8 +203,8 @@ export function createCommsStation(mats, { modelPath, repairs, fuelSystem } = {}
   return finishStation(group, 'comms', { repairs, fuelSystem });
 }
 
-// TODO(step 3): E opens the repair console screen (src/ui/screens/repair-console.js) and E again
-// repairs from inside it; until that lands, E at the station repairs one step directly.
+// E at a station opens its repair console (ui/screens/repair-console/); E again, with the console
+// open, repairs one step. Esc or walking away closes it (screen-manager.js / the L2 orchestrator).
 function finishStation(group, system, { repairs, fuelSystem } = {}) {
   const rings = group.userData.rings ?? [];
   const repairId = REPAIR_SYSTEM_IDS[system];
@@ -213,13 +217,23 @@ function finishStation(group, system, { repairs, fuelSystem } = {}) {
     id: `${system}-station`,
     interactable: true,
     system,
+    repairId, // SYSTEM_IDS name, also the console's id
     repairState: initialState, // 'untouched' | 'partial' | 'repaired' — flags L3 reads
     getPrompt: () =>
       stationPrompt(repairId, group.userData.repairState === REPAIR_STATES.REPAIRED),
     interact() {
       if (!repairs || !fuelSystem) return; // no allocator wired — inert in isolation/tests
+      if (!isRepairConsoleOpen(repairId)) {
+        openRepairConsole({
+          systemId: repairId,
+          getState: () => repairs.getState(repairId),
+          getBanked: () => fuelSystem.banked,
+          cost: REPAIR_COST,
+        });
+        return;
+      }
       const result = repairs.repair(repairId, fuelSystem);
-      if (!result.success) return;
+      if (!result.success) return; // can't afford it: the console's prompt already says so
       group.userData.repairState = result.newState;
     },
     update(delta) {
