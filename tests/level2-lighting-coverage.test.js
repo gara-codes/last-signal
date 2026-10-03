@@ -8,7 +8,6 @@ import { describe, it, expect } from 'vitest';
 import {
   L2_LIGHT_LAYOUT,
   LIGHT_DISTANCE,
-  TIER_SETTINGS,
   resolveLightPosition,
 } from '../src/core/LightingRigL2.js';
 import {
@@ -49,10 +48,6 @@ function isLit(storey, { col, row }) {
 }
 
 describe('L2 lighting coverage', () => {
-  it('uses the expected tier settings', () => {
-    expect(Object.keys(TIER_SETTINGS)).toEqual(['upper', 'ground']);
-  });
-
   for (const [storey, grid] of [['ground', GROUND_GRID], ['upper', UPPER_GRID]]) {
     it(`every walkable ${storey} cell is reached by a light`, () => {
       const dark = walkableCells(grid).filter((cell) => !isLit(storey, cell));

@@ -81,7 +81,7 @@ export const L2_LIGHT_LAYOUT = [
   { id: 'ground-west', tier: 'ground', col: 1, row: 3, unstable: true },
 ];
 
-export const TIER_SETTINGS = {
+const TIER_SETTINGS = {
   upper: { y: UPPER_LIGHT_Y, intensity: UPPER_INTENSITY },
   ground: { y: GROUND_LIGHT_Y, intensity: GROUND_INTENSITY },
 };
