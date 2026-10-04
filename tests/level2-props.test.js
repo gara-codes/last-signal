@@ -28,8 +28,45 @@ import {
   createBeacon,
 } from '../src/levels/level2/props.js';
 import { FuelSystem } from '../src/systems/fuel-system.js';
+import { createElevator, createLadder, createStarfield } from '../src/levels/level2/transit.js';
+import { TRANSIT, DECK_Y, cellToWorld } from '../src/levels/level2/grid-data.js';
 
 const mats = createBlockoutMaterials({ useTextures: false });
+
+// Minimal stand-ins for the orchestrator's registries and maze-builder's
+// collision registry, so the transit builders run DOM-free.
+function fakeCollision() {
+  const wallAABBs = [];
+  const railAABBs = [];
+  const push =
+    (list) =>
+    (cx, cy, cz, sx, sy, sz, name) =>
+      list.push({
+        minX: cx - sx / 2,
+        maxX: cx + sx / 2,
+        minY: cy - sy / 2,
+        maxY: cy + sy / 2,
+        minZ: cz - sz / 2,
+        maxZ: cz + sz / 2,
+        name,
+      });
+  return {
+    wallAABBs,
+    railAABBs,
+    rampSurfaces: [],
+    addWall: push(wallAABBs),
+    addRail: push(railAABBs),
+  };
+}
+
+function fakeRegistries() {
+  return {
+    interactables: [],
+    updatables: [],
+    transit: { onTeleport: null, onRide: null },
+    collision: fakeCollision(),
+  };
+}
 
 describe('L2 prop builders — userData contract', () => {
   it('createPylon returns a Group with id and setPowered', () => {
@@ -86,10 +123,21 @@ describe('L2 prop builders — userData contract', () => {
     expect(terminal.userData.prompt.label).toContain('Reroute');
   });
 
-  it('createCameraMount returns a Group with update (pan sweep)', () => {
+  it('createCameraMount yaw-tracks the viewer with a fixed 30° tilt', () => {
     const camera = createCameraMount(mats);
     expect(camera.userData.id).toBe('surveillance-camera');
     expect(typeof camera.userData.update).toBe('function');
+
+    camera.position.set(0, 22.5, -29.1);
+    const viewer = new THREE.Object3D();
+    viewer.position.set(5, 2, 3);
+    camera.userData.update(1 / 60, viewer);
+    expect(camera.rotation.order).toBe('YXZ');
+    expect(camera.rotation.y).toBeCloseTo(Math.atan2(5, 3 + 29.1));
+    expect(camera.rotation.x).toBeCloseTo(Math.PI / 6);
+
+    // No viewer (tests / pre-spawn frames) — holds the last pose, no throw.
+    expect(() => camera.userData.update(1 / 60, undefined)).not.toThrow();
   });
 
   it('createFuelCellSpawn returns a pickup-ready cell', () => {
@@ -116,5 +164,154 @@ describe('L2 prop builders — userData contract', () => {
   it('createBeacon returns a Group', () => {
     const beacon = createBeacon(mats, 0x35d6e8);
     expect(beacon).toBeInstanceOf(THREE.Group);
+  });
+});
+
+describe('L2 transit — elevator', () => {
+  it('builds the cab, sealed gates and shaft collision in idle-ground state', () => {
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    expect(elevator.userData.id).toBe('l2-elevator');
+    expect(elevator.userData.state).toBe('idle-ground');
+    expect(elevator.userData.cab.name).toBe('elevator-cab');
+    expect(elevator.userData.gates.ground.userData.state).toBe('locked');
+    expect(elevator.userData.gates.upper.userData.state).toBe('locked');
+    expect(elevator.userData.cabDoor.userData.state).toBe('locked');
+
+    const names = registries.collision.wallAABBs.map((a) => a.name);
+    expect(names).toContain('elevator-shaft-east');
+    expect(names).toContain('elevator-shaft-west');
+    expect(names).toContain('elevator-shaft-south');
+    expect(names).toContain('elevator-gate-ground');
+    expect(names).toContain('elevator-gate-upper');
+
+    expect(registries.interactables.map((o) => o.name)).toEqual(
+      expect.arrayContaining([
+        'l2-elevator-call-ground',
+        'l2-elevator-call-upper',
+        'l2-elevator-send',
+      ])
+    );
+    expect(registries.updatables).toContain(elevator);
+  });
+
+  it('calling the cab to its current floor opens the gates and splices their AABBs', () => {
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    elevator.userData.callTo('ground');
+    for (let i = 0; i < 60; i++) elevator.userData.update(1 / 20, null); // 3 s > 1.5 s doors
+
+    expect(elevator.userData.gates.ground.userData.state).toBe('open');
+    expect(elevator.userData.cabDoor.userData.state).toBe('open');
+    const names = registries.collision.wallAABBs.map((a) => a.name);
+    expect(names).not.toContain('elevator-gate-ground'); // spliced while open
+    expect(names).toContain('elevator-gate-upper'); // other floor stays sealed
+  });
+
+  it('send() closes up, restores the gate AABBs and rides to the upper deck', () => {
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    elevator.userData.send();
+    for (let i = 0; i < 200; i++) elevator.userData.update(1 / 20, null); // 10 s > 4 s travel
+
+    expect(elevator.userData.state).toBe('idle-upper');
+    expect(elevator.userData.cab.position.y).toBeCloseTo(DECK_Y);
+    expect(elevator.userData.gates.upper.userData.state).toBe('open');
+    const names = registries.collision.wallAABBs.map((a) => a.name);
+    expect(names).not.toContain('elevator-gate-upper'); // arrival opened it
+    expect(names).toContain('elevator-gate-ground'); // re-seated when sealed
+  });
+
+  it('carries a viewer standing in the cab (default direct mutation)', () => {
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    const viewer = new THREE.Object3D();
+    viewer.position.set(cellToWorld(TRANSIT.elevator.col, TRANSIT.elevator.row).x, 0, 33.6);
+
+    elevator.userData.send();
+    for (let i = 0; i < 200; i++) elevator.userData.update(1 / 20, viewer);
+
+    expect(elevator.userData.state).toBe('idle-upper');
+    expect(viewer.position.y).toBeCloseTo(DECK_Y, 1);
+  });
+
+  it('routes the carry through the onRide handler when one is wired', () => {
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    const viewer = new THREE.Object3D();
+    viewer.position.set(cellToWorld(TRANSIT.elevator.col, TRANSIT.elevator.row).x, 0, 33.6);
+
+    const rides = [];
+    registries.transit.onRide = (cabFloorY) => {
+      rides.push(cabFloorY);
+      // What main.js's setSpawn effectively does — the viewer follows.
+      viewer.position.y = cabFloorY;
+    };
+
+    elevator.userData.send();
+    for (let i = 0; i < 200; i++) elevator.userData.update(1 / 20, viewer);
+
+    expect(rides.length).toBeGreaterThan(0);
+    expect(rides[rides.length - 1]).toBeCloseTo(DECK_Y, 1);
+  });
+});
+
+describe('L2 transit — ladder and starfield', () => {
+  it('registers an interactable + updatable with rail collision', () => {
+    const registries = fakeRegistries();
+    const ladder = createLadder(mats, registries, TRANSIT.ladder);
+
+    expect(ladder.userData.id).toBe('l2-ladder');
+    expect(ladder.userData.interactable).toBe(true);
+    expect(registries.interactables).toContain(ladder);
+    expect(registries.updatables).toContain(ladder);
+    expect(registries.collision.railAABBs).toHaveLength(3);
+  });
+
+  it('teleports direction-aware via direct mutation (default path)', () => {
+    const registries = fakeRegistries();
+    const ladder = createLadder(mats, registries, TRANSIT.ladder);
+
+    const viewer = new THREE.Object3D();
+    const { x, z } = cellToWorld(TRANSIT.ladder.col, TRANSIT.ladder.row);
+
+    viewer.position.set(x, DECK_Y, z);
+    ladder.userData.update(1 / 60, viewer);
+    expect(ladder.userData.prompt.label).toBe('Climb Down');
+    ladder.userData.interact();
+    expect(viewer.position.y).toBe(0);
+
+    ladder.userData.update(1 / 60, viewer);
+    expect(ladder.userData.prompt.label).toBe('Climb Up');
+    ladder.userData.interact();
+    expect(viewer.position.y).toBe(DECK_Y);
+  });
+
+  it('routes the teleport through the onTeleport handler when wired', () => {
+    const registries = fakeRegistries();
+    const ladder = createLadder(mats, registries, TRANSIT.ladder);
+    const teleports = [];
+    registries.transit.onTeleport = (x, y, z, yaw) => teleports.push([x, y, z, yaw]);
+
+    const viewer = new THREE.Object3D();
+    viewer.position.set(0, DECK_Y, 0);
+    ladder.userData.update(1 / 60, viewer);
+    ladder.userData.interact();
+
+    expect(teleports).toHaveLength(1);
+    expect(teleports[0][1]).toBe(0); // deck side → down
+    expect(teleports[0][3]).toBe(0); // yaw faces away from the wall
+    expect(viewer.position.y).toBe(DECK_Y); // never mutated directly
+  });
+
+  it('createStarfield returns a ~2k-point sphere beyond the shaft', () => {
+    const stars = createStarfield(TRANSIT.elevator);
+    expect(stars).toBeInstanceOf(THREE.Points);
+    expect(stars.geometry.getAttribute('position').count).toBe(2000);
   });
 });

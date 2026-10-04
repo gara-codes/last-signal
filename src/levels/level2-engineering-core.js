@@ -28,7 +28,7 @@ import { setInteractPrompt } from '../ui/hud.js';
 
 const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
-const EYE_HEIGHT = 1.7; // flycam spawn eye height above the deck/ground
+const EYE_HEIGHT = 2.55; // flycam spawn eye height above the deck/ground
 
 // Reusable scratch vectors — module-level singletons, never allocated inside
 // the per-frame loop. Concurrent L2 instances are not supported (the level
@@ -46,6 +46,10 @@ function createRegistries() {
     updatables: [], // per-frame animation tick
     fuelCells: [], // proximity pickup candidates
     collision: null, // set by buildLevelGeometry
+    // Blockout transit hooks (see setTransitHandlers): while unwired,
+    // transit.js moves the viewer directly — which serves the flycam
+    // and the tests.
+    transit: { onTeleport: null, onRide: null },
   };
 }
 
@@ -230,7 +234,9 @@ export function createLevel2(options = {}) {
       return;
     }
 
-    updateInteractables(registries.updatables, delta);
+    // Viewer forwarded (door-system.js) so updatables that track it —
+    // camera mounts, elevator carry, ladder direction — receive it.
+    updateInteractables(registries.updatables, delta, viewer);
     tickFuelProximity(registries.fuelCells, viewer);
 
     // isRunning: input.running is the same raw value FlatPhysicsController's
@@ -293,6 +299,16 @@ export function createLevel2(options = {}) {
     collisionData: geometry.collision.finalize(),
     getSpawnView: computeSpawnView,
     getPlayerSpawn: computePlayerSpawn,
+    /**
+     * Wires the blockout transit handlers (main.js's player path):
+     *   onTeleport(x, y, z, yaw) — the ladder hatch
+     *   onRide(cabFloorY)        — the elevator carry
+     * Left unwired, transit.js mutates the viewer directly — the flycam
+     * and the tests run that way.
+     */
+    setTransitHandlers(handlers = {}) {
+      Object.assign(registries.transit, handlers);
+    },
     // Debug handles — console access for the flycam and fuel reads.
     __anchors: anchors,
     __lighting: lighting,
