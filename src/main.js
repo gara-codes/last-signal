@@ -44,6 +44,13 @@ let halObject = null;
 let halWorldPosition = null;
 let l1TransitionFired = false;
 
+// Fuel L2 was entered with, so restarting L2 (no checkpoint yet) gives the same start again.
+let l2EntryReserve = 0;
+
+// Death shows the Restart screen once per life (the loop stops on DEAD anyway; this makes the
+// intent explicit and skips rebuilding the summary every frame).
+let deathFired = false;
+
 // L1->L2 swap state: null while idle, otherwise the countdown (seconds) until
 // the swap runs. The power dip plays first; the fade starts at its darkest
 // point so the dip is seen rather than hidden under the overlay.
@@ -90,15 +97,17 @@ function loadL1() {
   level.group.rotation.z = Math.PI / 2;
   scene.add(level.group);
 
-  cameraSetup = new Camera();
+  if (!cameraSetup) cameraSetup = new Camera(); // reused across restarts
   // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
   // HEIGHT_HALF — update alongside those two if the drum size changes.
   cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
 
-  player = loadAstronaut();
-  scene.add(player);
+  if (!player) {
+    player = loadAstronaut();
+    scene.add(player);
+  }
 
-  playerController = new PlayerController(player);
+  playerController = new PlayerController(player); // fresh controller = fresh spawn
   level.attachCollision(playerController);
 
   fuelSystem = level.group.userData.fuelSystem;
@@ -125,13 +134,18 @@ function loadL1() {
  * Builds L2 from scratch (dev swap, `?level=l2`) or carrying L1's state
  * forward. The player model and camera are reused across the swap — only
  * the controller and level are replaced.
- * @param {{ startingReserve?: number }} [carry]
+ * @param {{ startingReserve?: number, checkpoint?: object | null }} [carry]
+ *   checkpoint: a snapshot from the previous L2's checkpoint (Restart From Checkpoint).
  */
-function loadL2({ startingReserve = 0 } = {}) {
+function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   ui.setLevel('l2');
-  ui.setWarning('Life Support Fault Detected', { pulse: true });
-  faultCueTimer = FAULT_CUE_SECONDS;
-  level = createLevel2({ startingReserve });
+  if (!checkpoint) {
+    l2EntryReserve = startingReserve;
+    // Arrival cue only on a fresh entry, not when coming back from the checkpoint.
+    ui.setWarning('Life Support Fault Detected', { pulse: true });
+    faultCueTimer = FAULT_CUE_SECONDS;
+  }
+  level = createLevel2({ startingReserve, checkpoint });
   scene.add(level.group);
 
   if (!cameraSetup) cameraSetup = new Camera();
@@ -185,6 +199,52 @@ if (isL2) {
   loadL1();
 }
 
+/** Removes the live level and clears every per-level timer, so a new one can be built. */
+function teardownLevel() {
+  scene.remove(level.group);
+  level.dispose();
+  if (lightingRig) {
+    lightingRig.dispose();
+    lightingRig = null;
+  }
+  halObject = null;
+  halWorldPosition = null;
+  swapTimer = null; // a restart mid L1 -> L2 transition cancels it
+  fadeStarted = false;
+  fadeTo(0, 0);
+  faultCueTimer = null;
+  ui.setWarning(null);
+  deathFired = false;
+}
+
+/**
+ * Restarts without reloading the page (ui hook, see WIRING in src/ui/index.js). The UI shows
+ * the loading screen first, so this runs while the world is not being updated or drawn.
+ *   { full: true }   New Game: back to L1 with no fuel, repairs or checkpoint.
+ *   { full: false }  Restart Level: the current level again. In L2 that is the checkpoint once
+ *                    it has been reached (the world rebuilt as it was there), otherwise a fresh
+ *                    L2 with the fuel carried in from L1.
+ */
+function resetLevel({ full = false } = {}) {
+  const restartL2 = inL2 && !full;
+  const checkpoint = restartL2 ? (level.group.userData.checkpoint?.load() ?? null) : null;
+
+  teardownLevel();
+
+  if (restartL2) {
+    loadL2({ startingReserve: l2EntryReserve, checkpoint });
+  } else {
+    inL2 = false;
+    l1TransitionFired = false;
+    ui.setLevel('l1');
+    loadL1();
+  }
+
+  cameraSetup.yaw = 0;
+  cameraSetup.pitch = 0;
+  ui.setFuelCount(fuelSystem ? fuelSystem.banked : 0);
+}
+
 const inputManager = new InputManager(renderer.domElement);
 const clock = new THREE.Clock();
 
@@ -194,12 +254,14 @@ ui.subscribe((state) => {
   if (state === STATES.PLAYING) inputManager.getInput();
 });
 
-// TODO(wire): see the WIRING notes at the top of src/ui/index.js —
-//   ui.registerHooks({ resetLevel })   Alex: resetLevel({ full }) — restart without location.reload()
-//   ui.registerHooks({ lockPointer })  mouse-look: re-lock the mouse when Resume is clicked
-
-// TAB Ship Status reads the live repair states (none on L1: everything shows nominal there).
+// See the WIRING notes at the top of src/ui/index.js.
 ui.registerHooks({
+  resetLevel,
+  // Resume / Restart / closing a log re-lock the mouse from their click or key press (browsers
+  // only grant pointer lock from a user gesture). requestPointerLock may return a promise that
+  // rejects if the browser refuses; the canvas click in InputManager still works then.
+  lockPointer: () => renderer.domElement.requestPointerLock()?.catch?.(() => {}),
+  // TAB Ship Status reads the live repair states (none on L1: everything shows nominal there).
   getRepairFlags: () => (inL2 ? (level.group.userData.repairs?.exportFlags() ?? null) : null),
 });
 
@@ -249,7 +311,8 @@ function animate() {
     ui.setHealth(oxygenSystem.health / 100);
 
     // Death -> the Restart ("Signal Lost") screen, with this run's summary.
-    if (oxygenSystem.isDead) {
+    if (oxygenSystem.isDead && !deathFired) {
+      deathFired = true;
       const data = level.group.userData;
       ui.showRestart({
         levelId: 'l2',

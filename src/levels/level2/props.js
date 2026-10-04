@@ -56,6 +56,12 @@ function loadHullTexture() {
   return cachedHullTexture;
 }
 
+/** Frees the shared hull texture (L2's dispose() calls this). The next L2 loads it afresh. */
+export function releaseHullTexture() {
+  cachedHullTexture?.dispose();
+  cachedHullTexture = null;
+}
+
 export function createBlockoutMaterials({ useTextures = true } = {}) {
   const hullMap = useTextures ? loadHullTexture() : null;
   return {

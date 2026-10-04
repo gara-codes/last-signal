@@ -53,10 +53,13 @@ export function createScreenManager({
     newGame() {
       // Starting over while a run exists needs resetLevel() (main-menu.js disables the row
       // when it isn't registered). A full wipe: back to L1, zero fuel, no repairs, no checkpoint.
-      if (api.needsReset()) hooks.resetLevel?.({ full: true });
-      worldSpent = false;
+      // The world is only reset once the state machine has accepted the move to LOADING.
+      const reset = api.needsReset();
+      if (reset && !api.canReset()) return;
       setLevel(firstLevelId); // the loading screen takes the destination level's theme
-      state.send(ACTIONS.NEW_GAME);
+      if (!state.send(ACTIONS.NEW_GAME)) return;
+      if (reset) hooks.resetLevel({ full: true });
+      worldSpent = false;
     },
     continueGame: () => state.send(ACTIONS.CONTINUE),
     openOptions: () => state.send(ACTIONS.OPEN_OPTIONS),
@@ -75,8 +78,10 @@ export function createScreenManager({
       // Mid-run recovery: the current level again, from its checkpoint if one has been passed.
       // Shown through the loading screen; the mouse is re-locked now, while we still have the
       // click (browsers only allow pointer lock from a user gesture).
-      hooks.resetLevel({ full: false });
+      // Reset only after the state machine accepts the move, so a refused transition never
+      // leaves a wiped world behind a screen that didn't change.
       if (state.send(ACTIONS.RESTART_LEVEL)) {
+        hooks.resetLevel({ full: false });
         worldSpent = false;
         hooks.lockPointer?.();
       }

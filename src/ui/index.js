@@ -8,18 +8,20 @@
 // ---------------------------------------------------------------------------------------------
 // WIRING — things that are built and waiting on game systems. Grep for TODO(wire) to find them.
 //
-//   resetLevel()   Alex — restart without location.reload(). Register it and Pause > Restart
-//                  Level, plus New Game after "Quit to Main Menu", switch on by themselves:
-//                    ui.registerHooks({ resetLevel });                       (see main.js)
-//                  One hook, told which kind of reset by its argument:
-//                    resetLevel({ full: true })   New Game over an existing run: back to L1,
-//                                                 zero banked fuel, no repair flags, checkpoint
-//                                                 ignored.
-//                    resetLevel({ full: false })  Pause > Restart Level (shown through the loading
-//                                                 screen): the current level again,
-//                                                 from its checkpoint if one has been passed.
-//   lockPointer()  Nonku's mouse-look — Resume calls it (from a click, as browsers require) to
-//                  re-lock the mouse:  ui.registerHooks({ lockPointer });
+//   resetLevel()   Wired (main.js) — restarts without location.reload(). The UI calls it only
+//                  after the state machine has moved to LOADING, so the world is rebuilt while
+//                  nothing is drawn. One hook, told which kind of reset by its argument:
+//                    resetLevel({ full: true })   New Game over an existing run (or after a
+//                                                 death): back to L1, zero fuel, no repairs,
+//                                                 no checkpoint.
+//                    resetLevel({ full: false })  Pause > Restart Level and the Restart screen:
+//                                                 the current level again. L2 past the
+//                                                 checkpoint is rebuilt as it was there
+//                                                 (createLevel2({ checkpoint })); before it, a
+//                                                 fresh L2 with the fuel carried in from L1.
+//                  L3 needs a branch in main.js's resetLevel() once it exists.
+//   lockPointer()  Wired (main.js): requestPointerLock on the canvas. Resume, Restart and closing
+//                  a log with E call it from their click / key press, as browsers require.
 //   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
 //                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
@@ -48,8 +50,8 @@
 //   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
 //                  repair consoles handle it, nothing to wire.
 //   death          Wired (L2): main.js calls ui.showRestart({ levelId, fuelCells, repairs,
-//                  checkpointReached }) once oxygenSystem.isDead. Restart needs resetLevel();
-//                  until then only Return to Main Menu works. L3 should call it the same way.
+//                  checkpointReached }) once per death when oxygenSystem.isDead. L3 should call
+//                  it the same way.
 //   logs           ui.openLog([{ id, title, body: ['line', { redacted: 16 }, ...], corrupted }],
 //                  index) from whatever the player reads (no logs are placed yet). Pauses the
 //                  world; E / Esc closes.

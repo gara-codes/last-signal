@@ -167,7 +167,8 @@ export function createRestartScreen(api) {
       restartButton.textContent = view.restartLabel;
     },
     onShow() {
-      // TODO(wire): restarting needs resetLevel() — see the WIRING notes in src/ui/index.js.
+      // Restarting needs the resetLevel() hook (main.js registers it) — see the WIRING notes in
+      // src/ui/index.js.
       const canRestart = api.canReset();
       restartButton.disabled = !canRestart;
       restartButton.title = canRestart ? '' : 'Needs resetLevel() — not wired yet';
