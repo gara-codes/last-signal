@@ -28,6 +28,7 @@
 // no flicker/light/sound is built here, by design.
 
 import * as THREE from 'three';
+import { crossfadeAction } from '../core/AssetLoader.js';
 
 const LINEAR_SPEED = 6; // units/sec — matches L1's base walking speed
 const RUN_MULTIPLIER = 1.6; // matches physics-controller.js's running multiplier
@@ -231,6 +232,13 @@ export class FlatPhysicsController {
 
     this._syncBasis();
     this._syncZeroGUserData();
+
+    // Animation state purely from input magnitude + running — same rule as
+    // physics-controller.js's L1 switch, applied here regardless of
+    // grounded vs. zero-g float so thrust input animates too.
+    const inputMagnitude = Math.hypot(axialAxis, tangentAxis);
+    const animState = inputMagnitude > 0.0001 ? (this.isRunning ? 'run' : 'walk') : 'idle';
+    crossfadeAction(this.player, animState);
   }
 
   _turnToward(moveX, moveZ, delta) {

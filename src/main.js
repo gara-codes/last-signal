@@ -303,6 +303,10 @@ function animate() {
   // object + the same third-person Camera, reading position/orientation
   // through the shared player.userData.getSurfaceBasis() interface.
   playerController.update(delta, input);
+  // Nothing else drives this (verified: no other `mixer` reference exists
+  // in src/ outside AssetLoader.js) — without it the crossfaded actions
+  // would never actually advance.
+  player.userData.mixer?.update(delta);
   cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
   level.update(delta, player, input);
   if (lightingRigL2) lightingRigL2.update(delta);

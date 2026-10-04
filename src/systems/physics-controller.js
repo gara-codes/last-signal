@@ -12,6 +12,7 @@
 // the camera against a test marker.
 
 import * as THREE from 'three';
+import { crossfadeAction } from '../core/AssetLoader.js';
 
 // Drum geometry constants — mirror level1.js. If Yannis changes drum size,
 // only these two need updating (per the brief's "definition of done" note).
@@ -200,6 +201,13 @@ export class PlayerController {
     this._basis.position.copy(worldPosition);
     this._basis.up.copy(radialUp);
     this._basis.forward.copy(forward);
+
+    // Animation state purely from input magnitude + running — idle when
+    // there's no input at all, walk/run otherwise (not gated on forwardDot
+    // or collision, so strafing/backpedaling still animate as "walk").
+    const inputMagnitude = Math.hypot(axialAxis, tangentAxis);
+    const animState = inputMagnitude > 0.0001 ? (this.isRunning ? 'run' : 'walk') : 'idle';
+    crossfadeAction(this.player, animState);
   }
 
   /**
