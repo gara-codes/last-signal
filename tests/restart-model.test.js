@@ -19,13 +19,17 @@ describe('restartView', () => {
       ['Scrubbers', 1],
     ]);
     expect(view.lastSector).toBe('Engineering Core // Sec. 2');
-    expect(view.restartLabel).toBe('Restart Level');
+    expect(view.restartOptions).toEqual([
+      { id: 'level', label: 'Restart Level', fromCheckpoint: false },
+    ]);
   });
 
-  it('switches the button once the L2 checkpoint is passed', () => {
-    expect(restartView({ levelId: 'l2', repairs: {}, checkpointReached: true }).restartLabel).toBe(
-      'Restart From Checkpoint'
-    );
+  it('offers both restarts once the L2 checkpoint is passed, checkpoint first', () => {
+    const { restartOptions } = restartView({ levelId: 'l2', repairs: {}, checkpointReached: true });
+    expect(restartOptions.map((o) => [o.label, o.fromCheckpoint])).toEqual([
+      ['Restart From Checkpoint', true],
+      ['Restart Level', false],
+    ]);
   });
 
   it('has no systems row before L2 and reads unknown states as untouched', () => {

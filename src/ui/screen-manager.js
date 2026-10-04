@@ -73,15 +73,18 @@ export function createScreenManager({
     resume() {
       if (state.send(ACTIONS.RESUME)) hooks.lockPointer?.();
     },
-    restartLevel() {
+    /** @param {{ fromCheckpoint?: boolean }} [options] fromCheckpoint: the Restart screen's
+     *  "Restart From Checkpoint". Otherwise the whole level is replayed. */
+    restartLevel({ fromCheckpoint = false } = {}) {
       if (typeof hooks.resetLevel !== 'function') return;
-      // Mid-run recovery: the current level again, from its checkpoint if one has been passed.
+      // Mid-run recovery: the current level again (Pause > Restart Level, or either restart on
+      // the Restart screen), or from the L2 checkpoint when asked.
       // Shown through the loading screen; the mouse is re-locked now, while we still have the
       // click (browsers only allow pointer lock from a user gesture).
       // Reset only after the state machine accepts the move, so a refused transition never
       // leaves a wiped world behind a screen that didn't change.
       if (state.send(ACTIONS.RESTART_LEVEL)) {
-        hooks.resetLevel({ full: false });
+        hooks.resetLevel({ full: false, fromCheckpoint });
         worldSpent = false;
         hooks.lockPointer?.();
       }

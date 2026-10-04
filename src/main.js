@@ -221,13 +221,16 @@ function teardownLevel() {
  * Restarts without reloading the page (ui hook, see WIRING in src/ui/index.js). The UI shows
  * the loading screen first, so this runs while the world is not being updated or drawn.
  *   { full: true }   New Game: back to L1 with no fuel, repairs or checkpoint.
- *   { full: false }  Restart Level: the current level again. In L2 that is the checkpoint once
- *                    it has been reached (the world rebuilt as it was there), otherwise a fresh
- *                    L2 with the fuel carried in from L1.
+ *   { full: false }  Restart Level: the current level again. L2 restarts fresh, with the fuel
+ *                    carried in from L1.
+ *   { full: false, fromCheckpoint: true }  Restart From Checkpoint (Restart screen, L2 past
+ *                    the checkpoint): L2 rebuilt as it was at the checkpoint. Falls back to a
+ *                    fresh L2 if there is no snapshot.
  */
-function resetLevel({ full = false } = {}) {
+function resetLevel({ full = false, fromCheckpoint = false } = {}) {
   const restartL2 = inL2 && !full;
-  const checkpoint = restartL2 ? (level.group.userData.checkpoint?.load() ?? null) : null;
+  const checkpoint =
+    restartL2 && fromCheckpoint ? (level.group.userData.checkpoint?.load() ?? null) : null;
 
   teardownLevel();
 

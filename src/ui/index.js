@@ -14,11 +14,13 @@
 //                    resetLevel({ full: true })   New Game over an existing run (or after a
 //                                                 death): back to L1, zero fuel, no repairs,
 //                                                 no checkpoint.
-//                    resetLevel({ full: false })  Pause > Restart Level and the Restart screen:
-//                                                 the current level again. L2 past the
-//                                                 checkpoint is rebuilt as it was there
-//                                                 (createLevel2({ checkpoint })); before it, a
-//                                                 fresh L2 with the fuel carried in from L1.
+//                    resetLevel({ full: false })  Pause > Restart Level and the Restart screen's
+//                                                 Restart Level: the current level again (L2
+//                                                 fresh, with the fuel carried in from L1).
+//                    resetLevel({ full: false, fromCheckpoint: true })  the Restart screen's
+//                                                 Restart From Checkpoint (L2, once the override
+//                                                 is collected): L2 rebuilt as it was there
+//                                                 (createLevel2({ checkpoint })).
 //                  L3 needs a branch in main.js's resetLevel() once it exists.
 //   lockPointer()  Wired (main.js): requestPointerLock on the canvas. Resume, Restart and closing
 //                  a log with E call it from their click / key press, as browsers require.

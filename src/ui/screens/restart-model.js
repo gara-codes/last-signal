@@ -40,6 +40,12 @@ export function restartView({ levelId, fuelCells = 0, repairs = null, checkpoint
     ],
     systems,
     lastSector: sectorLabel(levelId),
-    restartLabel: checkpointReached ? 'Restart From Checkpoint' : 'Restart Level',
+    // First entry is the primary button. Past the checkpoint both restarts are offered.
+    restartOptions: checkpointReached
+      ? [
+          { id: 'checkpoint', label: 'Restart From Checkpoint', fromCheckpoint: true },
+          { id: 'level', label: 'Restart Level', fromCheckpoint: false },
+        ]
+      : [{ id: 'level', label: 'Restart Level', fromCheckpoint: false }],
   };
 }

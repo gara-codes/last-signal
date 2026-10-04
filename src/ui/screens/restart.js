@@ -2,8 +2,9 @@
 //
 // Restart ("Signal Lost") screen — shown on death (STATES.DEAD). From the final mockup:
 // wifi-off glyph, flickering "Signal Lost", run stats, a systems row (L2 onwards), the last
-// sector reached, and two buttons. The primary button is "Restart Level", or "Restart From
-// Checkpoint" once the one L2 checkpoint has been passed (the only checkpoint in the game).
+// sector reached, and the buttons. The primary button is "Restart Level"; once the one L2
+// checkpoint has been passed it is "Restart From Checkpoint", with "Restart Level" (the whole
+// level again) as a second option under it. "Return to Main Menu" is always last.
 //
 // The systems row uses the repair consoles' language: each system in its own colour with the
 // same three-cell Untouched / Partial / Full strip, Untouched outlined in the shared red.
@@ -65,12 +66,25 @@ export function createRestartScreen(api) {
   const systemsRow = el('div', { className: 'restart__systems', attrs: { hidden: true } });
   const lastSector = el('span', { className: 'restart__sector-name' });
 
+  // Which restart the primary button does (set from the view in setInfo).
+  let primaryFromCheckpoint = false;
   const restartButton = el('button', {
     className: 'restart__button restart__button--primary ui-label ui-chamfer-row',
     attrs: { type: 'button' },
     on: {
       click: () => {
-        if (!restartButton.disabled) api.restartLevel();
+        if (!restartButton.disabled) api.restartLevel({ fromCheckpoint: primaryFromCheckpoint });
+      },
+    },
+  });
+  // Only past the checkpoint: replay the whole level instead.
+  const levelButton = el('button', {
+    className: 'restart__button restart__button--secondary ui-label ui-chamfer-row',
+    text: 'Restart Level',
+    attrs: { type: 'button', hidden: true },
+    on: {
+      click: () => {
+        if (!levelButton.disabled) api.restartLevel({ fromCheckpoint: false });
       },
     },
   });
@@ -104,7 +118,7 @@ export function createRestartScreen(api) {
       stats,
       systemsRow,
       el('div', { className: 'restart__sector ui-mono' }, 'Last transmission: ', lastSector),
-      el('div', { className: 'restart__actions' }, restartButton, menuButton),
+      el('div', { className: 'restart__actions' }, restartButton, levelButton, menuButton),
       el('div', {
         className: 'restart__note ui-mono',
         text: 'Progress within this sector is not retained',
@@ -113,11 +127,13 @@ export function createRestartScreen(api) {
     cornerBrackets()
   );
 
-  // Arrow keys move between the two buttons; Enter/Space press the focused one natively.
+  // Arrow keys move between the buttons; Enter/Space press the focused one natively.
   element.addEventListener('keydown', (event) => {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     event.preventDefault();
-    const buttons = [restartButton, menuButton].filter((b) => !b.disabled);
+    const buttons = [restartButton, levelButton, menuButton].filter(
+      (b) => !b.disabled && !b.hidden
+    );
     const index = buttons.indexOf(document.activeElement);
     const next =
       buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length];
@@ -164,14 +180,19 @@ export function createRestartScreen(api) {
       for (const stat of view.stats) statValues[stat.id].textContent = stat.value;
       renderSystems(view.systems);
       lastSector.textContent = view.lastSector;
-      restartButton.textContent = view.restartLabel;
+      const [primary, second] = view.restartOptions;
+      restartButton.textContent = primary.label;
+      primaryFromCheckpoint = primary.fromCheckpoint;
+      levelButton.hidden = !second;
     },
     onShow() {
       // Restarting needs the resetLevel() hook (main.js registers it) — see the WIRING notes in
       // src/ui/index.js.
       const canRestart = api.canReset();
-      restartButton.disabled = !canRestart;
-      restartButton.title = canRestart ? '' : 'Needs resetLevel() — not wired yet';
+      for (const button of [restartButton, levelButton]) {
+        button.disabled = !canRestart;
+        button.title = canRestart ? '' : 'Needs resetLevel() — not wired yet';
+      }
       (canRestart ? restartButton : menuButton).focus({ preventScroll: true });
     },
     onHide() {},
