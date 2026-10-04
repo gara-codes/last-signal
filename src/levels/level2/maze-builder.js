@@ -252,7 +252,9 @@ function addGridModules(group, mats, grid, storey, collision) {
       module.position.set(x, floorY, z);
       group.add(module);
       const height = storey === 'ground' ? 11.4 : 5.1;
-      collision.addWall(x, floorY + height / 2, z, 4.8, height, 4.8, `${storey}-module`);
+      // Full cell width (6.0) — the 4.8 module geometry leaves 1.2-unit gaps
+      // that the player capsule (radius 0.4) could slip through.
+      collision.addWall(x, floorY + height / 2, z, 6.0, height, 6.0, `${storey}-module`);
     }
   }
 }

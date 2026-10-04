@@ -314,4 +314,35 @@ describe('L2 transit — ladder and starfield', () => {
     expect(stars).toBeInstanceOf(THREE.Points);
     expect(stars.geometry.getAttribute('position').count).toBe(2000);
   });
+
+  it('teleport targets do not overlap rail collision AABBs', () => {
+    const registries = fakeRegistries();
+    const ladder = createLadder(mats, registries, TRANSIT.ladder);
+    const { x, z } = cellToWorld(TRANSIT.ladder.col, TRANSIT.ladder.row);
+
+    // UP target: z + 2.6 (clears ladder-rail-south max z = 1.95)
+    // DOWN target: z + 0.5 (clears ladder-rail-south min z = 1.35)
+    const upTarget = { x, y: DECK_Y, z: z + 2.6 };
+    const downTarget = { x, y: 0, z: z + 0.5 };
+
+    // Player capsule radius 0.6 — check AABB doesn't overlap any rail
+    const playerRadius = 0.6;
+    for (const rail of registries.collision.railAABBs) {
+      // UP target AABB
+      const upMinX = upTarget.x - playerRadius;
+      const upMaxX = upTarget.x + playerRadius;
+      const upMinZ = upTarget.z - playerRadius;
+      const upMaxZ = upTarget.z + playerRadius;
+      const upOverlaps = !(upMaxX < rail.minX || upMinX > rail.maxX || upMaxZ < rail.minZ || upMinZ > rail.maxZ);
+      expect(upOverlaps).toBe(false);
+
+      // DOWN target AABB
+      const downMinX = downTarget.x - playerRadius;
+      const downMaxX = downTarget.x + playerRadius;
+      const downMinZ = downTarget.z - playerRadius;
+      const downMaxZ = downTarget.z + playerRadius;
+      const downOverlaps = !(downMaxX < rail.minX || downMinX > rail.maxX || downMaxZ < rail.minZ || downMinZ > rail.maxZ);
+      expect(downOverlaps).toBe(false);
+    }
+  });
 });
