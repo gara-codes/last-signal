@@ -53,7 +53,7 @@ export { STATES };
  * @param {object} [options]
  * @param {HTMLCanvasElement} [options.canvas] the game canvas (Brightness is applied to it)
  */
-export function initUI({ canvas = null } = {}) {
+export function initUI({ canvas = null, initialLevelId = FIRST_LEVEL_ID } = {}) {
   // Must run before the level and player start loading so their assets are counted.
   const progress = trackAssetProgress();
 
@@ -64,7 +64,7 @@ export function initUI({ canvas = null } = {}) {
   const hooks = {};
   const hud = createHud();
 
-  let levelId = FIRST_LEVEL_ID;
+  let levelId = initialLevelId;
   function setLevel(id) {
     levelId = id;
     document.body.dataset.level = id;
@@ -94,7 +94,7 @@ export function initUI({ canvas = null } = {}) {
     hud,
     getLevelId: () => levelId,
     setLevel,
-    firstLevelId: FIRST_LEVEL_ID,
+    firstLevelId: initialLevelId,
   });
   document.body.append(manager.root);
 
