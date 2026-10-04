@@ -88,6 +88,7 @@ function fadeTo(opacity, seconds) {
 function setupL2Camera() {
   // L2's actual bounds (HALL.minX..maxX, GROUND_Y..CEILING_Y, HALL.minZ..maxZ)
   // — the drum's cylinder clamp doesn't apply here at all.
+  // maxZ extended to 36 to cover the elevator cab (z ≈ 33.6).
   cameraSetup.setBounds({
     type: 'box',
     minX: HALL.minX,
@@ -95,7 +96,7 @@ function setupL2Camera() {
     minY: GROUND_Y,
     maxY: CEILING_Y,
     minZ: HALL.minZ,
-    maxZ: HALL.maxZ,
+    maxZ: 36,
     margin: 1,
   });
 }

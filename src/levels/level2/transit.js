@@ -257,9 +257,17 @@ export function createElevator(mats, registries, collision, pin) {
   }
 
   function beginTravel(direction) {
-    cabDoor.userData.close();
-    gateGround.userData.close();
-    gateUpper.userData.close();
+    // Force all doors toward closed — close() only acts on 'open', so reverse
+    // mid-open doors manually to avoid a softlock where doorsSeated() never
+    // becomes true.
+    for (const door of [cabDoor, gateGround, gateUpper]) {
+      const ud = door.userData;
+      if (ud.state === 'open') {
+        ud.close();
+      } else if (ud.state === 'opening') {
+        ud.state = 'closing'; // reverse mid-open animation
+      }
+    }
     cabState = direction;
   }
 
@@ -441,8 +449,9 @@ export function createLadder(mats, registries, pin) {
   collision.addRail(x - 1.65, DECK_Y + RAIL_HEIGHT / 2, z, 0.6, RAIL_HEIGHT, 2.8, 'ladder-rail-west');
 
   // Teleport targets — land on solid floor, facing away from the wall.
+  // UP z offset (2.6) clears ladder-rail-south (max z = 1.95 + capsule radius 0.4).
   const DOWN = { x, y: GROUND_Y, z: z + 0.5, yaw: 0 };
-  const UP = { x, y: DECK_Y, z: z + 2.1, yaw: 0 };
+  const UP = { x, y: DECK_Y, z: z + 2.6, yaw: 0 };
 
   let lastViewer = null;
   ladder.userData = {
