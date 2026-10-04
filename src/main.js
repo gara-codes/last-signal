@@ -9,7 +9,7 @@ import { FlyCam } from './core/FlyCam.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
-import { createLevel3 } from './levels/level3-docking-corridor.js';
+//import { createLevel3 } from './levels/level3-docking-corridor.js';
 import { HALL, GROUND_Y, CEILING_Y } from './levels/level2/grid-data.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
