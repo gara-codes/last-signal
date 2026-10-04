@@ -90,7 +90,8 @@ export class Camera {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    const baseOffset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+    // Scaled ×1.5 to match the revised blockout (CELL_SIZE 4 → 6).
+    const baseOffset = basis.up.clone().multiplyScalar(13.5).add(basis.forward.clone().multiplyScalar(-13.5));
 
     // Orbit that offset by the mouse-look yaw/pitch, both expressed
     // relative to the player's own local axes (not world ones): yaw spins
