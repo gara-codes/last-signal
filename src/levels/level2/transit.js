@@ -449,7 +449,7 @@ export function createLadder(mats, registries, pin) {
   collision.addRail(x - 1.65, DECK_Y + RAIL_HEIGHT / 2, z, 0.6, RAIL_HEIGHT, 2.8, 'ladder-rail-west');
 
   // Teleport targets — land on solid floor, facing away from the wall.
-  // UP z offset (2.6) clears ladder-rail-south (max z = 1.95 + capsule radius 0.4).
+  // UP z offset (2.6) clears ladder-rail-south (max z = 1.95 + capsule radius 0.6).
   const DOWN = { x, y: GROUND_Y, z: z + 0.5, yaw: 0 };
   const UP = { x, y: DECK_Y, z: z + 2.6, yaw: 0 };
 
