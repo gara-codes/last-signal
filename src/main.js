@@ -130,6 +130,9 @@ function loadL1() {
   if (!player) {
     player = loadAstronaut();
     scene.add(player);
+  } else if (player.children[0]) {
+    // Reused from L2 (swapToL1): restore the L1 scale (4) since L2 shrunk it to 2.5.
+    player.children[0].scale.setScalar(4);
   }
 
   playerController = new PlayerController(player); // fresh controller = fresh spawn
