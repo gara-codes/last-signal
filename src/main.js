@@ -112,6 +112,8 @@ function setupL2Camera() {
     maxZ: HALL.maxZ,
     margin: 1,
   });
+  // Orbit distance ×1.5 to match the revised blockout (CELL_SIZE 4 → 6).
+  cameraSetup.setOrbitDistance(13.5);
 }
 
 function loadL1() {

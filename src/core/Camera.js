@@ -25,6 +25,10 @@ export class Camera {
     // is wrong for every real level, so every call site must set this
     // once after construction. See setBounds() for the two shapes.
     this._bounds = null;
+
+    // Orbit distance — how far back + how far off the wall. Per-level setting
+    // because L1 and L2 have different scales. Default 9 (L1's original).
+    this._orbitDistance = 9;
   }
 
   getCamera() {
@@ -54,6 +58,14 @@ export class Camera {
    */
   setBounds(bounds) {
     this._bounds = bounds;
+  }
+
+  /**
+   * Sets the orbit distance — how far back + how far off the wall the camera
+   * sits from the player. Per-level because L1 and L2 have different scales.
+   */
+  setOrbitDistance(distance) {
+    this._orbitDistance = distance;
   }
 
   /**
@@ -90,8 +102,8 @@ export class Camera {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    // Scaled ×1.5 to match the revised blockout (CELL_SIZE 4 → 6).
-    const baseOffset = basis.up.clone().multiplyScalar(13.5).add(basis.forward.clone().multiplyScalar(-13.5));
+    // Per-level setting — L1 uses 9, L2 uses 13.5 (×1.5 for the revised blockout).
+    const baseOffset = basis.up.clone().multiplyScalar(this._orbitDistance).add(basis.forward.clone().multiplyScalar(-this._orbitDistance));
 
     // Orbit that offset by the mouse-look yaw/pitch, both expressed
     // relative to the player's own local axes (not world ones): yaw spins
