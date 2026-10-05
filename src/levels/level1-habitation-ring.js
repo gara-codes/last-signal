@@ -6,6 +6,7 @@ import { FuelSystem } from '../systems/fuel-system.js';
 import { DoorGate } from '../systems/door-gate.js';
 import { setInteractPrompt } from '../ui/hud.js';
 import { promptForInteractable, FUEL_CELL_HINT } from '../ui/prompt-copy.js';
+import { createLevel1Decor } from './level1/decor.js';
 
 const SEGMENTS = 30;
 const RADIUS = 31;
@@ -58,13 +59,23 @@ function createPodBays() {
   const capRadius = 1.5;
   const capLength = 3.0;
   const capsuleGeometry = new THREE.CapsuleGeometry(capRadius, capLength, 8, 16);
+  // White hibernation pods (reference: Discovery's sleeper pods) with a
+  // dark glass canopy along the top
   const capsuleMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4a6a8a,
-    metalness: 0.2,
-    roughness: 0.4,
+    color: 0xf0f3f5,
+    metalness: 0.1,
+    roughness: 0.3,
+  });
+  const canopyGeometry = new THREE.CapsuleGeometry(capRadius * 0.55, capLength * 0.85, 8, 16);
+  const canopyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2a3f57,
+    metalness: 0.3,
+    roughness: 0.05,
+    transparent: true,
+    opacity: 0.85,
   });
 
-  const spawnRadius = RADIUS - capRadius; // Sit just inside the outer curved hull
+  const spawnRadius = WALK_RADIUS - capRadius; // Rest on the deck (decor.js), not sunk into it
   const numPods = 3;
 
   // Since level1.group.rotation.z = Math.PI / 2, local -X (angle = Math.PI)
@@ -82,6 +93,10 @@ function createPodBays() {
     const y = 7; // world x = -7 — clear of the transit chamber at the +x end
 
     pod.position.set(x, y, z);
+    // Canopy sits proud of the shell on the side facing the drum axis
+    const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
+    canopy.position.set(-Math.cos(angle) * capRadius * 0.5, 0, -Math.sin(angle) * capRadius * 0.5);
+    pod.add(canopy);
     group.add(pod);
   }
 
@@ -423,6 +438,9 @@ export function createLevel1() {
   level1Group.add(room);
   level1Group.add(cells);
 
+  const decor = createLevel1Decor(); // Visual pass: deck, end walls, consoles, bunks
+  level1Group.add(decor.group);
+
   level1Group.userData.fuelSystem = fuelSystem; // Console/debug access
 
   // --- Collision ---------------------------------------------------------
@@ -480,6 +498,7 @@ export function createLevel1() {
    */
   function dispose() {
     setInteractPrompt(null); // Hide the HUD prompt along with the level
+    decor.dispose();
     if (attachedController) {
       for (const blocker of wallBlockers) attachedController.removeWallBlocker(blocker);
     }
