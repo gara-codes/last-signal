@@ -26,13 +26,39 @@ describe('FlatPhysicsController', () => {
     expect(basis.position.y).toBe(0);
   });
 
-  it('moves forward (W) along the resolved camera-relative direction', () => {
+  it('moves forward (W) along the player facing', () => {
     const { controller } = makeController();
     controller.setSpawn(0, 0, 0, 0);
-    controller.update(1, { axialAxis: -1, tangentAxis: 0, cameraYaw: 0 });
+    controller.update(1, { axialAxis: -1, tangentAxis: 0 });
     // W -> axialAxis -1 -> fwdInput +1 -> moves toward +Z at yaw 0.
     expect(controller.position.z).toBeGreaterThan(0);
     expect(controller.position.x).toBeCloseTo(0, 5);
+  });
+
+  it('strafes with A/D and backpedals with S without turning the player', () => {
+    for (const [input, check] of [
+      [{ axialAxis: 0, tangentAxis: 1 }, (c) => expect(c.position.x).toBeLessThan(0)], // D: right = -X
+      [{ axialAxis: 0, tangentAxis: -1 }, (c) => expect(c.position.x).toBeGreaterThan(0)], // A: left = +X
+      [{ axialAxis: 1, tangentAxis: 0 }, (c) => expect(c.position.z).toBeLessThan(0)], // S: back = -Z
+    ]) {
+      const { controller } = makeController();
+      controller.setSpawn(0, 0, 0, 0);
+      for (let i = 0; i < 30; i++) controller.update(1 / 30, input);
+      check(controller);
+      expect(controller.facingYaw).toBeCloseTo(0, 5);
+    }
+  });
+
+  it('turns toward the diagonal on W+A (left) and W+D (right)', () => {
+    const left = makeController().controller;
+    left.setSpawn(0, 0, 0, 0);
+    left.update(1 / 30, { axialAxis: -1, tangentAxis: -1 });
+    expect(left.facingYaw).toBeGreaterThan(0); // toward +X, the player's left
+
+    const right = makeController().controller;
+    right.setSpawn(0, 0, 0, 0);
+    right.update(1 / 30, { axialAxis: -1, tangentAxis: 1 });
+    expect(right.facingYaw).toBeLessThan(0);
   });
 
   it('clamps movement into a wall on the penetrating axis but slides along the other (diagonal collision)', () => {
@@ -41,10 +67,11 @@ describe('FlatPhysicsController', () => {
     const { controller } = makeController({
       wallAABBs: [{ minX: 1, maxX: 2, minY: 0, maxY: 3, minZ: -100, maxZ: 100, name: 'test-wall' }],
     });
-    controller.setSpawn(0, 0, 0, 0);
-    // Move diagonally (+X and +Z) straight at the wall for several frames.
+    // Face the +X/+Z diagonal and walk forward: movement is relative to the
+    // player's facing, so W heads straight at the wall at 45°.
+    controller.setSpawn(0, 0, 0, Math.PI / 4);
     for (let i = 0; i < 30; i++) {
-      controller.update(1 / 30, { axialAxis: -1, tangentAxis: 1, cameraYaw: 0 });
+      controller.update(1 / 30, { axialAxis: -1, tangentAxis: 0 });
     }
     // X should have been stopped short of the wall (0.4 player radius clearance).
     expect(controller.position.x).toBeLessThan(1);

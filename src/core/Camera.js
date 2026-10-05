@@ -25,6 +25,16 @@ export class Camera {
     // is wrong for every real level, so every call site must set this
     // once after construction. See setBounds() for the two shapes.
     this._bounds = null;
+
+    // Flashlight — always-on SpotLight parented to the camera (design doc:
+    // a camera spotlight, not a resource). Same settings as FlyCam's, so
+    // the blockout validated there looks the same in play. Light children
+    // only render once the camera is in the scene graph — main.js adds it.
+    this._flashlight = new THREE.SpotLight(0xffe8c0, 8, 80, Math.PI / 4, 0.5, 1);
+    this._flashlight.position.set(0, 0, 0); // at the camera's eye
+    this._flashlight.target.position.set(0, 0, -1); // along -Z (camera forward)
+    this.camera.add(this._flashlight);
+    this.camera.add(this._flashlight.target);
   }
 
   getCamera() {
