@@ -289,12 +289,16 @@ describe('L2 transit — elevator', () => {
       viewer.position.y = cabFloorY;
     };
 
-    // Start at upper deck, ride down to ground
+    // First, send the elevator to the upper deck (it starts at ground)
+    elevator.userData.send();
+    for (let i = 0; i < 200; i++) elevator.userData.update(1 / 20, viewer);
+    expect(elevator.userData.state).toBe('idle-upper');
+
+    // Now send it back down — this is the descent test
+    rides.length = 0; // clear the rides from the ascent
     elevator.userData.send();
     for (let i = 0; i < 200; i++) {
       elevator.userData.update(1 / 20, viewer);
-      // Simulate physics controller snap: if viewer is above y=6, snap to y=12
-      // (but the onRide handler should have already set viewer.y to cab.y)
     }
 
     expect(elevator.userData.state).toBe('idle-ground');
