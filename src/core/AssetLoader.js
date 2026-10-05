@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { AnimationUtils } from 'three';
 
 const loader = new GLTFLoader();
 
@@ -52,18 +53,12 @@ export function loadFuelCell(){
   );
   return fuelCell;
 }
-// Clip names as exported from the current astronaut.glb rig (confirmed via
-// gltf.animations.map(a => a.name) rather than assumed — the export
-// contains several duplicate/leftover takes per clip ("Run"/"run"/
-// "Run.001", "Walk"/"walk"/"Walk.001-003"); per explicit instruction these
-// two specific takes are used instead of the plain-named ones.
-const ANIM_CLIP_NAMES = { idle: 'Idle', walk: 'Walk.003', run: 'Run.001' };
 
-// Reverted back to the pre-replacement multiplier per explicit instruction
-// (this does not match the new model's real-world export scale against the
-// PLAYER_HEIGHT=1.8 capsule in flat-physics-controller.js — that was 0.93 —
-// so the model will render oversized relative to the collision capsule).
-const ASTRONAUT_SCALE = 4;
+// "Jump" = jump while moving/running, "Jump1" = jump from a standing-still
+// idle (confirmed via gltf.animations.map(a => a.name), per explicit naming
+// from whoever added these two clips).
+const ANIM_CLIP_NAMES = { idle: 'Idle', walk: 'Walk.003', run: 'Run.001', jump: 'Jump', jump1: 'Jump1' , land: 'landing.001'};
+
 
 export function loadAstronaut() {
   const player = new THREE.Group();
@@ -73,7 +68,7 @@ export function loadAstronaut() {
       const model = gltf.scene;
 
       //Initial scaling and rotation
-      model.scale.set(ASTRONAUT_SCALE, ASTRONAUT_SCALE, ASTRONAUT_SCALE);
+      model.scale.set(25, 25, 25);
       model.rotation.y = Math.PI; //Face forward
 
       player.add(model);
@@ -83,10 +78,41 @@ export function loadAstronaut() {
       const mixer = new THREE.AnimationMixer(model);
       const actions = {};
       for (const [key, clipName] of Object.entries(ANIM_CLIP_NAMES)) {
-        const clip = THREE.AnimationClip.findByName(gltf.animations, clipName);
+        let clip = THREE.AnimationClip.findByName(gltf.animations, clipName);
+
+        if (clip && key === 'jump1') {
+          clip = AnimationUtils.subclip(clip, 'Jump1Trimmed', 0, 100, 30);
+        }
+
+        if (clip && key === 'jump') {
+          clip = AnimationUtils.subclip(clip, 'JumpTrimmed', 5, 49, 30);
+        }
+
         if (clip) actions[key] = mixer.clipAction(clip);
         else console.warn(`AssetLoader: animation clip "${clipName}" not found on astronaut.glb`);
       }
+
+      // Jump1 is one-shot: play forward once, then play the same clip
+      // backward once (so it reverses instead of restarting), then hold
+      // the final frame until something else crossfades it away.
+      if (actions.jump1) {
+        actions.jump1.setLoop(THREE.LoopPingPong, 2);
+        actions.jump1.clampWhenFinished = true;
+      }
+
+      // Jump is one-shot too, but should NOT reverse — just play through once
+      // and hold on the last frame instead of restarting from frame 0.
+      if (actions.jump) {
+        actions.jump.timeScale = 0.7;
+        actions.jump.setLoop(THREE.LoopOnce, 1);
+        actions.jump.clampWhenFinished = true;
+      }
+
+      mixer.addEventListener('finished', (e) => {
+        if (e.action === actions.jump1) {
+          crossfadeAction(player, 'idle');
+        }
+      });
 
       player.userData.mixer = mixer;
       player.userData.actions = actions;

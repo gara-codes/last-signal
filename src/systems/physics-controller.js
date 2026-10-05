@@ -22,10 +22,10 @@ const WALK_RADIUS = RADIUS - 1.2; // feet sit on the surface, not inside the wal
 const AXIAL_CLAMP = 9; // leave margin inside the ±10 hull ends until doors/thresholds exist
 
 const LINEAR_SPEED = 6; // units/sec along the drum's length — tune once playable
-const TURN_SPEED = 10; // radians/sec the facing is allowed to turn toward input — tune to taste
+const TURN_SPEED = 4; // radians/sec the facing is allowed to turn toward input — tune to taste
 
 const JUMP_SPEED = 8;
-const GRAVITY = 20;
+const GRAVITY = 8;
 
 export class PlayerController {
   /**
@@ -87,7 +87,7 @@ export class PlayerController {
   update(delta, input) {
     const { axialAxis = 0, tangentAxis = 0, running = false, jump = false } = input;
     this.isRunning = running;
-    const speed = running ? LINEAR_SPEED * 1.6 : LINEAR_SPEED;
+    const speed = running ? LINEAR_SPEED * 2 : LINEAR_SPEED;
 
     if (jump && this.isGrounded) {
       this.jumpVelocity = JUMP_SPEED;
@@ -205,8 +205,16 @@ export class PlayerController {
     // Animation state purely from input magnitude + running — idle when
     // there's no input at all, walk/run otherwise (not gated on forwardDot
     // or collision, so strafing/backpedaling still animate as "walk").
+    // Airborne (jump arc, either direction) overrides all of that, picking
+    // between the two jump clips by whether there's movement input in the
+    // air: "jump" (moving) or "jump1" (standing still).
     const inputMagnitude = Math.hypot(axialAxis, tangentAxis);
-    const animState = inputMagnitude > 0.0001 ? (this.isRunning ? 'run' : 'walk') : 'idle';
+    const isMoving = inputMagnitude > 0.0001;
+    const animState = !this.isGrounded
+      ? (isMoving ? 'jump' : 'jump1')
+      : isMoving
+        ? (this.isRunning ? 'run' : 'walk')
+        : 'idle';
     crossfadeAction(this.player, animState);
   }
 

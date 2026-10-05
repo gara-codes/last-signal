@@ -31,16 +31,16 @@ import * as THREE from 'three';
 import { crossfadeAction } from '../core/AssetLoader.js';
 
 const LINEAR_SPEED = 6; // units/sec — matches L1's base walking speed
-const RUN_MULTIPLIER = 1.6; // matches physics-controller.js's running multiplier
-const TURN_SPEED = 10; // radians/sec the facing is allowed to turn toward input
+const RUN_MULTIPLIER = 2; // matches physics-controller.js's running multiplier
+const TURN_SPEED = 4; // radians/sec the facing is allowed to turn toward input
 
 const JUMP_SPEED = 8;
-const GRAVITY = 20;
+const GRAVITY = 8;
 
 // Player capsule footprint, used for the swept-AABB collision check against
 // wallAABBs/railAABBs. Half-extents in X/Z; full height in Y.
 const PLAYER_RADIUS = 0.4;
-const PLAYER_HEIGHT = 1.8;
+const PLAYER_HEIGHT = 1.6;
 
 // ---------------------------------------------------------------------------
 // Zero-g pocket tuning — all "tune once playable" starting values.
@@ -235,9 +235,18 @@ export class FlatPhysicsController {
 
     // Animation state purely from input magnitude + running — same rule as
     // physics-controller.js's L1 switch, applied here regardless of
-    // grounded vs. zero-g float so thrust input animates too.
+    // grounded vs. zero-g float so thrust input animates too. Airborne under
+    // normal grounded-physics gravity (jump arc or a snap-back fall) plays
+    // one of the two jump clips instead — "jump" (moving) or "jump1"
+    // (standing still) — but NOT while actually free-floating in a pocket,
+    // since drifting isn't a jump and has no "grounded" to be false against.
     const inputMagnitude = Math.hypot(axialAxis, tangentAxis);
-    const animState = inputMagnitude > 0.0001 ? (this.isRunning ? 'run' : 'walk') : 'idle';
+    const isMoving = inputMagnitude > 0.0001;
+    const animState = !this.isGrounded && !this._inFreeFloat
+      ? (isMoving ? 'jump' : 'jump1')
+      : isMoving
+        ? (this.isRunning ? 'run' : 'walk')
+        : 'idle';
     crossfadeAction(this.player, animState);
   }
 
