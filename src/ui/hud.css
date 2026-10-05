@@ -1,36 +1,127 @@
-/* HUD overlay — panels anchored to the real screen edges (.ui-anchor in ui.css). */
+/* HUD overlay — final HUD mockup (Version 22). Panels anchored to the real screen edges
+   (.ui-anchor in ui.css); all values at the 1600x900 design scale. */
 
 .ui-hud {
+  /* per-level HUD surface; L3 red-shifts these below */
+  --hud-panel: var(--ui-panel);
+  --hud-border: var(--ui-border);
+  --hud-label: var(--ui-text-dim);
+  --hud-readout: var(--ui-text-tertiary);
+  --banner-color: var(--ui-warn);
+  --banner-bg: var(--hud-warning-banner-bg);
+
   position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
   z-index: var(--z-hud);
-  /* the Options "HUD Opacity" slider (floored at 20%, see settings.js) */
-  opacity: var(--hud-opacity, 1);
+  /* Options > HUD Opacity, split in two (settings.js hudOpacityLayers): text and icons fade only
+     a little, and the box layers (the ::before backgrounds below) fade the rest, so at the lowest
+     setting the panels are faint but their readouts stay bright. */
+  opacity: var(--hud-content-opacity, 1);
   transition:
     opacity 0.2s ease,
     filter 0.2s ease;
 }
 
+body[data-level='l3'] .ui-hud {
+  --hud-panel: var(--hud-hostile-panel);
+  --hud-label: var(--hud-hostile-text-dim);
+  --hud-readout: var(--hud-hostile-text-dim);
+  --banner-color: var(--ui-critical);
+  --banner-bg: var(--hud-hostile-banner-bg);
+}
+
 /* Pause: the HUD stays visible but recedes behind the scrim. */
 .ui-hud.is-dimmed {
-  opacity: calc(var(--hud-opacity, 1) * 0.35);
+  opacity: calc(var(--hud-content-opacity, 1) * 0.35);
   filter: saturate(0.6);
 }
 
-/* ---- Fuel Cells panel (top-left) ---- */
-.hud-fuel {
-  /* anchored top-left: 56px in from each edge, at design scale */
+/* Box backgrounds and borders are drawn on a ::before layer behind the content, so HUD Opacity
+   can fade them further than the text and icons (--hud-box-factor, set in index.js). Each box
+   sets --box-bg / --box-line / --box-w; its own border stays transparent to keep the layout. */
+.hud-panel,
+.hud-banner,
+.hud-caption,
+.hud-prompt__box {
+  isolation: isolate;
+  background: none;
+  border: var(--box-w, 1px) solid transparent;
+}
+
+.hud-panel,
+.hud-banner,
+.hud-prompt__box {
+  position: relative;
+}
+
+.hud-panel::before,
+.hud-banner::before,
+.hud-caption::before,
+.hud-prompt__box::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--box-w, 1px));
+  z-index: -1;
+  background: var(--box-bg);
+  border: var(--box-w, 1px) solid var(--box-line, transparent);
+  opacity: var(--hud-box-factor, 1);
+  pointer-events: none;
+}
+
+.hud-panel {
+  --box-bg: var(--hud-panel);
+  --box-line: var(--hud-border);
+}
+
+/* ---- flashing: one pulse, switched off by Options > Reduce Flashing (end of file) ---- */
+@keyframes hud-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.hud-pulse {
+  animation: hud-pulse 1.1s ease-in-out infinite;
+}
+
+/* ---- top-left status column: Fuel Cells, then Oxygen + Health (L2/L3) ---- */
+.hud-status {
   --x: 56px;
   --y: 56px;
 
   width: 236px;
-  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hud-vitals {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hud-fuel {
+  align-self: flex-start;
+  /* sized to its content (never narrower than the mock's 132px), so "FUEL CELLS" never crowds the
+     edge — e.g. while the webfont is still loading or falls back to a wider system font */
+  width: max-content;
+  min-width: 132px;
+  padding: 12px 18px 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   color: var(--accent);
+}
+
+.hud-fuel__icon {
+  flex-shrink: 0;
 }
 
 .hud-fuel__body {
@@ -39,7 +130,8 @@
 
 .hud-fuel__label {
   font-size: var(--fs-xs);
-  color: var(--ui-text-dim);
+  white-space: nowrap;
+  color: var(--hud-label);
 }
 
 .hud-fuel__count {
@@ -49,43 +141,373 @@
   color: var(--ui-text);
 }
 
-/* ---- Oxygen panel (top-left, below Fuel Cells) ---- */
-.hud-oxygen {
-  /* Placed under .hud-fuel (--y: 56px, ~64px tall) with an 8px gap — a
-     reasonable estimate, not pixel-checked against the real fuel panel yet. */
-  --x: 56px;
-  --y: 128px;
+/* Oxygen / Health meters: icon + label + %, over 10 pips */
+.hud-meter {
+  --meter-color: var(--hud-oxygen);
+  --pip-height: 10px;
 
-  width: 236px;
   padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
-.hud-oxygen__label {
+.hud-meter--health {
+  --meter-color: var(--ui-text);
+}
+
+.hud-meter[data-tone='warn'] {
+  --meter-color: var(--ui-warn);
+}
+
+.hud-meter__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hud-meter__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-meter__icon {
+  display: block;
+  color: var(--meter-color);
+}
+
+.hud-meter__label {
   font-size: var(--fs-xs);
+  color: var(--hud-label);
+}
+
+.hud-meter__pct {
+  font-size: var(--fs-md);
+  color: var(--meter-color);
+}
+
+.hud-meter .ui-pip.is-on {
+  background: var(--meter-color);
+}
+
+/* Critical (Health under 25%, Oxygen under 10%): --ui-critical, flashing border. Kept apart from
+   L3's ambient hostile red so it still reads against the red room. */
+@keyframes hud-flash-border {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--ui-critical) 85%, transparent);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--ui-critical) 25%, transparent);
+  }
+}
+
+.hud-meter[data-tone='critical'] {
+  --meter-color: var(--ui-critical);
+  --box-bg: var(--ui-critical-bg);
+  --box-line: color-mix(in srgb, var(--ui-critical) 85%, transparent);
+  --box-w: 1.5px;
+}
+
+.hud-meter[data-tone='critical']::before {
+  animation: hud-flash-border 1.1s ease-in-out infinite;
+}
+
+.hud-meter[data-tone='critical'] .hud-meter__label {
+  color: var(--ui-critical-soft);
+}
+
+.hud-meter[data-tone='critical'] .hud-meter__pct {
+  font-weight: 600;
+  animation: hud-pulse 1.1s ease-in-out infinite;
+}
+
+/* ---- top-right: sector readout ---- */
+.hud-sector {
+  --x: 96px;
+  --y: 34px;
+
+  text-align: right;
+  font-size: var(--fs-sm);
+  letter-spacing: var(--ls-normal);
+  line-height: 1.35;
+  color: var(--hud-readout);
+  white-space: nowrap;
+}
+
+.hud-sector__power {
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+body[data-level='l3'] .hud-sector__power {
+  opacity: 0.9;
+}
+
+/* ---- top-right, L3 only: Active Threats ---- */
+.hud-threats {
+  --x: 56px;
+  --y: 150px;
+
+  width: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* the one real countdown */
+.hud-breach {
+  padding: 11px 16px;
+}
+
+.hud-breach__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hud-breach__icon {
+  display: block;
+  color: var(--ui-warn);
+}
+
+.hud-breach__label {
+  font-size: var(--fs-xs);
+  color: var(--hud-label);
+}
+
+.hud-breach__time {
+  text-align: right;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ui-warn);
+  white-space: nowrap;
+}
+
+.hud-breach__time > span {
+  vertical-align: middle;
+}
+
+/* brackets sized up against the digits so "[ 00 ]" reads as a timer frame, not punctuation */
+.hud-breach__bracket {
+  font-size: 28px;
+  opacity: 0.6;
+}
+
+.hud-breach__colon {
+  padding: 0 2px;
+  font-size: 15px;
+  opacity: 0.35;
+}
+
+/* static consequence marker: muted, no pulse, no numbers */
+.hud-scrubbers {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  --box-line: var(--ui-track);
+  color: var(--ui-text-tertiary);
+}
+
+.hud-scrubbers__icon {
+  flex-shrink: 0;
+}
+
+.hud-scrubbers__text {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+}
+
+/* ---- top-centre: the one warning-banner slot + gravity grace-window bar ---- */
+.hud-banner-slot {
+  --y: 44px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.hud-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  --box-bg: var(--banner-bg);
+  --box-line: color-mix(in srgb, var(--banner-color) 55%, transparent);
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+
+.hud-banner__icons {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--banner-color);
+}
+
+.hud-banner__icon {
+  position: absolute;
+  inset: 0;
+}
+
+.hud-banner-slot[data-icon='gravity'] .hud-banner__icon.is-fault,
+.hud-banner-slot:not([data-icon='gravity']) .hud-banner__icon.is-gravity {
+  display: none;
+}
+
+.hud-banner__label {
+  font-size: var(--fs-md);
+  letter-spacing: 0.14em;
+  color: var(--banner-color);
+}
+
+/* as wide as the banner's bottom edge (its slanted right end is 12px shorter than the top) */
+.hud-grace {
+  width: calc(100% - 12px);
+  height: 4px;
+  background: var(--ui-track);
+}
+
+.hud-grace__fill {
+  height: 100%;
+  background: var(--banner-color);
+  transition: width 0.1s linear;
+}
+
+/* ---- bottom-left: AI link chip (escalates with the level) ---- */
+.hud-ai {
+  --x: 56px;
+  --y: 46px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.7;
+}
+
+.hud-ai__dot {
+  width: 7px;
+  height: 7px;
+  background: var(--ai-presence);
+  opacity: 0.75;
+}
+
+.hud-ai__text {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-normal);
+  color: var(--ui-text-tertiary);
+  white-space: nowrap;
+}
+
+body[data-level='l2'] .hud-ai {
+  opacity: 0.8;
+}
+
+body[data-level='l2'] .hud-ai__dot {
+  opacity: 0.85;
+}
+
+body[data-level='l2'] .hud-ai__text {
   color: var(--ui-text-dim);
 }
 
-.hud-oxygen__track {
-  height: 8px;
-  border-radius: 4px;
-  background: var(--ui-track);
-  overflow: hidden;
+body[data-level='l3'] .hud-ai {
+  opacity: 1;
 }
 
-.hud-oxygen__fill {
-  height: 100%;
-  background: var(--accent);
-  transition:
-    width 0.2s ease,
-    background-color 0.2s ease;
+body[data-level='l3'] .hud-ai__dot {
+  opacity: 1;
+  animation: hud-pulse 1.1s ease-in-out infinite;
 }
 
-/* Matches theme.css's documented pattern (--ui-critical) for health/oxygen warnings. */
-.hud-oxygen__fill.is-critical {
-  background: var(--ui-critical);
+body[data-level='l3'] .hud-ai__text {
+  color: var(--ui-critical-soft);
+}
+
+/* ---- bottom-centre: AI-voice caption bar (Options > AI Voice Captions) ---- */
+.hud-caption {
+  --y: 34px;
+
+  width: max-content;
+  max-width: 900px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 18px;
+  --box-bg: var(--hud-caption-bg);
+  --box-w: 0px;
+}
+
+body[data-captions='off'] .hud-caption {
+  display: none;
+}
+
+.hud-caption__speaker {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-label);
+  color: var(--accent);
+}
+
+body[data-level='l3'] .hud-caption__speaker {
+  color: var(--ui-critical);
+}
+
+.hud-caption__line {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ui-text);
+}
+
+/* ---- full-screen layers ---- */
+
+/* gravity alarm: two hard light drops ~0.2s apart (onset to onset), played once per call */
+@keyframes hud-alarm-flash {
+  0%,
+  26% {
+    opacity: 0.55;
+  }
+  27%,
+  70% {
+    opacity: 0;
+  }
+  71%,
+  97% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Reduce Flashing: the same beat as one slow dim, no hard edges */
+@keyframes hud-alarm-dim {
+  0% {
+    opacity: 0;
+  }
+  25%,
+  60% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.hud-alarm {
+  position: absolute;
+  inset: 0;
+  background: black;
+  opacity: 0;
+}
+
+.hud-alarm.is-playing {
+  animation: hud-alarm-flash 0.27s linear 1;
 }
 
 /* ---- Interaction prompt: "[E] Collect Fuel Cell" (mockup HUD L1) ----
@@ -145,9 +567,43 @@
 
 .hud-prompt__key {
   padding: 1px 6px;
-  border: 1px solid var(--accent); /* follows the level: blue L1, amber L2 */
-  color: var(--accent);
+  /* clean blue on every level (final mock); hazard prompts below take the warning colour */
+  border: 1px solid var(--state-clean);
+  color: var(--state-clean);
   font-size: var(--fs-xs);
+}
+
+.hud-prompt__box {
+  --box-bg: var(--hud-panel);
+  --box-line: var(--ui-border);
+}
+
+/* Hazard prompts (Grab Handhold): key, border and brackets in the level's warning colour —
+   amber on L2, critical red on L3. */
+.hud-prompt.is-hazard {
+  --prompt-hazard: var(--ui-warn);
+}
+
+body[data-level='l3'] .hud-prompt.is-hazard {
+  --prompt-hazard: var(--ui-critical);
+}
+
+.hud-prompt.is-hazard .hud-prompt__key {
+  border-color: var(--prompt-hazard);
+  color: var(--prompt-hazard);
+}
+
+.hud-prompt.is-hazard .hud-prompt__box {
+  --box-line: color-mix(in srgb, var(--prompt-hazard) 50%, transparent);
+}
+
+.hud-prompt.is-hazard .hud-prompt__reticle {
+  color: var(--prompt-hazard);
+}
+
+/* Hint (auto-pickup fuel cells): no key badge, so the label gets the badge's left padding. */
+.hud-prompt.is-hint .hud-prompt__box {
+  padding-left: 14px;
 }
 
 .hud-prompt__label {
@@ -171,7 +627,7 @@
 /* Keeps the full panel fill (the mockup's lighter one washes out over L1's bright walls); only
    the border, key and text go quiet. */
 .hud-prompt.is-denied .hud-prompt__box {
-  border-color: var(--ui-track);
+  --box-line: var(--ui-track);
 }
 
 .hud-prompt.is-denied .hud-prompt__key {
@@ -186,4 +642,16 @@
 .hud-prompt.is-denied .hud-prompt__reticle {
   color: var(--ui-text-tertiary);
   opacity: 0.5;
+}
+
+/* ---- Options > Reduce Flashing: everything that flashes holds steady instead ---- */
+body[data-reduce-flashing='on'] .hud-pulse,
+body[data-reduce-flashing='on'] .hud-ai__dot,
+body[data-reduce-flashing='on'] .hud-meter[data-tone='critical']::before,
+body[data-reduce-flashing='on'] .hud-meter[data-tone='critical'] .hud-meter__pct {
+  animation: none;
+}
+
+body[data-reduce-flashing='on'] .hud-alarm.is-playing {
+  animation: hud-alarm-dim 1.6s ease-in-out 1;
 }

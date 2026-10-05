@@ -95,6 +95,18 @@ const CREDITS_DATA = {
 
   icons: [],
 
+  // Inspiration only — nothing from these ships with the game.
+  references: [
+    {
+      item: 'HUD - Relativity (preview images)',
+      source: 'RD Studios (ArtStation)',
+      url: 'https://www.artstation.com/artwork/8l3AlR',
+      license: 'None listed (previews viewed only)',
+      usedFor:
+        'Visual reference for the repair consoles and log overlay; redrawn from our own wireframes',
+    },
+  ],
+
   tutorials: [],
 };
 
@@ -109,6 +121,11 @@ const CATEGORY_META = [
   { key: 'audio', label: 'Audio — SFX & Music', columns: ['item', 'source', 'license', 'usedFor'] },
   { key: 'fonts', label: 'Fonts', columns: ['item', 'source', 'license', 'usedFor'] },
   { key: 'icons', label: 'Icons / HUD Art', columns: ['item', 'source', 'license', 'usedFor'] },
+  {
+    key: 'references',
+    label: 'Design References (Inspiration Only)',
+    columns: ['item', 'source', 'license', 'usedFor'],
+  },
   {
     key: 'tutorials',
     label: 'Tutorials, Articles & Adapted Code',

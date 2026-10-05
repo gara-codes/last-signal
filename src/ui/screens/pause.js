@@ -74,8 +74,8 @@ export function createPauseScreen(api) {
     id: 'pause',
     element,
     onShow() {
-      // TODO(wire): Restart Level switches on once main.js registers resetLevel() — see the
-      // WIRING notes at the top of src/ui/index.js.
+      // Restart Level needs the resetLevel() hook (main.js registers it) — see the WIRING notes
+      // at the top of src/ui/index.js. Kept as a guard for builds without it (tests, harnesses).
       setRowEnabled(rows.restart, api.canReset(), 'Needs resetLevel() — not wired yet');
       hint.hidden = !api.mouseReleasedByBrowser();
       nav.selectFirstEnabled();

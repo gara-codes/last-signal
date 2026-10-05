@@ -148,13 +148,26 @@
   opacity: 1;
 }
 
-/* ---- captions toggle (a rectangle, not a pill) ---- */
+/* ---- on/off switches: captions, reduce flashing (rectangles, not pills) ---- */
+.options__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 6px;
+  margin-bottom: 26px;
+}
+
 .options__toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.options__toggle-caption {
   margin-top: 6px;
-  margin-bottom: 26px;
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-tertiary);
 }
 
 .options__toggle-label {

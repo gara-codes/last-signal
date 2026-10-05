@@ -11,6 +11,10 @@ import { createOptionsScreen } from './screens/options.js';
 import { createPauseScreen } from './screens/pause.js';
 import { createLoadingScreen } from './screens/loading.js';
 import { createCreditsScreen } from './credits.js';
+import { createRepairConsole } from './screens/repair-console/repair-console.js';
+import { createRestartScreen } from './screens/restart.js';
+import { createLogOverlay } from './screens/log-overlay.js';
+import { createShipStatus } from './ship-status.js';
 
 // The browser releases the mouse on Escape and then may ALSO deliver the Escape keydown. If the
 // lock-release already paused the game, that keydown must not immediately resume it.
@@ -30,10 +34,15 @@ export function createScreenManager({
   const root = el('div', { className: 'ui-root', attrs: { id: 'ui-root' } });
   let mouseReleasedByBrowser = false;
   let lastLockLossAt = -Infinity;
+  // After a death the world is left dead even once the run is dropped, so starting again needs
+  // resetLevel() just like starting over a live run does.
+  let worldSpent = false;
 
   const api = {
     settings,
     hasSession: () => state.hasSession(),
+    /** True when New Game must reset the world first: a run exists, or the last one died. */
+    needsReset: () => state.hasSession() || worldSpent,
     canReset: () => typeof hooks.resetLevel === 'function',
     getLevelId,
     pickTip: () => tipPicker.next(getLevelId()),
@@ -44,9 +53,13 @@ export function createScreenManager({
     newGame() {
       // Starting over while a run exists needs resetLevel() (main-menu.js disables the row
       // when it isn't registered). A full wipe: back to L1, zero fuel, no repairs, no checkpoint.
-      if (state.hasSession()) hooks.resetLevel?.({ full: true });
+      // The world is only reset once the state machine has accepted the move to LOADING.
+      const reset = api.needsReset();
+      if (reset && !api.canReset()) return;
       setLevel(firstLevelId); // the loading screen takes the destination level's theme
-      state.send(ACTIONS.NEW_GAME);
+      if (!state.send(ACTIONS.NEW_GAME)) return;
+      if (reset) hooks.resetLevel({ full: true });
+      worldSpent = false;
     },
     continueGame: () => state.send(ACTIONS.CONTINUE),
     openOptions: () => state.send(ACTIONS.OPEN_OPTIONS),
@@ -60,11 +73,25 @@ export function createScreenManager({
     resume() {
       if (state.send(ACTIONS.RESUME)) hooks.lockPointer?.();
     },
-    restartLevel() {
+    /** @param {{ fromCheckpoint?: boolean }} [options] fromCheckpoint: the Restart screen's
+     *  "Restart From Checkpoint". Otherwise the whole level is replayed. */
+    restartLevel({ fromCheckpoint = false } = {}) {
       if (typeof hooks.resetLevel !== 'function') return;
-      // Mid-run recovery: the current level again, from its checkpoint if one has been passed.
-      hooks.resetLevel({ full: false });
-      api.resume();
+      // Mid-run recovery: the current level again (Pause > Restart Level, or either restart on
+      // the Restart screen), or from the L2 checkpoint when asked.
+      // Shown through the loading screen; the mouse is re-locked now, while we still have the
+      // click (browsers only allow pointer lock from a user gesture).
+      // Reset only after the state machine accepts the move, so a refused transition never
+      // leaves a wiped world behind a screen that didn't change.
+      if (state.send(ACTIONS.RESTART_LEVEL)) {
+        hooks.resetLevel({ full: false, fromCheckpoint });
+        worldSpent = false;
+        hooks.lockPointer?.();
+      }
+    },
+    /** Log overlay: E (a key press, so the mouse can be re-locked) or Esc / the Close button. */
+    closeLog({ relock = false } = {}) {
+      if (state.send(ACTIONS.CLOSE_LOG) && relock) hooks.lockPointer?.();
     },
   };
 
@@ -74,9 +101,20 @@ export function createScreenManager({
     [STATES.PAUSED]: createPauseScreen(api),
     [STATES.OPTIONS]: createOptionsScreen(api),
     [STATES.CREDITS]: createCreditsScreen(api),
+    [STATES.DEAD]: createRestartScreen(api),
+    [STATES.READING]: createLogOverlay(api),
   };
 
-  root.append(hud.element);
+  // L2 repair consoles: an overlay during play (the world keeps running), above the HUD and
+  // under pause/menus. Opened by the level; closed here on Esc and when play ends.
+  const repairConsole = createRepairConsole();
+  // TAB Ship Status: hold to view during play (not over an open repair console).
+  const shipStatus = createShipStatus({
+    canOpen: () => state.getState() === STATES.PLAYING && !repairConsole.isOpen(),
+    getLevelId,
+    getRepairFlags: () => hooks.getRepairFlags?.() ?? null,
+  });
+  root.append(hud.element, repairConsole.element, shipStatus.element);
   for (const screen of Object.values(screens)) root.append(screen.element);
 
   let active = null;
@@ -96,6 +134,12 @@ export function createScreenManager({
 
     hud.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
     hud.setDimmed(current === STATES.PAUSED);
+    repairConsole.setVisible(current === STATES.PLAYING || current === STATES.PAUSED);
+    repairConsole.setPaused(current === STATES.PAUSED);
+    if (current !== STATES.PLAYING) shipStatus.hide();
+    if (current !== STATES.PLAYING && current !== STATES.PAUSED && current !== STATES.OPTIONS) {
+      repairConsole.close();
+    }
     document.body.dataset.uiState = current;
   }
 
@@ -110,6 +154,12 @@ export function createScreenManager({
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.repeat) return;
     if (window.performance.now() - lastLockLossAt < ESCAPE_AFTER_LOCK_LOSS_MS) return;
+    // Esc backs out of an open repair console first, instead of pausing.
+    if (state.getState() === STATES.PLAYING && repairConsole.isOpen()) {
+      repairConsole.close();
+      event.preventDefault();
+      return;
+    }
     if (state.send(ACTIONS.ESCAPE)) event.preventDefault();
   });
 
@@ -117,6 +167,13 @@ export function createScreenManager({
   // so losing it mid-game has to open the pause overlay.
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement || state.getState() !== STATES.PLAYING) return;
+    // Esc at a repair console: the browser drops the mouse first. Treat it as closing the console,
+    // not as pausing; a click on the game grabs the mouse again.
+    if (repairConsole.isOpen()) {
+      repairConsole.close();
+      lastLockLossAt = window.performance.now();
+      return;
+    }
     // Set before the state change so the pause screen's hint is right the first time it shows.
     mouseReleasedByBrowser = true;
     lastLockLossAt = window.performance.now();
@@ -125,5 +182,23 @@ export function createScreenManager({
 
   render(state.getState());
 
-  return { root, api };
+  return {
+    root,
+    api,
+    /** Death: show the Restart screen with this run's summary (see screens/restart-model.js). */
+    showRestart(info) {
+      screens[STATES.DEAD].setInfo(info);
+      if (!state.send(ACTIONS.DIE)) return false;
+      worldSpent = true;
+      document.exitPointerLock?.(); // the buttons need the mouse
+      return true;
+    },
+    /** Open the log overlay on entries[index]; pauses the world and frees the mouse. */
+    openLog(entries, index = 0) {
+      screens[STATES.READING].setEntries(entries, index);
+      if (!state.send(ACTIONS.OPEN_LOG)) return false;
+      document.exitPointerLock?.();
+      return true;
+    },
+  };
 }
