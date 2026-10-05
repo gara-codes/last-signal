@@ -386,9 +386,7 @@ function animate() {
   // camera/player reads), so it runs after the branch for both paths.
   if (lightingRigL2) lightingRigL2.update(delta);
 
-  const basis = player.userData.getSurfaceBasis();
-  cameraSetup.update(basis, delta);
-  ui.syncPrompt(cameraSetup.getCamera()); // brackets follow the object, never a frame behind
+  ui.syncPrompt((flyCam ?? cameraSetup).getCamera()); // brackets follow the object, never a frame behind
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
