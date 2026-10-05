@@ -5,6 +5,7 @@ import {
   normalizeSlider,
   brightnessToFactor,
   hudOpacityToCss,
+  hudOpacityLayers,
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
   SLIDERS,
@@ -82,6 +83,15 @@ describe('createSettings', () => {
     expect(settings.get()).not.toHaveProperty('difficulty');
   });
 
+  it('reduceFlashing defaults off, only accepts booleans and persists', () => {
+    const storage = fakeStorage();
+    const settings = createSettings({ storage });
+    expect(settings.get().reduceFlashing).toBe(false);
+    expect(settings.set('reduceFlashing', 1)).toBe(false);
+    expect(settings.set('reduceFlashing', true)).toBe(true);
+    expect(createSettings({ storage }).get().reduceFlashing).toBe(true);
+  });
+
   it('loads saved values and repairs bad ones', () => {
     const storage = fakeStorage({
       [SETTINGS_KEY]: JSON.stringify({
@@ -90,6 +100,7 @@ describe('createSettings', () => {
         brightness: 999,
         hudOpacity: 42,
         captions: 'nope',
+        reduceFlashing: 'on',
         extra: 1,
       }),
     });
@@ -99,6 +110,7 @@ describe('createSettings', () => {
     expect(values.brightness).toBe(100);
     expect(values.hudOpacity).toBe(40);
     expect(values.captions).toBe(DEFAULT_SETTINGS.captions);
+    expect(values.reduceFlashing).toBe(DEFAULT_SETTINGS.reduceFlashing);
     expect(values).not.toHaveProperty('extra');
   });
 
@@ -180,5 +192,14 @@ describe('slider -> effect mappings', () => {
     expect(hudOpacityToCss(20)).toBe(0.2);
     expect(hudOpacityToCss(50)).toBe(0.5);
     expect(hudOpacityToCss(100)).toBe(1);
+  });
+
+  it('splits HUD opacity: boxes fade fully, text and icons only a quarter as far', () => {
+    expect(hudOpacityLayers(100)).toEqual({ box: 1, content: 1, boxFactor: 1 });
+    const low = hudOpacityLayers(20);
+    expect(low.box).toBe(0.2);
+    expect(low.content).toBe(0.8);
+    expect(low.content * low.boxFactor).toBeCloseTo(0.2, 2);
+    expect(hudOpacityLayers(0)).toEqual(low); // the 20% floor still applies
   });
 });

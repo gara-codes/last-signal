@@ -72,3 +72,21 @@ export function createPips(total, className = '') {
 
   return { element, setFilled };
 }
+
+/**
+ * Build an element from a STATIC markup string — author-written layout ported from the mockup
+ * (the repair consoles' panels), never with runtime or player data in it. Anything that changes
+ * at runtime is still written with textContent. Returns the markup's first element.
+ */
+export function staticMarkup(markup) {
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  return template.content.firstElementChild;
+}
+
+/** Map every [data-r="name"] inside root to refs.name. */
+export function collectRefs(root) {
+  const refs = {};
+  for (const node of root.querySelectorAll('[data-r]')) refs[node.dataset.r] = node;
+  return refs;
+}

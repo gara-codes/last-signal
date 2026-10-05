@@ -1,0 +1,202 @@
+/* Log / text reading overlay — final mockup. On the 1600x900 stage (see ui.css); follows the
+   level accent, on the shared screen backdrop (the world is paused behind it). */
+
+.ui-screen.ui-screen--log {
+  z-index: var(--z-overlay);
+  outline: none;
+}
+
+.log__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 720px;
+  transform: translate(-50%, -50%);
+}
+
+/* tabs: the selected one takes the spare width and shows its full title */
+.log__tabs {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+}
+
+.log__tab {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.log__tab.is-selected {
+  flex: 3;
+}
+
+.log__tab-label {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: #6a747e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log__tab.is-selected .log__tab-label {
+  font-size: var(--fs-md);
+  color: var(--ui-text);
+}
+
+.log__tab-line {
+  display: block;
+  height: 2px;
+  margin-top: 8px;
+  width: 44%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.log__tab.is-selected .log__tab-line {
+  width: 100%;
+  background: var(--accent);
+}
+
+.log__tab:hover .log__tab-label,
+.log__tab:focus-visible .log__tab-label {
+  color: var(--ui-text);
+}
+
+/* panel */
+.log__panel {
+  --chamfer: var(--chamfer-xl);
+
+  position: relative;
+  padding: 34px 40px;
+  background: var(--ui-panel-strong);
+  border: 1px solid var(--ui-border);
+  clip-path: polygon(
+    var(--chamfer) 0,
+    100% 0,
+    100% calc(100% - var(--chamfer)),
+    calc(100% - var(--chamfer)) 100%,
+    0 100%,
+    0 var(--chamfer)
+  );
+}
+
+.log__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.log__id {
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.log__corrupt-tag {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-normal);
+  color: #c98a4a;
+}
+
+.log__title {
+  margin: 0 0 22px;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: var(--ui-text);
+}
+
+.log__body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #c7ccd1;
+}
+
+.log__redacted {
+  border-radius: 2px;
+  background: rgba(238, 242, 244, 0.14);
+  color: transparent;
+  user-select: none;
+}
+
+.log__footer {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ui-track);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.log__close {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.log__key {
+  padding: 1px 6px;
+  border: 1px solid var(--state-clean);
+  color: var(--state-clean);
+  font-size: var(--fs-xs);
+}
+
+.log__close-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  color: var(--ui-text-action);
+}
+
+.log__nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.log__position {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-tertiary);
+}
+
+.log__arrow {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.log__arrow:hover,
+.log__arrow:focus-visible,
+.log__close:focus-visible .log__close-label {
+  background: var(--accent-tint);
+  outline: none;
+}

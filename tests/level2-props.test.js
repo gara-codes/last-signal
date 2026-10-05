@@ -50,7 +50,10 @@ describe('L2 prop builders — userData contract', () => {
     expect(station.userData.interactable).toBe(true);
     expect(station.userData.system).toBe('oxygen');
     expect(station.userData.repairState).toBe('untouched');
-    expect(station.userData.prompt.label).toContain('Oxygen');
+    expect(station.userData.getPrompt()).toEqual({
+      label: 'Access Console',
+      detail: 'Oxygen Scrubbers',
+    });
     expect(typeof station.userData.interact).toBe('function');
     expect(typeof station.userData.update).toBe('function');
   });
@@ -67,7 +70,7 @@ describe('L2 prop builders — userData contract', () => {
   it('createCommsStation returns an interactable station', () => {
     const station = createCommsStation(mats);
     expect(station.userData.system).toBe('comms');
-    expect(station.userData.prompt.label).toContain('Comms');
+    expect(station.userData.getPrompt().detail).toBe('Comms Array');
   });
 
   it('createCommandDoor returns an interactable door with slab', () => {
@@ -75,7 +78,11 @@ describe('L2 prop builders — userData contract', () => {
     expect(door.userData.id).toBe('l2-command-door');
     expect(door.userData.interactable).toBe(true);
     expect(door.userData.door).toBeDefined();
-    expect(door.userData.prompt.label).toContain('Override');
+    expect(door.userData.getPrompt()).toEqual({
+      label: 'Open Door',
+      detail: 'Override Required',
+      denied: true,
+    });
     expect(typeof door.userData.update).toBe('function');
   });
 
@@ -83,7 +90,12 @@ describe('L2 prop builders — userData contract', () => {
     const terminal = createOverrideTerminal(mats);
     expect(terminal.userData.id).toBe('override-terminal');
     expect(terminal.userData.interactable).toBe(true);
-    expect(terminal.userData.prompt.label).toContain('Reroute');
+    expect(terminal.userData.getPrompt(new FuelSystem(0))).toEqual({
+      label: 'Reroute Power',
+      detail: '0 / 1 Fuel Cell',
+      denied: true,
+    });
+    expect(terminal.userData.getPrompt(new FuelSystem(1)).denied).toBe(false);
   });
 
   it('createCameraMount returns a Group with update (pan sweep)', () => {
@@ -98,6 +110,7 @@ describe('L2 prop builders — userData contract', () => {
     expect(cell.userData.isFuelCell).toBe(true);
     expect(cell.userData.collected).toBe(false);
     expect(cell.userData.interactable).toBe(true);
+    expect(cell.userData.prompt).toEqual({ label: 'Collect Fuel Cell', hint: true });
     expect(typeof cell.userData.interact).toBe('function');
     // Interact credits the fuel system and marks collected
     cell.userData.interact();

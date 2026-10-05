@@ -5,7 +5,8 @@
 // THREE.Group whose userData carries the blockout contract:
 //
 //   userData.interactable   shows up in the E-key / prompt dispatch
-//   userData.prompt         { label, detail, denied } for the HUD prompt
+//   userData.prompt         { label, detail, denied, hint } for the HUD prompt, or
+//   userData.getPrompt(fuelSystem)  the same, worked out each frame (copy: ui/prompt-copy.js)
 //   userData.update(delta)  animation tick (registered by the orchestrator)
 //
 // Art upgrade path: every builder accepts { modelPath, texturePath } —
@@ -15,7 +16,13 @@
 import * as THREE from 'three';
 import { createDoor } from '../../systems/door-system.js';
 import { loadFuelCell, loadGlb } from '../../core/AssetLoader.js';
-import { REPAIR_STATES } from '../../systems/system-repair-allocation.js';
+import { REPAIR_STATES, REPAIR_COST } from '../../systems/system-repair-allocation.js';
+import { TERMINAL_UNLOCK_COST } from '../../systems/command-center.js';
+import { costPrompt, stationPrompt, FUEL_CELL_HINT } from '../../ui/prompt-copy.js';
+import {
+  openRepairConsole,
+  isRepairConsoleOpen,
+} from '../../ui/screens/repair-console/repair-console.js';
 
 // props.js's own 'oxygen'/'gravity'/'comms' station ids never matched
 // system-repair-allocation.js's SYSTEM_IDS vocabulary — map between them.
@@ -47,6 +54,12 @@ function loadHullTexture() {
     cachedHullTexture = new THREE.TextureLoader().load(HULL_TEXTURE_PATH);
   }
   return cachedHullTexture;
+}
+
+/** Frees the shared hull texture (L2's dispose() calls this). The next L2 loads it afresh. */
+export function releaseHullTexture() {
+  cachedHullTexture?.dispose();
+  cachedHullTexture = null;
 }
 
 export function createBlockoutMaterials({ useTextures = true } = {}) {
@@ -164,7 +177,7 @@ export function createOxygenStation(mats, { modelPath, repairs, fuelSystem } = {
     g.add(box(2.8, 0.35, 0.5, mats.metalDark, [0, 2.6, -0.6])); // manifold
     g.add(cylinder(0.12, 0.12, 2.2, mats.rail, [1.4, 1.4, 0.8])); // vent pipe
   });
-  return finishStation(group, 'oxygen', 'Repair Oxygen Scrubbers', { repairs, fuelSystem });
+  return finishStation(group, 'oxygen', { repairs, fuelSystem });
 }
 
 export function createGravityStation(mats, { modelPath, repairs, fuelSystem } = {}) {
@@ -181,7 +194,7 @@ export function createGravityStation(mats, { modelPath, repairs, fuelSystem } = 
     g.add(...rings);
     g.userData.rings = rings;
   });
-  return finishStation(group, 'gravity', 'Repair Gravity Stabilizers', { repairs, fuelSystem });
+  return finishStation(group, 'gravity', { repairs, fuelSystem });
 }
 
 export function createCommsStation(mats, { modelPath, repairs, fuelSystem } = {}) {
@@ -193,17 +206,12 @@ export function createCommsStation(mats, { modelPath, repairs, fuelSystem } = {}
     g.add(dish);
     g.add(cylinder(0.04, 0.04, 1.6, mats.rail, [0.5, 2.4, -0.6])); // antenna
   });
-  return finishStation(group, 'comms', 'Repair Comms Array', { repairs, fuelSystem });
+  return finishStation(group, 'comms', { repairs, fuelSystem });
 }
 
-/** Builds the { label, detail, denied } prompt for a station's current repair state. */
-function stationPrompt(label, state) {
-  if (state === REPAIR_STATES.REPAIRED) return { label, detail: 'Repaired', denied: false };
-  if (state === REPAIR_STATES.PARTIAL) return { label, detail: '2 Cells — Partial', denied: true };
-  return { label, detail: '2 Cells — Untouched', denied: true };
-}
-
-function finishStation(group, system, label, { repairs, fuelSystem } = {}) {
+// E at a station opens its repair console (ui/screens/repair-console/); E again, with the console
+// open, repairs one step. Esc or walking away closes it (screen-manager.js / the L2 orchestrator).
+function finishStation(group, system, { repairs, fuelSystem } = {}) {
   const rings = group.userData.rings ?? [];
   const repairId = REPAIR_SYSTEM_IDS[system];
   // Seeded from the real allocator when one is wired (main.js/level2-engineering-core.js);
@@ -215,14 +223,24 @@ function finishStation(group, system, label, { repairs, fuelSystem } = {}) {
     id: `${system}-station`,
     interactable: true,
     system,
+    repairId, // SYSTEM_IDS name, also the console's id
     repairState: initialState, // 'untouched' | 'partial' | 'repaired' — flags L3 reads
-    prompt: stationPrompt(label, initialState),
+    getPrompt: () =>
+      stationPrompt(repairId, group.userData.repairState === REPAIR_STATES.REPAIRED),
     interact() {
       if (!repairs || !fuelSystem) return; // no allocator wired — inert in isolation/tests
+      if (!isRepairConsoleOpen(repairId)) {
+        openRepairConsole({
+          systemId: repairId,
+          getState: () => repairs.getState(repairId),
+          getBanked: () => fuelSystem.banked,
+          cost: REPAIR_COST,
+        });
+        return;
+      }
       const result = repairs.repair(repairId, fuelSystem);
-      if (!result.success) return;
+      if (!result.success) return; // can't afford it: the console's prompt already says so
       group.userData.repairState = result.newState;
-      group.userData.prompt = stationPrompt(label, result.newState);
     },
     update(delta) {
       for (const ring of rings) ring.rotation[ring.userData.spinAxis] += delta * 0.8;
@@ -266,7 +284,13 @@ export function createCommandDoor(mats, { modelPath, onOpen, override } = {}) {
     id: 'l2-command-door',
     door: slab,
     interactable: true,
-    prompt: { label: 'Override Required', detail: 'AI controls — no fuel accepted', denied: true },
+    // No fuel accepted (design doc): only the override item opens it. Nothing while it opens.
+    getPrompt() {
+      const state = slab.userData.state;
+      if (state !== 'locked' && state !== 'unlocked') return null;
+      if (override?.hasOverrideItem) return { label: 'Open Door', detail: 'Override Ready' };
+      return { label: 'Open Door', detail: 'Override Required', denied: true };
+    },
     interact() {
       // No fuel accepted (design doc) — only the collected override item
       // can unlock this. No-op in isolation/tests when override isn't wired.
@@ -296,13 +320,15 @@ export function createOverrideTerminal(mats, { modelPath, fuelSystem, override }
     ...group.userData,
     id: 'override-terminal',
     interactable: true,
-    prompt: { label: 'Reroute Power', detail: '1 Cell — Unlock', denied: true },
+    getPrompt(fuel) {
+      if (override?.hasOverrideItem) return { label: 'Override Acquired', hint: true };
+      return costPrompt('Reroute Power', TERMINAL_UNLOCK_COST, fuel?.banked ?? 0);
+    },
     interact() {
       if (!override || !fuelSystem) return; // no-op in isolation/tests
       if (override.hasOverrideItem) return; // already collected
       if (!override.unlockTerminal(fuelSystem)) return; // can't afford yet
       override.collectOverride();
-      group.userData.prompt = { label: 'Override Acquired', detail: '', denied: false };
     },
   };
   return group;
@@ -442,7 +468,7 @@ export function createFuelCellSpawn(fuelSystem) {
     isFuelCell: true,
     collected: false,
     interactable: true,
-    prompt: { label: 'Collect Fuel Cell' },
+    prompt: FUEL_CELL_HINT, // auto-pickup: hint only, no [E]
     interact() {
       if (cell.userData.collected) return;
       cell.userData.collected = true;
