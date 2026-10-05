@@ -100,7 +100,8 @@ function fadeTo(opacity, seconds) {
 function setupL2Camera() {
   // L2's actual bounds (HALL.minX..maxX, GROUND_Y..CEILING_Y, HALL.minZ..maxZ)
   // — the drum's cylinder clamp doesn't apply here at all.
-  // maxZ extended to 36 to cover the elevator cab (z ≈ 33.6).
+  // maxZ defaults to HALL.maxZ (30); extended to 36 dynamically when the player
+  // enters the elevator shaft (z > 30) to allow the camera to follow into the cab.
   cameraSetup.setBounds({
     type: 'box',
     minX: HALL.minX,
@@ -108,7 +109,7 @@ function setupL2Camera() {
     minY: GROUND_Y,
     maxY: CEILING_Y,
     minZ: HALL.minZ,
-    maxZ: 36,
+    maxZ: HALL.maxZ,
     margin: 1,
   });
 }
@@ -377,6 +378,27 @@ function animate() {
     playerController.update(delta, input);
     cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
     level.update(delta, player, input);
+
+    // Dynamic camera bounds — extend maxZ when the player is in the elevator
+    // shaft (z > 30) so the camera can follow into the cab. Revert to HALL.maxZ
+    // when the player leaves the shaft to avoid the camera clipping through walls
+    // at spawn (where the south wall is at z=30).
+    const playerZ = player.position.z;
+    const inShaft = playerZ > HALL.maxZ;
+    const currentMaxZ = cameraSetup._bounds?.maxZ;
+    const targetMaxZ = inShaft ? 36 : HALL.maxZ;
+    if (currentMaxZ !== targetMaxZ) {
+      cameraSetup.setBounds({
+        type: 'box',
+        minX: HALL.minX,
+        maxX: HALL.maxX,
+        minY: GROUND_Y,
+        maxY: CEILING_Y,
+        minZ: HALL.minZ,
+        maxZ: targetMaxZ,
+        margin: 1,
+      });
+    }
 
     const basis = player.userData.getSurfaceBasis();
     cameraSetup.update(basis, delta);
