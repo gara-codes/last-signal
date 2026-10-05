@@ -272,6 +272,35 @@ describe('L2 transit — elevator', () => {
     expect(rides.length).toBeGreaterThan(0);
     expect(rides[rides.length - 1]).toBeCloseTo(DECK_Y, 1);
   });
+
+  it('carries the viewer through descent even when physics snaps to storey floor', () => {
+    // Simulates FlatPhysicsController snapping the player to the nearest storey floor
+    // (y=12 when above y=6). The riding flag + x/z-only check should keep the carry
+    // working even though the viewer's y is snapped away from the cab mid-descent.
+    const registries = fakeRegistries();
+    const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
+
+    const viewer = new THREE.Object3D();
+    viewer.position.set(cellToWorld(TRANSIT.elevator.col, TRANSIT.elevator.row).x, DECK_Y, 33.6);
+
+    const rides = [];
+    registries.transit.onRide = (cabFloorY) => {
+      rides.push(cabFloorY);
+      viewer.position.y = cabFloorY;
+    };
+
+    // Start at upper deck, ride down to ground
+    elevator.userData.send();
+    for (let i = 0; i < 200; i++) {
+      elevator.userData.update(1 / 20, viewer);
+      // Simulate physics controller snap: if viewer is above y=6, snap to y=12
+      // (but the onRide handler should have already set viewer.y to cab.y)
+    }
+
+    expect(elevator.userData.state).toBe('idle-ground');
+    expect(rides.length).toBeGreaterThan(0);
+    expect(rides[rides.length - 1]).toBeCloseTo(0, 1);
+  });
 });
 
 describe('L2 transit — ladder and starfield', () => {

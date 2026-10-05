@@ -305,6 +305,21 @@ export function createElevator(mats, registries, collision, pin) {
     );
   }
 
+  /** X/Z-only carry test — used once riding is established, so the physics
+   *  controller's storey-floor snap doesn't break the carry mid-descent. */
+  function viewerInCabXZ(viewer) {
+    const p = viewer.position;
+    return (
+      Math.abs(p.x - breachX) < 3.4 &&
+      p.z > wallZ + 0.3 &&
+      p.z < cabNorthZ + CAB_SIZE + 0.4
+    );
+  }
+
+  // Riding flag — set once on the first moving frame if the viewer is in the cab,
+  // cleared when the cab arrives (state goes idle) or the viewer leaves the cab's X/Z box.
+  let riding = false;
+
   elevator.userData = {
     id: 'l2-elevator',
     cab,
@@ -341,19 +356,32 @@ export function createElevator(mats, registries, collision, pin) {
             DECK_Y
           );
 
-          // Blockout-only viewer carry — cleared on arrival (state goes
-          // idle) or when the flycam simply flies out of the cab's box.
-          if (viewer && viewerInsideCab(viewer)) {
-            const ride = registries.transit.onRide;
-            if (ride) ride(cab.position.y);
-            else viewer.position.y = cab.position.y;
+          // Blockout-only viewer carry. On the first moving frame, check if the
+          // viewer is inside the cab (full x/y/z test). Once riding is established,
+          // use x/z-only check so the physics controller's storey-floor snap doesn't
+          // break the carry mid-descent. Cleared on arrival or if the viewer leaves.
+          if (viewer) {
+            if (!riding && viewerInsideCab(viewer)) {
+              riding = true;
+            }
+            if (riding) {
+              if (viewerInCabXZ(viewer)) {
+                const ride = registries.transit.onRide;
+                if (ride) ride(cab.position.y);
+                else viewer.position.y = cab.position.y;
+              } else {
+                riding = false; // viewer left the cab's X/Z box (flycam escape)
+              }
+            }
           }
 
           if (cab.position.y === GROUND_Y) {
             cabState = 'idle-ground';
+            riding = false;
             openFloor('ground');
           } else if (cab.position.y === DECK_Y) {
             cabState = 'idle-upper';
+            riding = false;
             openFloor('upper');
           }
         }
