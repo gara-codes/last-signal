@@ -131,24 +131,56 @@ function buildSlider(def, settings) {
   return { row, track, render, key: def.key };
 }
 
-export function createOptionsScreen(api) {
-  const { settings } = api;
-  const sliders = SLIDERS.map((def) => buildSlider(def, settings));
+// On/off switches under the sliders. `caption` is a one-line note always shown under the row.
+const TOGGLES = [
+  { key: 'captions', label: 'AI Voice Captions' },
+  {
+    key: 'reduceFlashing',
+    label: 'Reduce Flashing',
+    caption: 'Warnings dim steadily instead of flashing.',
+  },
+];
 
-  const captionsLabel = el('span', {
-    className: 'options__toggle-label ui-label',
-    text: 'AI Voice Captions',
-    attrs: { id: 'options-captions-label' },
-  });
-  const captionsToggle = el(
+function buildToggle(def, settings) {
+  const labelId = `options-${def.key}-label`;
+  const toggle = el(
     'button',
     {
       className: 'options-toggle',
-      attrs: { type: 'button', role: 'switch', 'aria-labelledby': 'options-captions-label' },
-      on: { click: () => settings.set('captions', !settings.get().captions) },
+      attrs: { type: 'button', role: 'switch', 'aria-labelledby': labelId },
+      on: { click: () => settings.set(def.key, !settings.get()[def.key]) },
     },
     el('span', { className: 'options-toggle__knob' })
   );
+  const row = el(
+    'div',
+    { className: 'options__toggle' },
+    el(
+      'div',
+      { className: 'options__toggle-row' },
+      el('span', {
+        className: 'options__toggle-label ui-label',
+        text: def.label,
+        attrs: { id: labelId },
+      }),
+      toggle
+    ),
+    def.caption
+      ? el('div', { className: 'options__toggle-caption ui-mono', text: def.caption })
+      : null
+  );
+  return {
+    row,
+    render(value) {
+      toggle.setAttribute('aria-checked', String(value));
+    },
+  };
+}
+
+export function createOptionsScreen(api) {
+  const { settings } = api;
+  const sliders = SLIDERS.map((def) => buildSlider(def, settings));
+  const toggles = TOGGLES.map((def) => ({ key: def.key, ...buildToggle(def, settings) }));
 
   const backButton = el('button', {
     className: 'ui-button ui-chamfer-row',
@@ -171,7 +203,11 @@ export function createOptionsScreen(api) {
         { className: 'options__panel ui-panel ui-chamfer-panel' },
         el('h2', { className: 'options__title', text: 'Options' }),
         sliders.map((slider) => slider.row),
-        el('div', { className: 'options__toggle-row' }, captionsLabel, captionsToggle),
+        el(
+          'div',
+          { className: 'options__toggles' },
+          toggles.map((toggle) => toggle.row)
+        ),
         el('div', { className: 'options__footer' }, backButton)
       )
     ),
@@ -180,7 +216,7 @@ export function createOptionsScreen(api) {
 
   function renderAll(values) {
     for (const slider of sliders) slider.render(values[slider.key]);
-    captionsToggle.setAttribute('aria-checked', String(values.captions));
+    for (const toggle of toggles) toggle.render(values[toggle.key]);
   }
 
   settings.subscribe(renderAll);

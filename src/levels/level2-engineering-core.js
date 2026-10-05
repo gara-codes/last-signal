@@ -17,7 +17,7 @@
 
 import * as THREE from 'three';
 import { validateLayout, PLACEMENTS, cellToWorld, DECK_Y, GROUND_Y } from './level2/grid-data.js';
-import { createBlockoutMaterials } from './level2/props.js';
+import { createBlockoutMaterials, releaseHullTexture } from './level2/props.js';
 import { buildLevelGeometry, placeAnchors } from './level2/maze-builder.js';
 import { FuelSystem } from '../systems/fuel-system.js';
 import { SystemRepairAllocation } from '../systems/system-repair-allocation.js';
@@ -25,15 +25,29 @@ import { CommandCenterOverride, Checkpoint } from '../systems/command-center.js'
 import { OxygenSystem } from '../systems/oxygen-system.js';
 import { updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { setInteractPrompt } from '../ui/hud.js';
+import { promptForInteractable } from '../ui/prompt-copy.js';
+import {
+  isRepairConsoleOpen,
+  closeRepairConsole,
+} from '../ui/screens/repair-console/repair-console.js';
 
 const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
+const FUEL_HINT_RADIUS = 7; // fuel cells within this range get the "Collect Fuel Cell" hint
 const EYE_HEIGHT = 2.55; // flycam spawn eye height above the deck/ground
 
 // Reusable scratch vectors — module-level singletons, never allocated inside
 // the per-frame loop. Concurrent L2 instances are not supported (the level
 // is a singleton in main.js), so shared scratch state is safe.
 const scratchPosition = new THREE.Vector3();
+const scratchEuler = new THREE.Euler();
+
+/** FlatPhysicsController's facingYaw, read back off the player model (it sets the model's
+ *  quaternion to facingYaw + PI about +Y). 'YXZ' so a pure yaw doesn't come back as an X/Z flip. */
+function facingYawOf(viewer) {
+  const yaw = scratchEuler.setFromQuaternion(viewer.quaternion, 'YXZ').y - Math.PI;
+  return Math.atan2(Math.sin(yaw), Math.cos(yaw)); // back into -PI..PI
+}
 const interactBox = new THREE.Box3();
 
 // ---------------------------------------------------------------------------
@@ -103,27 +117,51 @@ function tickFuelProximity(fuelCells, viewer) {
   }
 }
 
+/** Closest uncollected fuel cell within maxDistance of the viewer, or null. */
+function nearestFuelCell(fuelCells, viewer, maxDistance) {
+  let best = null;
+  let bestDist = maxDistance;
+  for (const cell of fuelCells) {
+    if (cell.userData.collected) continue;
+    cell.getWorldPosition(scratchPosition);
+    const distance = scratchPosition.distanceTo(viewer.position);
+    if (distance < bestDist) {
+      best = cell;
+      bestDist = distance;
+    }
+  }
+  return best;
+}
+
 /**
- * Dispatches the HUD prompt from the nearest interactable. Doors mid-open
- * or already open are excluded from the visible prompt (E has no effect)
- * but still receive the key press if the viewer is in range.
+ * Dispatches the HUD prompt from the nearest interactable (copy in
+ * ui/prompt-copy.js), locked onto that object. Doors mid-open or already
+ * open get no prompt (E has no effect) but still receive the key press if
+ * the viewer is in range. With nothing in reach, the nearest fuel cell gets
+ * a hint prompt.
  * @returns {object|null} the nearby interactable (for the caller to dispatch)
  */
-function resolvePrompt(interactables, viewer) {
-  const nearby = findNearestInteractable(interactables, viewer, INTERACT_RADIUS);
-  if (!nearby) {
-    setInteractPrompt(null);
-    return null;
+function resolvePrompt(registries, viewer) {
+  const nearby = findNearestInteractable(registries.interactables, viewer, INTERACT_RADIUS);
+  // An open repair console: walking away from its station closes it; while it stays open the
+  // console shows its own prompt, so the world prompt hides.
+  if (isRepairConsoleOpen()) {
+    const repairId = nearby?.userData.repairId;
+    if (repairId && isRepairConsoleOpen(repairId)) {
+      setInteractPrompt(null);
+      return nearby;
+    }
+    closeRepairConsole();
   }
-  // Doors in 'opening'/'open' state: suppress the prompt but keep the object.
-  const state = nearby.userData.state;
-  const promptable = !state || state === 'locked' || state === 'unlocked';
-  if (promptable) {
-    const { label, detail, denied } = nearby.userData.prompt ?? {};
-    setInteractPrompt(label ?? 'Interact', { detail, denied });
-  } else {
-    setInteractPrompt(null);
+  const prompt = promptForInteractable(nearby, registries.fuelSystem);
+  if (prompt) {
+    setInteractPrompt(prompt.label, { ...prompt, target: nearby });
+    return nearby;
   }
+  const cell = nearestFuelCell(registries.fuelCells, viewer, FUEL_HINT_RADIUS);
+  if (cell)
+    setInteractPrompt(cell.userData.prompt.label, { ...cell.userData.prompt, target: cell });
+  else setInteractPrompt(null);
   return nearby;
 }
 
@@ -169,10 +207,15 @@ function computePlayerSpawn() {
  *   defaults to auto-detect (on when `document` exists — i.e. not in tests).
  * @param {number} [options.startingReserve] - fuel cells carried from L1
  *   (0 for a fresh run or dev swap).
+ * @param {object|null} [options.checkpoint] - a snapshot from a previous L2's
+ *   `checkpoint.load()`. Rebuilds the level as it was at the checkpoint (Restart From
+ *   Checkpoint): fuel, repairs, override, collected cells, oxygen/health and the player's
+ *   spot. `startingReserve` is ignored when this is given.
  */
 export function createLevel2(options = {}) {
   const useTextures = options.useTextures ?? typeof document !== 'undefined';
   const startingReserve = options.startingReserve ?? 0;
+  const restore = options.checkpoint ?? null;
 
   // Layout lint — throws with human-readable problems if the maze data is
   // broken (anchor on solid cell, ramp footprint missing, etc.).
@@ -191,31 +234,41 @@ export function createLevel2(options = {}) {
   registries.collision = geometry.collision;
   group.add(geometry.group);
 
-  const fuelSystem = new FuelSystem(startingReserve);
+  const fuelSystem = new FuelSystem(restore ? restore.fuelCount : startingReserve);
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
 
-  const repairs = new SystemRepairAllocation();
+  const repairs = new SystemRepairAllocation(restore?.repairs ?? {});
   registries.repairs = repairs;
   group.userData.repairs = repairs; // debug / HUD read, and L3's exportFlags() source
 
   const override = new CommandCenterOverride();
+  if (restore?.override) {
+    override.terminalUnlocked = Boolean(restore.override.terminalUnlocked);
+    override.hasOverrideItem = Boolean(restore.override.hasOverrideItem);
+  }
   registries.override = override;
   group.userData.override = override; // debug read
 
   const checkpoint = new Checkpoint();
+  if (restore) checkpoint.save(restore); // so a second death goes back to the same spot
   group.userData.checkpoint = checkpoint; // debug read
 
   // Ticked every frame in update() below; exposed on group.userData so
   // main.js can read oxygenSystem.fraction and push it to the HUD, same
   // pattern as fuelSystem/repairs/override/checkpoint above.
   const oxygenSystem = new OxygenSystem();
+  if (restore) {
+    oxygenSystem.oxygen = restore.oxygen;
+    oxygenSystem.health = restore.health;
+    oxygenSystem.isDepleted = restore.oxygen <= 0;
+  }
   group.userData.oxygenSystem = oxygenSystem; // debug / HUD read
 
   // hasOverrideItem flips false -> true exactly once (inside the override
   // terminal's interact(), dispatched below); watched here so the checkpoint
   // is saved at that one moment rather than every frame after.
-  let hadOverrideItem = false;
+  let hadOverrideItem = override.hasOverrideItem;
 
   // Stub: the late-L2 lying phase (strip reprogramming, cold HUD lines)
   // wires here once power-allocation lands.
@@ -224,6 +277,14 @@ export function createLevel2(options = {}) {
   }
 
   const anchors = placeAnchors(mats, group, registries, onCommandDoorOpen);
+
+  // Cells picked up before the checkpoint stay gone (fuelCells is in PLACEMENTS order).
+  for (const index of restore?.collectedCells ?? []) {
+    const cell = registries.fuelCells[index];
+    if (!cell || cell.userData.collected) continue;
+    cell.userData.collected = true;
+    cell.removeFromParent();
+  }
   const lighting = addPlaceholderLighting(group);
 
   // ----- update ----------------------------------------------------------
@@ -247,7 +308,7 @@ export function createLevel2(options = {}) {
     // the player model (viewer), not the controller, is passed in.
     oxygenSystem.update(delta, input?.running ?? false);
 
-    const nearby = resolvePrompt(registries.interactables, viewer);
+    const nearby = resolvePrompt(registries, viewer);
     if (input?.interact && nearby) {
       nearby.userData.interact?.();
     }
@@ -262,9 +323,19 @@ export function createLevel2(options = {}) {
         y: viewer.position.y,
         z: viewer.position.z,
         facing: viewer.rotation.y,
+        yaw: facingYawOf(viewer),
         oxygen: oxygenSystem.oxygen,
         health: oxygenSystem.health,
         fuelCount: fuelSystem.count,
+        // World state, so Restart From Checkpoint can rebuild the level as it was here.
+        repairs: repairs.exportFlags(),
+        override: {
+          terminalUnlocked: override.terminalUnlocked,
+          hasOverrideItem: override.hasOverrideItem,
+        },
+        collectedCells: registries.fuelCells.flatMap((cell, i) =>
+          cell.userData.collected ? [i] : []
+        ),
       });
     }
     hadOverrideItem = override.hasOverrideItem;
@@ -274,6 +345,7 @@ export function createLevel2(options = {}) {
 
   function dispose() {
     setInteractPrompt(null);
+    closeRepairConsole();
     group.traverse((obj) => {
       if (obj.geometry && !isSharedDoorResource(obj.geometry)) {
         obj.geometry.dispose();
@@ -288,6 +360,7 @@ export function createLevel2(options = {}) {
     registries.interactables.length = 0;
     registries.updatables.length = 0;
     registries.fuelCells.length = 0;
+    releaseHullTexture();
   }
 
   // ----- public surface --------------------------------------------------
@@ -298,7 +371,11 @@ export function createLevel2(options = {}) {
     update,
     collisionData: geometry.collision.finalize(),
     getSpawnView: computeSpawnView,
-    getPlayerSpawn: computePlayerSpawn,
+    // From a checkpoint the player starts where the snapshot was taken.
+    getPlayerSpawn: () =>
+      restore
+        ? { x: restore.x, y: restore.y, z: restore.z, yaw: restore.yaw ?? 0 }
+        : computePlayerSpawn(),
     /**
      * Wires the blockout transit handlers (main.js's player path):
      *   onTeleport(x, y, z, yaw) — the ladder hatch

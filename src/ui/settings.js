@@ -7,7 +7,9 @@
 // This module only holds and persists the values. Who reacts to them is wired elsewhere:
 //   - hudOpacity / brightness  -> applied in src/ui/index.js (CSS var / canvas filter)
 //   - sfxVolume / musicVolume  -> TODO(wire): src/audio/audio-manager.js should subscribe()
-//   - captions                 -> exposed as body[data-captions]; the caption bar is not built yet
+//   - captions                 -> exposed as body[data-captions]; the HUD caption bar hides when off
+//   - reduceFlashing           -> exposed as body[data-reduce-flashing]; hud.css swaps every
+//                                 flash/pulse for a steady state or one slow dim
 
 export const SETTINGS_KEY = 'last-signal.settings.v1';
 
@@ -53,7 +55,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
   brightness: 50, // 50% is the neutral, unfiltered look
   hudOpacity: 100,
   captions: true,
+  reduceFlashing: false,
 });
+
+// On/off settings (Options draws these as switches, in this order).
+export const TOGGLE_KEYS = ['captions', 'reduceFlashing'];
 
 const SLIDER_KEYS = new Set(SLIDERS.map((s) => s.key));
 
@@ -85,6 +91,25 @@ export function hudOpacityToCss(percent) {
   return Math.min(SLIDER_MAX, Math.max(floor, percent)) / 100;
 }
 
+// How fast text and icons fade relative to the boxes: 0.25 = a quarter of the rate, so at the
+// 20% floor the boxes are at 0.2 but the text is still at 0.8. Raise it to let text fade more.
+export const HUD_CONTENT_FADE_RATE = 0.25;
+
+/**
+ * HUD Opacity split into two layers, so text and icons stay bright at the low end while the
+ * panel boxes fade fully:
+ *   box      what the panel backgrounds/borders end up at — the slider value itself (0.2-1)
+ *   content  text, icons, pips: fades at HUD_CONTENT_FADE_RATE of that (100% -> 1, 20% -> 0.8)
+ *   boxFactor  extra fade applied to the box layer on top of `content`, so that
+ *              content * boxFactor === box
+ */
+export function hudOpacityLayers(percent) {
+  const box = hudOpacityToCss(percent);
+  const content = 1 - (1 - box) * HUD_CONTENT_FADE_RATE;
+  const round = (n) => Math.round(n * 1000) / 1000;
+  return { box, content: round(content), boxFactor: round(box / content) };
+}
+
 function defaultStorage() {
   try {
     return globalThis.localStorage ?? null;
@@ -100,7 +125,9 @@ function sanitize(raw) {
     const value = normalizeSlider(raw[key], sliderMin(key));
     if (value !== null) clean[key] = value;
   }
-  if (typeof raw.captions === 'boolean') clean.captions = raw.captions;
+  for (const key of TOGGLE_KEYS) {
+    if (typeof raw[key] === 'boolean') clean[key] = raw[key];
+  }
   return clean;
 }
 
@@ -132,7 +159,7 @@ export function createSettings({ storage = defaultStorage(), key = SETTINGS_KEY 
     let next;
     if (SLIDER_KEYS.has(name)) {
       next = normalizeSlider(value, sliderMin(name));
-    } else if (name === 'captions' && typeof value === 'boolean') {
+    } else if (TOGGLE_KEYS.includes(name) && typeof value === 'boolean') {
       next = value;
     }
     if (next === undefined || next === null) return false;
