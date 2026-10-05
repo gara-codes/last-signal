@@ -302,6 +302,14 @@ export function createLevel2(options = {}) {
     // the player model (viewer), not the controller, is passed in.
     oxygenSystem.update(delta, input?.running ?? false);
 
+    // Fall damage: FlatPhysicsController exposes a one-shot event the same
+    // way it exposes getSurfaceBasis() — only non-zero on the frame a
+    // snap-back-triggered fall lands hard enough to hurt (see its header
+    // comment). This file owns applying it to health, same seam as the
+    // oxygen drain above; the controller itself never touches OxygenSystem.
+    const fallDamage = viewer.userData.consumeFallDamage?.() ?? 0;
+    if (fallDamage > 0) oxygenSystem.takeDamage(fallDamage);
+
     const nearby = resolvePrompt(registries, viewer);
     if (input?.interact && nearby) {
       nearby.userData.interact?.();
