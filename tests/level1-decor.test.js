@@ -6,7 +6,10 @@
 // textures when there is no `document`.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 import * as THREE from 'three';
+import { createScreenMaterial } from '../src/shaders/screen.js';
 import {
   createLevel1Decor,
   layoutEndWallProps,
@@ -83,5 +86,56 @@ describe('placeOnEndWall', () => {
         expect(Math.hypot(obj.position.x, obj.position.z)).toBeCloseTo(DECK_RADIUS);
       }
     }
+  });
+});
+
+function screensIn(group) {
+  const screens = new Set();
+  group.traverse((o) => {
+    if (o.material?.name === 'console-screen') screens.add(o.material);
+  });
+  return [...screens];
+}
+
+function declaredUniforms(file) {
+  const src = readFileSync(new URL(`../src/shaders/${file}`, import.meta.url), 'utf8');
+  return [...src.matchAll(/^\s*uniform\s+\w+\s+(\w+)\s*;/gm)].map((m) => m[1]);
+}
+
+describe('animated console screens', () => {
+  it('JS and GLSL agree on every uniform name', () => {
+    const names = Object.keys(createScreenMaterial(null).uniforms);
+    const glsl = new Set([
+      ...declaredUniforms('screen.vert.glsl'),
+      ...declaredUniforms('screen.frag.glsl'),
+    ]);
+    for (const n of glsl) expect(names).toContain(n);
+    for (const n of names) expect(glsl.has(n)).toBe(true);
+  });
+
+  it('every console uses the animated screen shader, all on one shared clock', () => {
+    const { group, update } = createLevel1Decor();
+    const screens = screensIn(group);
+    expect(screens.length).toBeGreaterThan(1);
+    const clock = screens[0].uniforms.uTime;
+    for (const s of screens) expect(s.uniforms.uTime).toBe(clock);
+    update(0.5);
+    expect(clock.value).toBeCloseTo(0.5);
+    update(3600);
+    expect(clock.value).toBeCloseTo(0.5); // wraps
+  });
+
+  it('mixes scrolling data screens with blinking status screens, out of sync', () => {
+    const screens = screensIn(createLevel1Decor().group);
+    expect(screens.some((s) => s.uniforms.uScroll.value > 0)).toBe(true);
+    expect(screens.some((s) => s.uniforms.uBlink.value === 1)).toBe(true);
+    const seeds = new Set(screens.map((s) => s.uniforms.uSeed.value));
+    expect(seeds.size).toBe(screens.length);
+  });
+
+  it('setPower() feeds every screen', () => {
+    const { group, setPower } = createLevel1Decor();
+    setPower(0.2);
+    for (const s of screensIn(group)) expect(s.uniforms.uPower.value).toBe(0.2);
   });
 });

@@ -15,6 +15,7 @@
 // files and nothing to add to CREDITS.md.
 
 import * as THREE from 'three';
+import { createScreenMaterial } from '../../shaders/screen.js';
 
 const RADIUS = 31; // mirrors level1-habitation-ring.js
 const HALF_HEIGHT = 10;
@@ -115,14 +116,57 @@ function makeCanvas(w, h) {
   return canvas;
 }
 
-function toTexture(canvas, repeat = true) {
+function toTexture(canvas, repeat = true, colorSpace = THREE.SRGBColorSpace) {
   if (!canvas) return null;
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = colorSpace;
   texture.anisotropy = 8;
   if (repeat) texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return texture;
 }
+
+/**
+ * Builds a tiling normal map from a height function, so flat textures catch
+ * the light like real seams, grooves and bolts.
+ *
+ * For each pixel the slope is the height difference to its neighbours
+ * (left/right gives x, up/down gives y). A steep slope tilts the normal away
+ * from straight-out (0, 0, 1). Neighbours wrap around the edges, so the map
+ * tiles with no visible seam. Normals are packed from -1..1 into 0..255.
+ *
+ * @param {number} size - square texture size in px
+ * @param {(x: number, y: number) => number} heightAt - height at a pixel, ~0..1
+ * @param {number} strength - how pronounced the bumps are
+ */
+function bakeNormalMap(size, heightAt, strength) {
+  const canvas = makeCanvas(size, size);
+  if (!canvas) return null;
+  const heights = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) heights[y * size + x] = heightAt(x, y);
+  }
+  const h = (x, y) => heights[((y + size) % size) * size + ((x + size) % size)];
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (h(x + 1, y) - h(x - 1, y)) * strength;
+      const dy = (h(x, y + 1) - h(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * size + x) * 4;
+      image.data[i] = ((-dx / len) * 0.5 + 0.5) * 255;
+      image.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255; // canvas y runs down, UV v runs up
+      image.data[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      image.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  // Normal maps hold directions, not colours: no sRGB conversion.
+  return toTexture(canvas, true, THREE.NoColorSpace);
+}
+
+// Height of a groove: 0 at its centre line, back to 1 by `width` px away.
+const groove = (dist, width) => Math.min(1, dist / width);
 
 // Small deterministic PRNG so the screens look the same on every load
 function mulberry32(seed) {
@@ -167,6 +211,34 @@ function drawDeckTile() {
   return toTexture(canvas);
 }
 
+/**
+ * Relief for drawDeckTile, pixel-aligned with it: a deep seam around the
+ * plate, shallow sub-grid grooves, and a raised domed bolt in the middle.
+ */
+function bakeDeckNormal() {
+  const s = 128;
+  return bakeNormalMap(
+    s,
+    (x, y) => {
+      const edge = Math.min(x, y, s - 1 - x, s - 1 - y); // px to the plate seam
+      let height = groove(edge, 3);
+      const q = s / 4;
+      const toGrid = Math.min(Math.abs((x % q) - 0.5), Math.abs((y % q) - 0.5));
+      height = Math.min(height, 0.75 + 0.25 * groove(toGrid, 1.5));
+      const r = Math.hypot(x - s / 2, y - s / 2);
+      if (r < 5) height = 1 + 0.6 * Math.sqrt(1 - (r / 5) ** 2); // dome
+      return height;
+    },
+    3
+  );
+}
+
+/** Relief for drawWallPanel: a soft groove where panels meet. */
+function bakeWallNormal() {
+  const s = 128;
+  return bakeNormalMap(s, (x, y) => groove(Math.min(x, y, s - 1 - x, s - 1 - y), 2.5), 2.5);
+}
+
 /** End-cap wall: large white panels with soft seams. */
 function drawWallPanel() {
   const s = 128;
@@ -181,18 +253,22 @@ function drawWallPanel() {
   return toTexture(canvas);
 }
 
-/** A data screen: dark glass with cyan text rows and red/amber status blocks. */
+/**
+ * A data screen: dark glass with cyan text rows, or a grid of red/amber
+ * status blocks. The frame, scrolling and blinking come from screen.frag.glsl.
+ * @returns {{ texture: THREE.Texture | null, warm: boolean }}
+ */
 function drawScreen(seed) {
   const w = 256;
   const h = 160;
-  const canvas = makeCanvas(w, h);
-  if (!canvas) return null;
   const rand = mulberry32(seed);
+  const warm = rand() < 0.4; // some screens are all red/amber blocks
+  const canvas = makeCanvas(w, h);
+  if (!canvas) return { texture: null, warm };
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#071017';
   ctx.fillRect(0, 0, w, h);
 
-  const warm = rand() < 0.4; // some screens are all red/amber blocks
   if (warm) {
     const cols = 6;
     const rows = 4;
@@ -217,10 +293,7 @@ function drawScreen(seed) {
     }
   }
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'rgba(120, 200, 255, 0.35)';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
-  return toTexture(canvas, false);
+  return { texture: toTexture(canvas, false), warm };
 }
 
 /** Desk control strip: rows of small lit keys. */
@@ -245,17 +318,31 @@ function drawKeypad(seed) {
 
 // --- Shared materials ------------------------------------------------------
 
-function createMaterials() {
-  const screenMaps = [11, 23, 37, 41, 53, 67].map(drawScreen);
+function createMaterials(clock) {
+  const screenSeeds = [11, 23, 37, 41, 53, 67];
   const keypadMaps = [5, 9, 13].map(drawKeypad);
   const glow = (map, color = 0xffffff) =>
-    // Unlit and not tone-mapped, so screens keep their colour under ACES
+    // Unlit and not tone-mapped, so keypads keep their colour under ACES
     // and read as light sources whatever the lighting rig is doing.
     new THREE.MeshBasicMaterial({ map, color, toneMapped: false });
+
+  // Animated screens share one clock. Data screens scroll at slightly
+  // different speeds; status-block screens blink instead.
+  const screens = screenSeeds.map((seed, i) => {
+    const { texture, warm } = drawScreen(seed);
+    return createScreenMaterial(texture, {
+      clock,
+      scroll: warm ? 0 : 0.03 + (i % 3) * 0.02,
+      blink: warm,
+      seed: (i + 1) / (screenSeeds.length + 1),
+    });
+  });
 
   return {
     deck: new THREE.MeshStandardMaterial({
       map: drawDeckTile(),
+      normalMap: bakeDeckNormal(),
+      normalScale: new THREE.Vector2(0.8, 0.8),
       color: 0xffffff,
       roughness: 0.55,
       metalness: 0.05,
@@ -263,6 +350,8 @@ function createMaterials() {
     }),
     wall: new THREE.MeshStandardMaterial({
       map: drawWallPanel(),
+      normalMap: bakeWallNormal(),
+      normalScale: new THREE.Vector2(0.6, 0.6),
       color: 0xffffff,
       roughness: 0.7,
       metalness: 0.0,
@@ -271,9 +360,17 @@ function createMaterials() {
     trim: new THREE.MeshStandardMaterial({ color: 0x9aa4ad, roughness: 0.4, metalness: 0.6 }),
     recess: new THREE.MeshStandardMaterial({ color: 0x14181d, roughness: 0.6, metalness: 0.2 }),
     mattress: new THREE.MeshStandardMaterial({ color: 0x23345a, roughness: 0.9, metalness: 0.0 }),
-    cove: new THREE.MeshBasicMaterial({ color: 0xe8f3ff, toneMapped: false, side: THREE.DoubleSide }),
-    skirting: new THREE.MeshBasicMaterial({ color: 0x9fd8ff, toneMapped: false, side: THREE.DoubleSide }),
-    screens: screenMaps.map((map) => glow(map)),
+    cove: new THREE.MeshBasicMaterial({
+      color: 0xe8f3ff,
+      toneMapped: false,
+      side: THREE.DoubleSide,
+    }),
+    skirting: new THREE.MeshBasicMaterial({
+      color: 0x9fd8ff,
+      toneMapped: false,
+      side: THREE.DoubleSide,
+    }),
+    screens,
     keypads: keypadMaps.map((map) => glow(map)),
     statusAmber: new THREE.MeshBasicMaterial({ color: 0xffb340, toneMapped: false }),
     statusGreen: new THREE.MeshBasicMaterial({ color: 0x6dffa8, toneMapped: false }),
@@ -299,7 +396,14 @@ function tileCylinderUVs(geometry, radius, axialMin, height, thetaStart, thetaLe
 function createDeckPiece(material, axialMin, axialMax, thetaStart = 0, thetaLength = Math.PI * 2) {
   const height = axialMax - axialMin;
   const geometry = new THREE.CylinderGeometry(
-    DECK_RADIUS, DECK_RADIUS, height, 188, 1, true, thetaStart, thetaLength
+    DECK_RADIUS,
+    DECK_RADIUS,
+    height,
+    188,
+    1,
+    true,
+    thetaStart,
+    thetaLength
   );
   tileCylinderUVs(geometry, DECK_RADIUS, axialMin, height, thetaStart, thetaLength);
   const mesh = new THREE.Mesh(geometry, material);
@@ -319,13 +423,15 @@ function createDeck(materials) {
   group.add(createDeckPiece(materials.deck, CHAMBER_AXIAL_START, HALF_HEIGHT));
   // CylinderGeometry measures theta from +Z toward +X, so the far-side band
   // (phi = 0, local +X) sits at theta = PI / 2.
-  group.add(createDeckPiece(
-    materials.deck,
-    -HALF_HEIGHT,
-    CHAMBER_AXIAL_START,
-    Math.PI / 2 + CHAMBER_HALF_ANGLE,
-    Math.PI * 2 - CHAMBER_HALF_ANGLE * 2
-  ));
+  group.add(
+    createDeckPiece(
+      materials.deck,
+      -HALF_HEIGHT,
+      CHAMBER_AXIAL_START,
+      Math.PI / 2 + CHAMBER_HALF_ANGLE,
+      Math.PI * 2 - CHAMBER_HALF_ANGLE * 2
+    )
+  );
   return group;
 }
 
@@ -337,7 +443,8 @@ function createEndWalls(materials) {
 
   // RingGeometry's UVs are planar (0..1 across the outer diameter), so a
   // repeat of 15 gives roughly 4-unit square panels.
-  if (materials.wall.map) materials.wall.map.repeat.set(15, 15);
+  materials.wall.map?.repeat.set(15, 15);
+  materials.wall.normalMap?.repeat.set(15, 15); // relief must line up with the seams
   const wallGeometry = new THREE.RingGeometry(PILLAR_RADIUS, DECK_RADIUS, 96, 1);
   const coveGeometry = new THREE.RingGeometry(20.4, 21.0, 128, 1);
   const lipGeometry = new THREE.CylinderGeometry(21.0, 21.0, 0.5, 128, 1, true);
@@ -442,9 +549,10 @@ function createWallProps(materials) {
   const group = new THREE.Group();
   group.name = 'l1-wall-props';
   layoutEndWallProps().forEach((spec, i) => {
-    const prop = spec.type === 'console'
-      ? createConsole(materials, spec.width, i)
-      : createBunk(materials, spec.width, i);
+    const prop =
+      spec.type === 'console'
+        ? createConsole(materials, spec.width, i)
+        : createBunk(materials, spec.width, i);
     placeOnEndWall(prop, spec.phi, spec.side);
     group.add(prop);
   });
@@ -453,20 +561,37 @@ function createWallProps(materials) {
 
 /**
  * Builds the whole L1 visual pass.
- * @returns {{ group: THREE.Group, dispose: () => void }} `dispose` frees the
- *   canvas textures; the level's own traverse already frees geometry and materials.
+ * @returns {{ group: THREE.Group, update: (delta: number) => void,
+ *   setPower: (power: number) => void, dispose: () => void }} `update` animates
+ *   the screens; `dispose` frees the canvas textures (the level's own traverse
+ *   already frees geometry and materials).
  */
 export function createLevel1Decor() {
-  const materials = createMaterials();
+  const clock = { value: 0 }; // shared by every animated screen
+  const materials = createMaterials(clock);
   const group = new THREE.Group();
   group.name = 'l1-decor';
   group.add(createDeck(materials));
   group.add(createEndWalls(materials));
   group.add(createWallProps(materials));
 
+  /** Advances the screen animation. Call every frame; allocates nothing. */
+  function update(delta) {
+    clock.value = (clock.value + delta) % 3600; // wrap so float precision holds
+  }
+
+  /** Station power feeding the screens (0..1): dims them with static. */
+  function setPower(power) {
+    for (const screen of materials.screens) screen.uniforms.uPower.value = power;
+  }
+
   function dispose() {
     const all = Object.values(materials).flat();
-    for (const material of all) material.map?.dispose();
+    for (const material of all) {
+      material.map?.dispose();
+      material.normalMap?.dispose();
+      material.uniforms?.uMap.value?.dispose(); // screen content textures
+    }
   }
-  return { group, dispose };
+  return { group, update, setPower, dispose };
 }

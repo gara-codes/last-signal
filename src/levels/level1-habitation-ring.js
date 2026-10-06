@@ -535,6 +535,7 @@ export function createLevel1() {
     }
 
     emergencyUniforms.time.value += delta;
+    decor.update(delta); // console screen animation
     updateInteractables(interactables, delta);
 
     if (!player) return;
