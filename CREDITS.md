@@ -40,6 +40,9 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 | --------------------------- | --------------------- | -------------------------------------------------------- | ------- | -------------------------------- | --------------- |
 | Three.js                    | Three.js contributors | https://threejs.org                                      | MIT     | Core rendering                   | —               |
 | GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT     | Loading the astronaut .glb model | —               |
+| EffectComposer, RenderPass, ShaderPass, OutputPass (Three.js addons) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/EffectComposer | MIT | Post-processing pipeline (`src/core/post-fx.js`) | Natasha (07-10-2026) |
+| GTAOPass (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/GTAOPass | MIT | Ambient occlusion (soft contact shadows) | Natasha (07-10-2026) |
+| UnrealBloomPass (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/UnrealBloomPass | MIT | Bloom on emissive screens, lights and strips | Natasha (07-10-2026) |
 
 ## 3D models
 
@@ -85,9 +88,9 @@ redrawn from our own wireframes. Listed because it shaped the look.
 
 ## Tutorials, articles, videos & adapted code
 
-| What it covers | Source / author | URL | Used for | Added by (date) |
-| -------------- | --------------- | --- | -------- | --------------- |
-| —              | —               | —   | —        | —               |
+| What it covers                                            | Source / author                                         | URL                                                                 | Used for                                                                                                                                    | Added by (date)      |
+| --------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| GLSL `fract(sin(x) * 43758.5453)` hash and 2D value noise | The Book of Shaders — Patricio Gonzalez Vivo & Jen Lowe | https://thebookofshaders.com/10/ , https://thebookofshaders.com/11/ | `rand()` in the emergency-lighting and dissolve-glitch shaders; `valueNoise()` for the dissolve threshold (technique learned, code our own) | Natasha (06-10-2026) |
 
 ---
 
