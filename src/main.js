@@ -100,7 +100,10 @@ function loadL1() {
   level.group.rotation.z = Math.PI / 2;
   scene.add(level.group);
 
-  if (!cameraSetup) cameraSetup = new Camera(); // reused across restarts
+  if (!cameraSetup) {
+    cameraSetup = new Camera(); // reused across restarts
+    scene.add(cameraSetup.getCamera()); // needed so the camera-parented flashlight renders
+  }
   // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
   // HEIGHT_HALF — update alongside those two if the drum size changes.
   cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
@@ -151,7 +154,10 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   level = createLevel2({ startingReserve, checkpoint });
   scene.add(level.group);
 
-  if (!cameraSetup) cameraSetup = new Camera();
+  if (!cameraSetup) {
+    cameraSetup = new Camera();
+    scene.add(cameraSetup.getCamera()); // dev ?level=l2 path; L1 handoff reuses the existing one
+  }
   setupL2Camera();
 
   if (!player) {
@@ -162,6 +168,9 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   playerController = new FlatPhysicsController(player, level.collisionData);
   const spawn = level.getPlayerSpawn();
   playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+  // Clear any orbit offset carried over from L1 so the camera starts behind the player.
+  cameraSetup.yaw = 0;
+  cameraSetup.pitch = 0;
 
   fuelSystem = level.group.userData.fuelSystem;
 
@@ -191,9 +200,6 @@ function swapToL2() {
   inL2 = true;
   loadL2({ startingReserve: banked });
 
-  // Reset camera look state so L2 doesn't inherit L1's orbit offset
-  cameraSetup.yaw = 0;
-  cameraSetup.pitch = 0;
   ui.setFuelCount(fuelSystem.banked);
 
   fadeTo(0, FADE_IN);
@@ -291,13 +297,6 @@ function animate() {
   if (uiState !== STATES.PLAYING) return;
 
   const input = inputManager.getInput();
-
-  // cameraYaw: FlatPhysicsController (L2) uses this to make WASD
-  // camera-relative; PlayerController (L1) ignores it, since the drum's
-  // own movement is relative to the player's facing instead. One-frame
-  // stale (from last frame's camera), same as applyLookDelta below —
-  // imperceptible at frame rate.
-  input.cameraYaw = cameraSetup.getWorldYaw(player.userData.getSurfaceBasis());
 
   // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
   // object + the same third-person Camera, reading position/orientation

@@ -286,12 +286,13 @@ export function createLevel2(options = {}) {
   // ----- update ----------------------------------------------------------
 
   function update(delta, viewer, input) {
-    if (!viewer) {
-      updateInteractables(registries.updatables, delta);
-      return;
+    // Surveillance cameras track the player; this must precede their update tick.
+    for (const obj of registries.updatables) {
+      obj.userData.setTarget?.(viewer ? viewer.position : null);
     }
-
     updateInteractables(registries.updatables, delta);
+    if (!viewer) return;
+
     tickFuelProximity(registries.fuelCells, viewer);
 
     // isRunning: input.running is the same raw value FlatPhysicsController's
