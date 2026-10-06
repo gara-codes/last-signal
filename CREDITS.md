@@ -85,9 +85,9 @@ redrawn from our own wireframes. Listed because it shaped the look.
 
 ## Tutorials, articles, videos & adapted code
 
-| What it covers | Source / author | URL | Used for | Added by (date) |
-| -------------- | --------------- | --- | -------- | --------------- |
-| —              | —               | —   | —        | —               |
+| What it covers                                            | Source / author                                         | URL                                                                 | Used for                                                                                                                                    | Added by (date)      |
+| --------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| GLSL `fract(sin(x) * 43758.5453)` hash and 2D value noise | The Book of Shaders — Patricio Gonzalez Vivo & Jen Lowe | https://thebookofshaders.com/10/ , https://thebookofshaders.com/11/ | `rand()` in the emergency-lighting and dissolve-glitch shaders; `valueNoise()` for the dissolve threshold (technique learned, code our own) | Natasha (06-10-2026) |
 
 ---
 

@@ -107,7 +107,14 @@ const CREDITS_DATA = {
     },
   ],
 
-  tutorials: [],
+  tutorials: [
+    {
+      covers: 'GLSL sin/fract hash and 2D value noise',
+      source: 'The Book of Shaders — Patricio Gonzalez Vivo & Jen Lowe',
+      url: 'https://thebookofshaders.com/11/',
+      usedFor: 'rand() in the emergency-lighting and dissolve-glitch shaders; dissolve noise',
+    },
+  ],
 };
 
 const CATEGORY_META = [
