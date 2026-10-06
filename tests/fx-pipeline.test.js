@@ -178,4 +178,20 @@ describe('particles', () => {
   it('rejects an unknown kind', () => {
     expect(() => createParticles('confetti')).toThrow(/unknown kind/);
   });
+
+  // Approved on the test page: light wisps, not fog. Guard against drifting back.
+  it('keeps steam light: few particles, low opacity', () => {
+    const { steam } = PARTICLE_PRESETS;
+    expect(steam.count).toBeLessThanOrEqual(80);
+    expect(steam.opacity).toBeLessThanOrEqual(0.15);
+  });
+
+  it('keeps haze faint and low along the floor', () => {
+    const { haze } = PARTICLE_PRESETS;
+    expect(haze.opacity).toBeLessThanOrEqual(0.06);
+    // Highest a haze particle can climb over its life (no gravity)
+    const rise = (haze.velocity[1] + haze.spread[1]) * haze.life;
+    expect(rise).toBeLessThan(1.5); // stays below roughly knee-to-waist height
+    expect(haze.emitRadius).toBeGreaterThan(PARTICLE_PRESETS.steam.emitRadius * 5); // wide, not a column
+  });
 });

@@ -8,7 +8,8 @@
 //
 //   const sparks = createParticles('sparks', { position: [x, y, z] });
 //
-// Kinds (presets): dust (L1, drifting motes), steam (L2 vents), sparks (L2
+// Kinds (presets): dust (L1, drifting motes), steam (light wisps off vents,
+// crates, machinery), haze (faint floor haze, one per room), sparks (L2
 // damaged machinery), embers (L3 fires/breaches). Any preset value can be
 // overridden in the options.
 //
@@ -37,22 +38,45 @@ export const PARTICLE_PRESETS = Object.freeze({
     flicker: 0,
     blending: 'additive',
   },
+  // A light wisp rising off a crate, vent or machine (tuned with Natasha on
+  // the test page: reads as atmosphere, not fog). Add a few, not one per prop.
   steam: {
     mode: 'emitter',
-    count: 160,
+    count: 70,
     life: 3.2,
     period: 3.2,
     burst: 0,
-    velocity: [0, 1.6, 0],
+    velocity: [0, 1.0, 0],
     spread: [0.35, 0.3, 0.35],
     gravity: [0, 0.15, 0],
-    turbulence: 0.5,
-    emitRadius: 0.25,
+    turbulence: 0.6,
+    emitRadius: 0.3,
     size: 0.6,
-    sizeEnd: 3.5,
+    sizeEnd: 3,
     colorStart: '#c9c2b6',
     colorEnd: '#6d6a66',
-    opacity: 0.18,
+    opacity: 0.12,
+    hardness: 0,
+    flicker: 0,
+    blending: 'normal',
+  },
+  // Faint haze rolling along the floor over a wide area. One per room.
+  haze: {
+    mode: 'emitter',
+    count: 90,
+    life: 6,
+    period: 6,
+    burst: 0,
+    velocity: [0, 0.1, 0],
+    spread: [0.4, 0.04, 0.4],
+    gravity: [0, 0, 0],
+    turbulence: 1.0,
+    emitRadius: 3.5,
+    size: 1.2,
+    sizeEnd: 4,
+    colorStart: '#c9c2b6',
+    colorEnd: '#6d6a66',
+    opacity: 0.05,
     hardness: 0,
     flicker: 0,
     blending: 'normal',
