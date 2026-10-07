@@ -535,8 +535,8 @@ export function createLevel1() {
     }
 
     emergencyUniforms.time.value += delta;
-    decor.update(delta); // console screen animation
     updateInteractables(interactables, delta);
+    decor.update(delta); // console screen animation
 
     if (!player) return;
     // Copy the list first: interact() removes the cell from `cells` mid-iteration
