@@ -54,6 +54,11 @@
 //                  (body[data-captions]).
 //   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
 //                  repair consoles handle it, nothing to wire.
+//   graphics       Options > Graphics Quality: 'low' | 'medium' | 'high' (default 'high' until the
+//                  benchmark says otherwise). Natasha's PostFx applies it — once it is created
+//                  in main.js:  postFx.setQuality(ui.settings.get().graphicsQuality);
+//                               ui.settings.subscribe((s) => postFx.setQuality(s.graphicsQuality));
+//                  Also mirrored to body[data-graphics-quality].
 //   death          Wired (L2): main.js calls ui.showRestart({ levelId, fuelCells, repairs,
 //                  checkpointReached }) once per death when oxygenSystem.isDead. L3 should call
 //                  it the same way.
@@ -121,6 +126,7 @@ export function initUI({ canvas = null, startLevelId = FIRST_LEVEL_ID } = {}) {
     }
     document.body.dataset.captions = values.captions ? 'on' : 'off';
     document.body.dataset.reduceFlashing = values.reduceFlashing ? 'on' : 'off';
+    document.body.dataset.graphicsQuality = values.graphicsQuality;
   }
   settings.subscribe(applySettings);
   applySettings(settings.get());
