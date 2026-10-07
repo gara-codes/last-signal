@@ -299,6 +299,8 @@ export function createLevel2(options = {}) {
     // Viewer forwarded (door-system.js) so updatables that track it —
     // camera mounts, elevator carry, ladder direction — receive it.
     updateInteractables(registries.updatables, delta, viewer);
+    if (!viewer) return; // nothing below makes sense without a viewer (tests / pre-spawn frames)
+
     tickFuelProximity(registries.fuelCells, viewer);
 
     // isRunning: input.running is the same raw value FlatPhysicsController's
