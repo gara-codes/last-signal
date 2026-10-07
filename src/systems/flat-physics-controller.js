@@ -78,40 +78,43 @@ export class FlatPhysicsController {
    * @param {{axialAxis:number, tangentAxis:number, running:boolean, jump:boolean, cameraYaw?:number}} input
    *   axialAxis: -1..1 from S/W, tangentAxis: -1..1 from A/D (same encoding
    *   InputManager already produces for L1: W -> axialAxis -1, S -> +1).
-   *   cameraYaw: the camera's current yaw (radians), used to make WASD
-   *   camera-relative. Defaults to this.facingYaw when omitted, so the
-   *   controller degrades gracefully if no camera is wired yet.
+   *   Movement is relative to the player's own facing (cameraYaw, if
+   *   passed, is ignored).
    */
   update(delta, input) {
     const { axialAxis = 0, tangentAxis = 0, running = false, jump = false } = input;
     this.isRunning = running;
     const speed = running ? LINEAR_SPEED * RUN_MULTIPLIER : LINEAR_SPEED;
-    const cameraYaw = input.cameraYaw ?? this.facingYaw;
 
-    // W/S (axialAxis) is forward/back, A/D (tangentAxis) is strafe — both
-    // relative to the camera's yaw, same camera-relative approach as L1
-    // but against a single world yaw instead of a developable-surface frame.
+    // Same scheme as L1's physics-controller.js: W/S is forward/back and A/D
+    // is strafe, relative to the PLAYER's facing (not the camera — the mouse
+    // only orbits the camera, so it can't feed back into movement).
     const fwdInput = -axialAxis; // InputManager's W -> axialAxis -1 convention
     const strafeInput = tangentAxis;
 
-    const sinYaw = Math.sin(cameraYaw);
-    const cosYaw = Math.cos(cameraYaw);
-    // Camera-space forward is (sin(yaw), cos(yaw)) in (x, z) for yaw=0 -> +Z;
-    // right is forward rotated -90°.
-    let moveX = sinYaw * fwdInput + cosYaw * strafeInput;
-    let moveZ = cosYaw * fwdInput - sinYaw * strafeInput;
+    const sinYaw = Math.sin(this.facingYaw);
+    const cosYaw = Math.cos(this.facingYaw);
+    // Forward is (sin, cos) in (x, z), yaw 0 -> +Z. Right is forward × up =
+    // (-cos, sin): facing +Z (Y up), the player's right is world -X.
+    let moveX = sinYaw * fwdInput - cosYaw * strafeInput;
+    let moveZ = cosYaw * fwdInput + sinYaw * strafeInput;
     const moveLen = Math.hypot(moveX, moveZ);
 
     if (moveLen > 0.0001) {
       moveX /= moveLen;
       moveZ /= moveLen;
 
-      const targetAngle = Math.atan2(moveX, moveZ);
-      let angleDiff = targetAngle - this.facingYaw;
-      angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff)); // wrap to [-PI, PI]
-      const maxStep = TURN_SPEED * delta;
-      const step = THREE.MathUtils.clamp(angleDiff, -maxStep, maxStep);
-      this.facingYaw += step;
+      // Only turn for forward-ish input (W, W+A, W+D). Pure A/D strafe and S
+      // backpedal translate without turning — "backward" is always 180° from
+      // facing, so chasing it would spin forever (see L1's controller).
+      const forwardDot = moveX * sinYaw + moveZ * cosYaw;
+      if (forwardDot > 0) {
+        const targetAngle = Math.atan2(moveX, moveZ);
+        let angleDiff = targetAngle - this.facingYaw;
+        angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff)); // wrap to [-PI, PI]
+        const maxStep = TURN_SPEED * delta;
+        this.facingYaw += THREE.MathUtils.clamp(angleDiff, -maxStep, maxStep);
+      }
     }
 
     // Jump arc — same launch-velocity/gravity pattern as physics-controller.js,

@@ -29,6 +29,15 @@ export class Camera {
     // Orbit distance — how far back + how far off the wall. Per-level setting
     // because L1 and L2 have different scales. Default 9 (L1's original).
     this._orbitDistance = 9;
+    // Flashlight — always-on SpotLight parented to the camera (design doc:
+    // a camera spotlight, not a resource). Same settings as FlyCam's, so
+    // the blockout validated there looks the same in play. Light children
+    // only render once the camera is in the scene graph — main.js adds it.
+    this._flashlight = new THREE.SpotLight(0xffe8c0, 8, 80, Math.PI / 4, 0.5, 1);
+    this._flashlight.position.set(0, 0, 0); // at the camera's eye
+    this._flashlight.target.position.set(0, 0, -1); // along -Z (camera forward)
+    this.camera.add(this._flashlight);
+    this.camera.add(this._flashlight.target);
   }
 
   getCamera() {

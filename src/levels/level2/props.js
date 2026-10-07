@@ -336,37 +336,123 @@ export function createOverrideTerminal(mats, { modelPath, fuelSystem, override }
 }
 
 // ---------------------------------------------------------------------------
-// Surveillance camera — the AI's watching eyes. Yaw-tracks the viewer with a
-// fixed 30-degree downward tilt (the mounts sit just under the ceiling); the
-// red tracking light + flicker warning couple to the gravity system in a
-// later phase (design doc: servo whir, then lock-on).
+// Surveillance camera — the AI's watching eyes. Idles on a slow pan sweep;
+// once the player is within TRACK_RANGE it servos round to follow them, with
+// a red cone + brighter lens as the tracking light. The level feeds it the
+// player's position each frame via setTarget(). (Servo whir audio and the
+// gravity-system flicker coupling are still to come.)
 // ---------------------------------------------------------------------------
 
-const CAMERA_PITCH = Math.PI / 6; // fixed 30° downward tilt
+const CAMERA_SWEEP_SPEED = 0.3; // rad/s of the sweep clock
+const CAMERA_SWEEP_RANGE = Math.PI / 3; // ±60°
+const TRACK_RANGE = 32; // world units — player inside this gets tracked
+const TRACK_TURN_SPEED = 1.6; // rad/s the servo can turn
+const TRACK_YAW_LIMIT = 1.4; // max yaw from the mount's base facing (stay wall-side)
+const TRACK_PITCH_LIMIT = 0.9;
+const TRACK_AIM_HEIGHT = 1.2; // aim at the player's chest, not their feet
+const LOCK_RATE = 3; // how fast the red light fades in/out (1/s)
+const LENS_IDLE_INTENSITY = 1.6;
+const LENS_LOCKED_INTENSITY = 4.5;
+const CONE_LENGTH = 16;
+const CONE_RADIUS = 3.2;
+const CONE_MAX_OPACITY = 0.16;
+
+// Scratch values — module-level so the per-frame update never allocates.
+const trackTo = new THREE.Vector3();
+
+function wrapAngle(a) {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+function stepToward(current, target, maxStep) {
+  return current + THREE.MathUtils.clamp(target - current, -maxStep, maxStep);
+}
 
 export function createCameraMount(mats, { modelPath } = {}) {
+  // Per-camera lens material so each one can light up independently.
+  const lensMat = mats.lensRed.clone();
   const group = maybeModel(modelPath, 1, (g) => {
-    g.add(box(0.19, 0.19, 0.5, mats.metalDark, [0, 0, -0.25])); // wall bracket
-    g.add(box(0.34, 0.34, 0.69, mats.metal, [0, 0, 0.22])); // body
-    const lens = cylinder(0.1, 0.125, 0.125, mats.lensRed, [0, 0, 0.63], 14);
+    g.add(box(0.3, 0.3, 0.8, mats.metalDark, [0, 0, -0.4])); // wall bracket
+    g.add(box(0.55, 0.55, 1.1, mats.metal, [0, 0, 0.35])); // body
+    const lens = cylinder(0.16, 0.2, 0.2, lensMat, [0, 0, 1.0], 14);
     lens.rotation.x = Math.PI / 2;
     g.add(lens);
   });
+  group.rotation.order = 'YXZ'; // yaw first, then pitch about the yawed X axis
+
+  // Red tracking-light cone: apex at the lens, opening along local +Z.
+  const coneMat = new THREE.MeshBasicMaterial({
+    color: 0xff2a1a,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(CONE_RADIUS, CONE_LENGTH, 20, 1, true), coneMat);
+  cone.rotation.x = -Math.PI / 2; // apex (+Y) -> -Z side, base -> +Z
+  cone.position.set(0, 0, 1.0 + CONE_LENGTH / 2);
+  cone.visible = false;
+  group.add(cone);
+
+  let sweepClock = Math.random() * Math.PI * 2; // desynchronise the mounts
+  let target = null; // player position (live reference), or null
+  let lock = 0; // 0 = idle sweep, 1 = fully locked on
+  let yaw = null; // current servo angles; yaw seeded from baseYaw on first update
+  let pitch = 0;
 
   group.userData = {
     ...group.userData,
     id: 'surveillance-camera',
-    update(delta, viewer) {
-      // No viewer yet (tests / pre-spawn frames) — hold the last pose.
-      if (!viewer) return;
-      // atan2(dx, dz): 0 rad faces +Z, the lens side. YXZ keeps the yaw a
-      // world angle while the pitch tips the lens 30° down toward the viewer.
-      group.rotation.order = 'YXZ';
-      group.rotation.y = Math.atan2(
-        viewer.position.x - group.position.x,
-        viewer.position.z - group.position.z
+    /** Called by the level each frame with the player's position (or null). */
+    setTarget(position) {
+      target = position;
+    },
+    update(delta) {
+      const baseYaw = group.userData.baseYaw;
+      if (yaw === null) yaw = baseYaw;
+      sweepClock += delta * CAMERA_SWEEP_SPEED;
+
+      // Is the player in range? Lock fades in/out so the light doesn't pop.
+      let tracking = false;
+      if (target) {
+        trackTo.set(target.x, target.y + TRACK_AIM_HEIGHT, target.z).sub(group.position);
+        tracking = trackTo.length() < TRACK_RANGE;
+      }
+      lock = stepToward(lock, tracking ? 1 : 0, LOCK_RATE * delta);
+
+      // Desired aim: toward the player (kept within the wall-side arc), else the idle sweep.
+      let desiredYaw = baseYaw + Math.sin(sweepClock) * CAMERA_SWEEP_RANGE;
+      let desiredPitch = 0;
+      if (tracking) {
+        const offset = THREE.MathUtils.clamp(
+          wrapAngle(Math.atan2(trackTo.x, trackTo.z) - baseYaw),
+          -TRACK_YAW_LIMIT,
+          TRACK_YAW_LIMIT
+        );
+        desiredYaw = baseYaw + offset;
+        const horizontal = Math.hypot(trackTo.x, trackTo.z);
+        desiredPitch = THREE.MathUtils.clamp(
+          Math.atan2(-trackTo.y, horizontal),
+          -TRACK_PITCH_LIMIT,
+          TRACK_PITCH_LIMIT
+        );
+      }
+
+      const maxStep = TRACK_TURN_SPEED * delta;
+      yaw += THREE.MathUtils.clamp(wrapAngle(desiredYaw - yaw), -maxStep, maxStep);
+      pitch = stepToward(pitch, desiredPitch, maxStep);
+      group.rotation.y = yaw;
+      group.rotation.x = pitch;
+
+      // Red tracking light.
+      lensMat.emissiveIntensity = THREE.MathUtils.lerp(
+        LENS_IDLE_INTENSITY,
+        LENS_LOCKED_INTENSITY,
+        lock
       );
-      group.rotation.x = CAMERA_PITCH;
+      coneMat.opacity = CONE_MAX_OPACITY * lock;
+      cone.visible = lock > 0.01;
     },
   };
   return group;
