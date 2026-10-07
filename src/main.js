@@ -31,6 +31,10 @@ const isBlockoutLevel = isL2 || isL3;
 // player path — the flycam is for the direct blockout swap only.
 const useFlyCam = isL2 && urlParams.get('cam') === 'fly';
 
+// Where New Game goes back to (and what the HUD shows from the main menu on):
+// the ?level=l2 dev start stays on L2 instead of snapping back to L1.
+const START_LEVEL = isL2 ? 'l2' : 'l1';
+
 // Astronaut reference scale on L2 (revision plan): the model's natural height
 // is ~1.84 units, so 2.5 reads ~4.6 tall — the "grand hall, medium player"
 // contrast the rescale is after. L1 keeps its own 4.
@@ -199,7 +203,10 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
     reference.rotation.y = spawn.yaw + Math.PI; // match the controller's model facing
     scene.add(reference);
   } else {
-    if (!cameraSetup) cameraSetup = new Camera();
+    if (!cameraSetup) {
+      cameraSetup = new Camera();
+      scene.add(cameraSetup.getCamera()); // dev ?level=l2 path; L1 handoff reuses the existing one
+    }
     setupL2Camera();
 
     if (!player) {
@@ -232,14 +239,11 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
           playerController.facingYaw
         ),
     });
-  }
 
-  playerController = new FlatPhysicsController(player, level.collisionData);
-  const spawn = level.getPlayerSpawn();
-  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
-  // Clear any orbit offset carried over from L1 so the camera starts behind the player.
-  cameraSetup.yaw = 0;
-  cameraSetup.pitch = 0;
+    // Clear any orbit offset carried over from L1 so the camera starts behind the player.
+    cameraSetup.yaw = 0;
+    cameraSetup.pitch = 0;
+  }
 
   fuelSystem = level.group.userData.fuelSystem;
   // Fixed for the level, checkpoint restarts included: what L2 was entered with + its cells.
@@ -362,8 +366,11 @@ function resetLevel({ full = false, fromCheckpoint = false } = {}) {
     loadL1();
   }
 
-  cameraSetup.yaw = 0;
-  cameraSetup.pitch = 0;
+  // The flycam dev path never builds the third-person camera; nothing to reset there.
+  if (cameraSetup) {
+    cameraSetup.yaw = 0;
+    cameraSetup.pitch = 0;
+  }
   ui.setFuelCount(fuelSystem ? fuelSystem.banked : 0);
 }
 

@@ -298,8 +298,8 @@ function addCameraMounts(group, mats, updatables) {
   for (const mount of CAMERA_MOUNTS) {
     const camera = createCameraMount(mats);
     camera.position.set(...mount.position);
-    // No static pose here — the mount's update() yaw-tracks the viewer
-    // every frame (see props.js).
+    camera.userData.baseYaw = Math.atan2(-mount.position[0], -mount.position[2]); // face hall centre
+    camera.rotation.y = camera.userData.baseYaw;
     group.add(camera);
     updatables.push(camera);
   }

@@ -135,21 +135,28 @@ describe('L2 prop builders — userData contract', () => {
     expect(terminal.userData.getPrompt(new FuelSystem(1)).denied).toBe(false);
   });
 
-  it('createCameraMount yaw-tracks the viewer with a fixed 30° tilt', () => {
+  it('createCameraMount servos onto a viewer in range', () => {
     const camera = createCameraMount(mats);
     expect(camera.userData.id).toBe('surveillance-camera');
     expect(typeof camera.userData.update).toBe('function');
 
+    // Wall-mount pose (z −29.1) and the base facing the maze builder would align it with.
     camera.position.set(0, 22.5, -29.1);
+    camera.userData.baseYaw = 0;
     const viewer = new THREE.Object3D();
-    viewer.position.set(5, 2, 3);
-    camera.userData.update(1 / 60, viewer);
-    expect(camera.rotation.order).toBe('YXZ');
-    expect(camera.rotation.y).toBeCloseTo(Math.atan2(5, 3 + 29.1));
-    expect(camera.rotation.x).toBeCloseTo(Math.PI / 6);
+    viewer.position.set(5, 2, -10); // in range: 19.1 units along z from the mount
+    camera.userData.setTarget(viewer.position);
+    for (let i = 0; i < 120; i += 1) camera.userData.update(1 / 60); // let the servo settle
 
-    // No viewer (tests / pre-spawn frames) — holds the last pose, no throw.
-    expect(() => camera.userData.update(1 / 60, undefined)).not.toThrow();
+    expect(camera.rotation.order).toBe('YXZ');
+    // Yaw serves round to the viewer; pitch tips down onto their chest (TRACK_AIM_HEIGHT).
+    expect(camera.rotation.y).toBeCloseTo(Math.atan2(5, 19.1));
+    expect(camera.rotation.x).toBeCloseTo(Math.atan2(22.5 - (2 + 1.2), Math.hypot(5, 19.1)));
+
+    // No target (tests / pre-spawn frames) — no throw, holds a finite pose.
+    camera.userData.setTarget(null);
+    expect(() => camera.userData.update(1 / 60)).not.toThrow();
+    expect(Number.isFinite(camera.rotation.y)).toBe(true);
   });
 
   it('createFuelCellSpawn returns a pickup-ready cell', () => {

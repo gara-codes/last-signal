@@ -178,9 +178,9 @@ export function createPowerPanel(id, linkedDoors) {
 /**
  * Ticks every registered interactable/updatable. `viewer` (the camera or
  * player proxy) is forwarded as a second argument so updatables that need
- * it — the L2 camera mounts (yaw tracking) and the transit system
- * (elevator viewer-carry, ladder direction) — receive it; plain doors and
- * panels ignore it.
+ * it — the transit system (elevator viewer-carry, ladder direction) —
+ * receive it; plain doors and panels ignore it. (L2 camera mounts get the
+ * viewer separately, via setTarget() before this tick.)
  */
 export function updateInteractables(interactables, delta, viewer) {
   for (const obj of interactables) {
