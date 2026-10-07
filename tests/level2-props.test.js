@@ -274,35 +274,46 @@ describe('L2 transit — elevator', () => {
   });
 
   it('carries the viewer through descent even when physics snaps to storey floor', () => {
-    // Simulates FlatPhysicsController snapping the player to the nearest storey floor
-    // (y=12 when above y=6). The riding flag + x/z-only check should keep the carry
-    // working even though the viewer's y is snapped away from the cab mid-descent.
+    // Reproduces the reviewer-reported bug: FlatPhysicsController snaps the
+    // player to the nearest storey floor (y=0 below y=6, y=DECK_Y above) on
+    // every physics tick, which fights the y-distance check in
+    // viewerInsideCab(). Without the riding flag + x/z-only check, the carry
+    // stops mid-descent and the viewer hovers over the shaft.
     const registries = fakeRegistries();
     const elevator = createElevator(mats, registries, registries.collision, TRANSIT.elevator);
 
     const viewer = new THREE.Object3D();
     viewer.position.set(cellToWorld(TRANSIT.elevator.col, TRANSIT.elevator.row).x, DECK_Y, 33.6);
 
-    const rides = [];
-    registries.transit.onRide = (cabFloorY) => {
-      rides.push(cabFloorY);
-      viewer.position.y = cabFloorY;
+    // Physics snap: y=0 below 6, DECK_Y above. Emulates FlatPhysicsController's
+    // _floorHeightAt() picking the nearest storey and overwriting any cab-follow
+    // write the ride handler just performed.
+    const snapToStorey = () => {
+      viewer.position.y = viewer.position.y > 6 ? DECK_Y : 0;
     };
 
-    // First, send the elevator to the upper deck (it starts at ground)
+    // First, ride up to the upper deck (establish that the cab is up here).
     elevator.userData.send();
     for (let i = 0; i < 200; i++) elevator.userData.update(1 / 20, viewer);
     expect(elevator.userData.state).toBe('idle-upper');
 
-    // Now send it back down — this is the descent test
-    rides.length = 0; // clear the rides from the ascent
+    // Now ride down with snap active — this is the reproduction.
+    const rides = [];
+    registries.transit.onRide = (cabFloorY) => {
+      rides.push(cabFloorY);
+      viewer.position.y = cabFloorY; // what setSpawn effectively does
+    };
     elevator.userData.send();
     for (let i = 0; i < 200; i++) {
       elevator.userData.update(1 / 20, viewer);
+      snapToStorey(); // physics snap AFTER the level update, BEFORE the next frame
     }
 
     expect(elevator.userData.state).toBe('idle-ground');
-    expect(rides.length).toBeGreaterThan(0);
+    // The carry must have continued past the storey-snap threshold
+    // (cab.y=6.5 => viewer snapped to y=12 => y-distance 5.5 would break
+    // viewerInsideCab, but the riding flag keeps the carry alive).
+    expect(rides.length).toBeGreaterThan(20);
     expect(rides[rides.length - 1]).toBeCloseTo(0, 1);
   });
 });
