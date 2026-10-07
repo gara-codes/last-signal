@@ -424,6 +424,7 @@ export function createLevel1() {
   level1Group.add(cells);
 
   level1Group.userData.fuelSystem = fuelSystem; // Console/debug access
+  level1Group.userData.fuelCellsPlaced = FUEL_CELL_PLACEMENTS.length; // HUD total (main.js)
 
   // --- Collision ---------------------------------------------------------
   // Walls are solid rectangles in the drum's own (axial, theta) coordinates:

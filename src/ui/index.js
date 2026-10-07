@@ -27,6 +27,9 @@
 //   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
 //                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
+//   fuel total     Wired: on each level load main.js calls ui.setFuelTotal(carried in + cells
+//                  placed), read from level.group.userData.fuelCellsPlaced. Fixed for the
+//                  level; L3 should set it the same way (or null to hide it).
 //   oxygen/health  Wired (L2): main.js reads level.group.userData.oxygenSystem every frame and
 //                  calls ui.setOxygen(fraction) / ui.setHealth(health / 100). The meters only
 //                  show on L2/L3 (the level sets that via setLevel).
@@ -142,6 +145,8 @@ export function initUI({ canvas = null, startLevelId = FIRST_LEVEL_ID } = {}) {
     registerHooks: (partial) => Object.assign(hooks, partial),
     setLevel,
     setFuelCount: (count) => hud.setFuelCount(count),
+    /** The level's total fuel cells (carried in + placed), shown as "/ 11"; null hides it. */
+    setFuelTotal: (total) => hud.setFuelTotal(total),
     setOxygen: (fraction) => hud.setOxygen(fraction),
     setHealth: (fraction) => hud.setHealth(fraction),
     setPower: (percent) => hud.setPower(percent),

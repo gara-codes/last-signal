@@ -125,6 +125,7 @@ function loadL1() {
       'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
     );
   }
+  showFuelTotal(0); // L1 starts empty: the total is just the cells placed in it
 
   lightingRig = new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 });
 
@@ -176,6 +177,8 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   cameraSetup.pitch = 0;
 
   fuelSystem = level.group.userData.fuelSystem;
+  // Fixed for the level, checkpoint restarts included: what L2 was entered with + its cells.
+  showFuelTotal(l2EntryReserve);
   syncVitals(); // the meters show this level's values from the first frame (checkpoint included)
 
   renderer.shadowMap.enabled = true; // a couple of L2 lights cast shadows
@@ -213,6 +216,16 @@ if (isL2) {
   loadL2();
 } else {
   loadL1();
+}
+
+/**
+ * The Fuel Cells panel's "/ NN": cells available this level = carried in + placed in it. Carried
+ * cells count so the held number can never be higher than the total. Hidden if the level
+ * doesn't say how many it places.
+ */
+function showFuelTotal(carriedIn) {
+  const placed = level.group.userData.fuelCellsPlaced;
+  ui.setFuelTotal(Number.isFinite(placed) ? carriedIn + placed : null);
 }
 
 /** Pushes the live oxygen + health to the HUD meters (L2 only). Returns the oxygen system. */

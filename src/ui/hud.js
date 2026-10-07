@@ -47,6 +47,7 @@ import {
   meterView,
   splitCountdown,
   powerText,
+  fuelView,
 } from './hud-readouts.js';
 import { getLevel, sectorLabel, FIRST_LEVEL_ID } from '../config/levels.js';
 
@@ -169,8 +170,11 @@ function replayClass(node, className) {
 
 // ---- panels ----
 
+// Held count, then the level's total muted after it: "02 / 11". The total is fixed for the level.
 function createFuelPanel() {
-  const count = el('div', { className: 'hud-fuel__count' });
+  const held = el('span', { className: 'hud-fuel__held' });
+  const total = el('span', { className: 'hud-fuel__total', attrs: { hidden: true } });
+  const count = el('div', { className: 'hud-fuel__count' }, held, total);
   const element = el(
     'div',
     { className: 'hud-fuel hud-panel ui-chamfer-panel' },
@@ -182,12 +186,26 @@ function createFuelPanel() {
       count
     )
   );
-  const setText = textSetter(count);
+  const setHeld = textSetter(held);
+  const setTotal = textSetter(total);
+  let heldValue = 0;
+  let totalValue = null;
+  function render() {
+    const view = fuelView(heldValue, totalValue);
+    setHeld(view.count);
+    setTotal(view.total ? `/ ${view.total}` : '');
+    total.hidden = !view.total;
+  }
   return {
     element,
     set(value) {
-      const n = Math.max(0, Math.floor(Number(value) || 0));
-      setText(String(n).padStart(2, '0'));
+      heldValue = value;
+      render();
+    },
+    /** Cells available this level (carried in + placed), or null to hide the total. */
+    setTotal(value) {
+      totalValue = value ?? null;
+      render();
     },
   };
 }
@@ -563,6 +581,7 @@ export function createHud() {
     element,
     setLevel,
     setFuelCount: fuel.set,
+    setFuelTotal: fuel.setTotal,
     // main.js reads level.group.userData.oxygenSystem each frame and calls these.
     setOxygen: oxygen.set,
     setHealth: health.set,
