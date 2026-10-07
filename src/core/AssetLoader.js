@@ -32,14 +32,21 @@ export function loadGlb(path, scale = 1, onError) {
   return holder;
 }
 
-export function loadFuelCell(){
+/**
+ * Fuel cell pickup GLB (shared with L1's proximity-collection contract).
+ * @param {{ scale?: [number, number, number] }} [options] - per-axis model
+ *   scale; defaults to L1's 2 x 4 x 2, L2 passes 1.25 x 2.5 x 1.25
+ *   (interactive ×0.625 of the revision plan).
+ * @returns {THREE.Group}
+ */
+export function loadFuelCell({ scale = [2, 4, 2] } = {}) {
   const fuelCell = new THREE.Group();
   loader.load(
     './assets/models/l600_primary_fuel_cell.glb',
     (gltf) => {
       const model = gltf.scene;
 
-      model.scale.set(2, 4, 2);
+      model.scale.set(...scale);
       fuelCell.add(model);
 
       //fuelCell.position.set(24, -10, 0);
@@ -52,7 +59,16 @@ export function loadFuelCell(){
   );
   return fuelCell;
 }
-export function loadAstronaut() {
+/**
+ * Astronaut GLB — the shared player model.
+ * @param {{ scale?: number, useDefaultPosition?: boolean }} [options]
+ *   scale — uniform model scale (L1's default 4; L2 passes 2.5 per the
+ *   revision plan's astronaut reference, ~4.6 units tall).
+ *   useDefaultPosition — bake L1's drum spawn (0, -30.9, 0); L2 passes
+ *   false and places the model itself.
+ * @returns {THREE.Group}
+ */
+export function loadAstronaut({ scale = 4, useDefaultPosition = true } = {}) {
   const player = new THREE.Group();
   loader.load(
     './assets/models/astronaut.glb',
@@ -60,12 +76,12 @@ export function loadAstronaut() {
       const model = gltf.scene;
 
       //Initial scaling and rotation
-      model.scale.set(4, 4, 4);
+      model.scale.setScalar(scale);
       model.rotation.y = Math.PI; //Face forward
 
       player.add(model);
 
-      player.position.set(0, -30.9, 0);
+      if (useDefaultPosition) player.position.set(0, -30.9, 0);
 
       console.log('Astronaut model loaded!');
     },

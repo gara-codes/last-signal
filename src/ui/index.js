@@ -91,10 +91,10 @@ export { STATES };
 /**
  * @param {object} [options]
  * @param {HTMLCanvasElement} [options.canvas] the game canvas (Brightness is applied to it)
- * @param {string} [options.startLevelId] the level New Game starts on and the HUD opens with —
+ * @param {string} [options.initialLevelId] the level New Game starts on and the HUD opens with —
  *   L1 normally; main.js passes 'l2' for the ?level=l2 dev start.
  */
-export function initUI({ canvas = null, startLevelId = FIRST_LEVEL_ID } = {}) {
+export function initUI({ canvas = null, initialLevelId = FIRST_LEVEL_ID } = {}) {
   // Must run before the level and player start loading so their assets are counted.
   const progress = trackAssetProgress();
 
@@ -105,7 +105,7 @@ export function initUI({ canvas = null, startLevelId = FIRST_LEVEL_ID } = {}) {
   const hooks = {};
   const hud = createHud();
 
-  let levelId = startLevelId;
+  let levelId = initialLevelId;
   function setLevel(id) {
     levelId = id;
     document.body.dataset.level = id;
@@ -140,7 +140,7 @@ export function initUI({ canvas = null, startLevelId = FIRST_LEVEL_ID } = {}) {
     hud,
     getLevelId: () => levelId,
     setLevel,
-    firstLevelId: startLevelId, // where New Game starts (the ?level= dev start, else L1)
+    firstLevelId: initialLevelId,
   });
   document.body.append(manager.root);
 

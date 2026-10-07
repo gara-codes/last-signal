@@ -7,7 +7,9 @@
 // Collision contract (world space, plain objects — serialisable/testable):
 //   collisionData.wallAABBs    solid boxes { minX..maxZ, name }
 //   collisionData.railAABBs    atrium railings (solid, full height of deck)
-//   collisionData.rampSurfaces walkable slopes { minX..maxZ, lowSide }
+//   collisionData.rampSurfaces always empty — ramps were scrapped in the
+//                              revision interview; the key stays because
+//                              Alex's flat controller iterates it
 //   collisionData.floorSpec    storey heights so the controller can resolve floors
 
 import * as THREE from 'three';
@@ -20,17 +22,23 @@ import {
   CEILING_Y,
   GROUND_GRID,
   UPPER_GRID,
-  RAMPS,
+  TRANSIT,
   PLACEMENTS,
   CAMERA_MOUNTS,
   STRIP_ROUTES,
-  carveRamps,
   cellToWorld,
   getCell,
   isSolid,
   isVoid,
   keyOf,
 } from './grid-data.js';
+import {
+  createElevator,
+  createLadder,
+  createStarfield,
+  OPENING_HALF_WIDTH,
+  OPENING_HEIGHT,
+} from './transit.js';
 import {
   createPylon,
   createOxygenStation,
@@ -43,9 +51,9 @@ import {
   createStrip,
 } from './props.js';
 
-const WALL_THICKNESS = 0.5;
-const DECK_THICKNESS = 0.4;
-const RAIL_HEIGHT = 1.05;
+const WALL_THICKNESS = 0.75;
+const DECK_THICKNESS = 0.6;
+const RAIL_HEIGHT = 1.575;
 
 // ---------------------------------------------------------------------------
 // Collision registry — collects plain AABBs while geometry is built.
@@ -87,12 +95,13 @@ function createCollisionRegistry() {
 
 // ---------------------------------------------------------------------------
 // Hull — floor, ceiling, and the four walls. The west wall is built in
-// pieces around the command-door opening (see doorOpening()).
+// pieces around the command-door opening (see doorOpening()); the south
+// wall likewise around the elevator breach (see transit.js).
 // ---------------------------------------------------------------------------
 
 function doorOpening() {
   const { z } = cellToWorld(PLACEMENTS.commandDoor.col, PLACEMENTS.commandDoor.row);
-  return { minZ: z - 3.2, maxZ: z + 3.2, minY: DECK_Y, maxY: DECK_Y + 6.4 };
+  return { minZ: z - 4.8, maxZ: z + 4.8, minY: DECK_Y, maxY: DECK_Y + 9.6 };
 }
 
 function addPlane(group, width, height, material, position, rotation) {
@@ -113,11 +122,28 @@ function addHull(group, mats, collision) {
   addPlane(group, lengthX, widthZ, mats.hull, [midX, 0, midZ], [-Math.PI / 2, 0, 0]);
   addPlane(group, lengthX, widthZ, mats.hull, [midX, CEILING_Y, midZ], [Math.PI / 2, 0, 0]);
 
-  // North + south walls
+  // North wall (solid)
   addPlane(group, lengthX, CEILING_Y, mats.hull, [midX, CEILING_Y / 2, HALL.minZ], [0, 0, 0]);
-  addPlane(group, lengthX, CEILING_Y, mats.hull, [midX, CEILING_Y / 2, HALL.maxZ], [0, Math.PI, 0]);
   collision.addWall(midX, CEILING_Y / 2, HALL.minZ, lengthX, CEILING_Y, WALL_THICKNESS, 'wall-north');
-  collision.addWall(midX, CEILING_Y / 2, HALL.maxZ, lengthX, CEILING_Y, WALL_THICKNESS, 'wall-south');
+
+  // South wall — segmented around the elevator breach (same pieces pattern
+  // as the west wall below): solid outside the pin's cell, plus the bands
+  // above and between the two openings that transit.js's gates seal.
+  const { x: breachX } = cellToWorld(TRANSIT.elevator.col, TRANSIT.elevator.row);
+  const southSegments = [
+    { xMin: HALL.minX, xMax: breachX - OPENING_HALF_WIDTH, yMin: 0, yMax: CEILING_Y },
+    { xMin: breachX + OPENING_HALF_WIDTH, xMax: HALL.maxX, yMin: 0, yMax: CEILING_Y },
+    { xMin: breachX - OPENING_HALF_WIDTH, xMax: breachX + OPENING_HALF_WIDTH, yMin: OPENING_HEIGHT, yMax: DECK_Y },
+    { xMin: breachX - OPENING_HALF_WIDTH, xMax: breachX + OPENING_HALF_WIDTH, yMin: DECK_Y + OPENING_HEIGHT, yMax: CEILING_Y },
+  ];
+  for (const seg of southSegments) {
+    const segWidth = seg.xMax - seg.xMin;
+    const segHeight = seg.yMax - seg.yMin;
+    const cx = (seg.xMin + seg.xMax) / 2;
+    const cy = (seg.yMin + seg.yMax) / 2;
+    addPlane(group, segWidth, segHeight, mats.hull, [cx, cy, HALL.maxZ], [0, Math.PI, 0]);
+    collision.addWall(cx, cy, HALL.maxZ, segWidth, segHeight, WALL_THICKNESS, 'wall-south');
+  }
 
   // East wall (solid)
   addPlane(group, widthZ, CEILING_Y, mats.hull, [HALL.maxX, CEILING_Y / 2, midZ], [0, -Math.PI / 2, 0]);
@@ -160,7 +186,11 @@ export function listDeckCells(upperGrid) {
 }
 
 function addDeck(group, mats, upperGrid) {
-  const cells = listDeckCells(upperGrid);
+  // The ladder pin's slab is skipped — transit.js's ring deck piece (with
+  // the hatch hole) replaces it.
+  const cells = listDeckCells(upperGrid).filter(
+    ({ col, row }) => !(col === TRANSIT.ladder.col && row === TRANSIT.ladder.row)
+  );
   const slab = new THREE.InstancedMesh(
     new THREE.BoxGeometry(CELL_SIZE, DECK_THICKNESS, CELL_SIZE),
     mats.deck,
@@ -196,8 +226,8 @@ function addAtriumRails(group, mats, upperGrid, collision) {
         if (neighbour === null || isVoid(neighbour)) continue;
         const cx = x + dir.dc * (CELL_SIZE / 2);
         const cz = z + dir.dr * (CELL_SIZE / 2);
-        const sx = dir.axis === 'x' ? CELL_SIZE : 0.16;
-        const sz = dir.axis === 'z' ? CELL_SIZE : 0.16;
+        const sx = dir.axis === 'x' ? CELL_SIZE : 0.24;
+        const sz = dir.axis === 'z' ? CELL_SIZE : 0.24;
         const rail = new THREE.Mesh(new THREE.BoxGeometry(sx, RAIL_HEIGHT, sz), mats.rail);
         rail.position.set(cx, DECK_Y + RAIL_HEIGHT / 2, cz);
         group.add(rail);
@@ -205,43 +235,6 @@ function addAtriumRails(group, mats, upperGrid, collision) {
       }
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Ramps — a 2x2-cell slab inclined from lowSide (ground level) to the
-// opposite edge (deck level), exiting onto the deck cell beyond.
-// ---------------------------------------------------------------------------
-
-function rampFootprintWorld(ramp) {
-  const min = cellToWorld(ramp.cols[0], ramp.rows[0]);
-  const max = cellToWorld(ramp.cols[1], ramp.rows[1]);
-  return {
-    minX: min.x - CELL_SIZE / 2,
-    maxX: max.x + CELL_SIZE / 2,
-    minZ: min.z - CELL_SIZE / 2,
-    maxZ: max.z + CELL_SIZE / 2,
-  };
-}
-
-function addRamp(group, mats, ramp, collision) {
-  const fp = rampFootprintWorld(ramp);
-  const widthX = fp.maxX - fp.minX;
-  const depthZ = fp.maxZ - fp.minZ;
-  const run = ramp.lowSide === 'S' || ramp.lowSide === 'N' ? depthZ : widthX;
-  const slopeLength = Math.hypot(run, DECK_Y);
-
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(widthX, 0.4, slopeLength), mats.ramp);
-  const midX = (fp.minX + fp.maxX) / 2;
-  const midZ = (fp.minZ + fp.maxZ) / 2;
-  slab.position.set(midX, DECK_Y / 2, midZ);
-
-  // Tilt: a 'S'-low ramp rises toward -Z (north), so rotate about X by +angle
-  // (box's long axis is z, already aligned with the run).
-  const angle = Math.atan2(DECK_Y, run);
-  slab.rotation.x = ramp.lowSide === 'S' ? angle : -angle;
-  group.add(slab);
-
-  collision.rampSurfaces.push({ ...fp, lowSide: ramp.lowSide, id: ramp.id });
 }
 
 // ---------------------------------------------------------------------------
@@ -258,18 +251,20 @@ function addGridModules(group, mats, grid, storey, collision) {
       const module = storey === 'ground' ? createPylon(mats) : createPartition(mats);
       module.position.set(x, floorY, z);
       group.add(module);
-      const height = storey === 'ground' ? 7.6 : 3.4;
-      collision.addWall(x, floorY + height / 2, z, 3.2, height, 3.2, `${storey}-module`);
+      const height = storey === 'ground' ? 11.4 : 5.1;
+      // Full cell width (6.0) — the 4.8 module geometry leaves 1.2-unit gaps
+      // that the player capsule (radius 0.4) could slip through.
+      collision.addWall(x, floorY + height / 2, z, 6.0, height, 6.0, `${storey}-module`);
     }
   }
 }
 
 function createPartition(mats) {
   const block = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.4, 3.6), mats.metal);
-  body.position.y = 1.7;
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.2, 3.8), mats.metalDark);
-  cap.position.y = 3.5;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(5.4, 5.1, 5.4), mats.metal);
+  body.position.y = 2.55;
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.3, 5.7), mats.metalDark);
+  cap.position.y = 5.25;
   block.add(body, cap);
   return block;
 }
@@ -291,10 +286,11 @@ function addCommandDoor(group, mats, collision, onDoorOpen, override) {
   const spot = PLACEMENTS.commandDoor;
   const { z } = cellToWorld(spot.col, spot.row);
   const door = createCommandDoor(mats, { onOpen: onDoorOpen, override });
-  door.position.set(HALL.minX + WALL_THICKNESS / 2 + 0.31, DECK_Y + 3.2, z);
+  const doorX = HALL.minX + WALL_THICKNESS / 2 + 0.45;
+  door.position.set(doorX, DECK_Y + 4.8, z);
   group.add(door);
   // Locked slab blocks the doorway until the override phase unlocks it.
-  collision.addWall(HALL.minX + 0.6, DECK_Y + 3.2, z, 0.6, 6.4, 6.4, 'command-door-slab');
+  collision.addWall(doorX, DECK_Y + 4.8, z, 0.9, 9.6, 9.6, 'command-door-slab');
   return door;
 }
 
@@ -338,17 +334,14 @@ export function buildLevelGeometry(mats) {
   const group = new THREE.Group();
   group.name = 'l2-geometry';
   const collision = createCollisionRegistry();
-  const ground = carveRamps(GROUND_GRID);
-  const upper = carveRamps(UPPER_GRID);
 
   addHull(group, mats, collision);
-  addDeck(group, mats, upper);
-  addAtriumRails(group, mats, upper, collision);
-  for (const ramp of RAMPS) addRamp(group, mats, ramp, collision);
-  addGridModules(group, mats, ground, 'ground', collision);
-  addGridModules(group, mats, upper, 'upper', collision);
+  addDeck(group, mats, UPPER_GRID);
+  addAtriumRails(group, mats, UPPER_GRID, collision);
+  addGridModules(group, mats, GROUND_GRID, 'ground', collision);
+  addGridModules(group, mats, UPPER_GRID, 'upper', collision);
 
-  return { group, collision, ground, upper };
+  return { group, collision };
 }
 
 /**
@@ -389,6 +382,16 @@ export function placeAnchors(mats, levelGroup, registries, onDoorOpen) {
   addCameraMounts(levelGroup, mats, updatables);
   addStrips(levelGroup, mats, 'ground');
   addStrips(levelGroup, mats, 'upper');
+
+  // Vertical transit — elevator shaft on the south breach, ladder hatch in
+  // the NE deck, starfield beyond the cab glass. Registers its own
+  // interactables/updatables (call panels, gates, teleports) in place.
+  const transit = new THREE.Group();
+  transit.name = 'l2-transit';
+  transit.add(createElevator(mats, registries, registries.collision, TRANSIT.elevator));
+  transit.add(createLadder(mats, registries, TRANSIT.ladder));
+  transit.add(createStarfield(TRANSIT.elevator));
+  levelGroup.add(transit);
 
   return { stations, commandDoor, overrideTerminal };
 }

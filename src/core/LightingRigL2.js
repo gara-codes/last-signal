@@ -25,16 +25,19 @@ const L2_HEMI_GROUND_COLOR = 0x15100a;
 const L2_HEMI_INTENSITY = 2.0;
 
 // ---- Strip lights ----------------------------------------------------------
-const UPPER_INTENSITY = 45; // candela, lights hung under the ceiling
-const GROUND_INTENSITY = 55; // candela, lights under the deck slab
+// Rescaled with the ×1.5 hall (revision plan): distances ×1.5, candela ×2.25
+// (1.5² — inverse-square falloff) so the calibrated look is preserved, not
+// retuned. The amber identity itself is still Gara's pass to own.
+const UPPER_INTENSITY = 101.25; // candela, lights hung under the ceiling
+const GROUND_INTENSITY = 123.75; // candela, lights under the deck slab
 // Point light `distance` is a cutoff window, not a hard edge: brightness is
 // already ~35% of its inverse-square value at 0.8 * distance and zero at it.
-export const LIGHT_DISTANCE = 26;
+export const LIGHT_DISTANCE = 39;
 const LIGHT_DECAY = 2;
 
 // Heights, derived from the blockout so they follow if the hall is resized.
-const UPPER_DROP = 3; // upper lights hang this far below the ceiling
-const GROUND_DROP = 1.5; // ground lights sit this far below the deck
+const UPPER_DROP = 4.5; // upper lights hang this far below the ceiling
+const GROUND_DROP = 2.25; // ground lights sit this far below the deck
 const UPPER_LIGHT_Y = CEILING_Y - UPPER_DROP;
 const GROUND_LIGHT_Y = DECK_Y - GROUND_DROP;
 
@@ -77,7 +80,7 @@ export const L2_LIGHT_LAYOUT = [
   { id: 'ground-south-west', tier: 'ground', col: 3, row: 9 },
   { id: 'ground-south-east', tier: 'ground', col: 11, row: 9, unstable: true },
   { id: 'ground-centre', tier: 'ground', col: 7.5, row: 3.5, shadow: true },
-  { id: 'ground-oxygen-east', tier: 'ground', col: 12, row: 2 },
+  { id: 'ground-oxygen-east', tier: 'ground', col: 13, row: 2.5 },
   { id: 'ground-west', tier: 'ground', col: 1, row: 3, unstable: true },
 ];
 

@@ -5,9 +5,11 @@ import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
 import { LightingRigL2 } from './core/LightingRigL2.js';
 import { Camera } from './core/Camera.js';
+import { FlyCam } from './core/FlyCam.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
+//import { createLevel3 } from './levels/level3-docking-corridor.js';
 import { HALL, GROUND_Y, CEILING_Y } from './levels/level2/grid-data.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
@@ -17,12 +19,26 @@ import './ui/theme.css';
 import { initUI, STATES } from './ui/index.js';
 
 // Dev swap: ?level=l2 loads the Engineering Core blockout with the flat
-// controller + third-person camera. Default (no param) = L1 untouched.
-// The dev start is also where New Game (and a full reset) goes, and what the HUD shows from the
-// main menu on, so a ?level=l2 session stays on L2 instead of snapping the HUD back to L1.
+// controller + third-person camera; appending &cam=fly swaps in the dev
+// flycam instead (blockout validation — no player model or physics).
+// Default (no param) = L1 untouched.
 const urlParams = new window.URLSearchParams(window.location.search);
-const isL2 = urlParams.get('level') === 'l2';
+const requestedLevel = urlParams.get('level');
+const isL2 = requestedLevel === 'l2';
+const isL3 = requestedLevel === 'l3';
+const isBlockoutLevel = isL2 || isL3;
+// Gated on isL2 so the real L1 -> L2 handoff (swapToL2) always keeps the
+// player path — the flycam is for the direct blockout swap only.
+const useFlyCam = isL2 && urlParams.get('cam') === 'fly';
+
+// Where New Game goes back to (and what the HUD shows from the main menu on):
+// the ?level=l2 dev start stays on L2 instead of snapping back to L1.
 const START_LEVEL = isL2 ? 'l2' : 'l1';
+
+// Astronaut reference scale on L2 (revision plan): the model's natural height
+// is ~1.84 units, so 2.5 reads ~4.6 tall — the "grand hall, medium player"
+// contrast the rescale is after. L1 keeps its own 4.
+const ASTRONAUT_SCALE_L2 = 2.5;
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -32,11 +48,14 @@ const renderer = rendererSetup.getRenderer();
 
 // UI (main menu, loading, pause, options, credits, HUD). Must run before the level and player
 // are created so their asset loads are counted by the loading screen.
-const ui = initUI({ canvas: renderer.domElement, startLevelId: START_LEVEL });
+const ui = initUI({
+  canvas: renderer.domElement,
+  initialLevelId: isBlockoutLevel ? requestedLevel : undefined,
+});
 
 // Level + camera branch — L1 (default) vs L2 (?level=l2 dev swap).
 
-let level, cameraSetup, player, playerController, fuelSystem;
+let level, cameraSetup, flyCam, player, playerController, fuelSystem;
 
 // Which level is live. Starts from the dev param; flips to true when L1's
 // exit hatch hands off to L2 (see swapToL2 below).
@@ -85,6 +104,8 @@ function fadeTo(opacity, seconds) {
 function setupL2Camera() {
   // L2's actual bounds (HALL.minX..maxX, GROUND_Y..CEILING_Y, HALL.minZ..maxZ)
   // — the drum's cylinder clamp doesn't apply here at all.
+  // maxZ defaults to HALL.maxZ (30); extended to 36 dynamically when the player
+  // enters the elevator shaft (z > 30) to allow the camera to follow into the cab.
   cameraSetup.setBounds({
     type: 'box',
     minX: HALL.minX,
@@ -95,6 +116,8 @@ function setupL2Camera() {
     maxZ: HALL.maxZ,
     margin: 1,
   });
+  // Orbit distance ×1.5 to match the revised blockout (CELL_SIZE 4 → 6).
+  cameraSetup.setOrbitDistance(13.5);
 }
 
 function loadL1() {
@@ -114,6 +137,9 @@ function loadL1() {
   if (!player) {
     player = loadAstronaut();
     scene.add(player);
+  } else if (player.children[0]) {
+    // Reused from L2 (swapToL1): restore the L1 scale (4) since L2 shrunk it to 2.5.
+    player.children[0].scale.setScalar(4);
   }
 
   playerController = new PlayerController(player); // fresh controller = fresh spawn
@@ -158,23 +184,66 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   level = createLevel2({ startingReserve, checkpoint });
   scene.add(level.group);
 
-  if (!cameraSetup) {
-    cameraSetup = new Camera();
-    scene.add(cameraSetup.getCamera()); // dev ?level=l2 path; L1 handoff reuses the existing one
-  }
-  setupL2Camera();
+  if (useFlyCam) {
+    // Dev validation path: FlyCam constructs its own PerspectiveCamera
+    // (flashlight parented to it), so there's no player model, flat
+    // controller or third-person rig to set up. The spawn view is the
+    // eye-height establishing shot that computePlayerSpawn mirrors.
+    flyCam = new FlyCam();
+    const { position, lookAt } = level.getSpawnView();
+    flyCam.setPositionAndLook(position, lookAt);
 
-  if (!player) {
-    player = loadAstronaut();
-    scene.add(player);
-  }
+    // Astronaut scale reference at the spawn cell (revision plan): the flycam
+    // has no player model, so this one stands in — same pose the player
+    // path's spawn would have, for judging the ×1.5 world against a ~4.6-unit
+    // figure. The player path gets the same read from the actual player.
+    const reference = loadAstronaut({ scale: ASTRONAUT_SCALE_L2, useDefaultPosition: false });
+    const spawn = level.getPlayerSpawn();
+    reference.position.set(spawn.x, spawn.y, spawn.z);
+    reference.rotation.y = spawn.yaw + Math.PI; // match the controller's model facing
+    scene.add(reference);
+  } else {
+    if (!cameraSetup) {
+      cameraSetup = new Camera();
+      scene.add(cameraSetup.getCamera()); // dev ?level=l2 path; L1 handoff reuses the existing one
+    }
+    setupL2Camera();
 
-  playerController = new FlatPhysicsController(player, level.collisionData);
-  const spawn = level.getPlayerSpawn();
-  playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
-  // Clear any orbit offset carried over from L1 so the camera starts behind the player.
-  cameraSetup.yaw = 0;
-  cameraSetup.pitch = 0;
+    if (!player) {
+      // Direct L2 entry (?level=l2): astronaut reference scale, and no L1
+      // drum position baked in — the controller places the model at spawn.
+      player = loadAstronaut({ scale: ASTRONAUT_SCALE_L2, useDefaultPosition: false });
+      scene.add(player);
+    } else if (player.children[0]) {
+      // Reused from L1 (swapToL2): the loader options only apply at load
+      // time, so re-scale the already-loaded model in place.
+      player.children[0].scale.setScalar(ASTRONAUT_SCALE_L2);
+    }
+
+    playerController = new FlatPhysicsController(player, level.collisionData);
+    const spawn = level.getPlayerSpawn();
+    playerController.setSpawn(spawn.x, spawn.y, spawn.z, spawn.yaw);
+
+    // Blockout transit plumbing — deleted when Alex's real controller owns
+    // vertical movement. The ladder teleports through setSpawn; the elevator
+    // ride re-spawns the player at the cab floor each frame (level.update
+    // runs after playerController.update in the loop, so the pin wins over
+    // the controller's storey-floor snap mid-shaft).
+    level.setTransitHandlers({
+      onTeleport: (x, y, z, yaw) => playerController.setSpawn(x, y, z, yaw),
+      onRide: (cabFloorY) =>
+        playerController.setSpawn(
+          playerController.position.x,
+          cabFloorY,
+          playerController.position.z,
+          playerController.facingYaw
+        ),
+    });
+
+    // Clear any orbit offset carried over from L1 so the camera starts behind the player.
+    cameraSetup.yaw = 0;
+    cameraSetup.pitch = 0;
+  }
 
   fuelSystem = level.group.userData.fuelSystem;
   // Fixed for the level, checkpoint restarts included: what L2 was entered with + its cells.
@@ -184,7 +253,7 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   renderer.shadowMap.enabled = true; // a couple of L2 lights cast shadows
   lightingRigL2 = new LightingRigL2(scene, level.group);
 
-  window.__game = { level2: level, player, playerController };
+  window.__game = { level2: level, player, playerController, flyCam };
 }
 
 /**
@@ -297,8 +366,11 @@ function resetLevel({ full = false, fromCheckpoint = false } = {}) {
     loadL1();
   }
 
-  cameraSetup.yaw = 0;
-  cameraSetup.pitch = 0;
+  // The flycam dev path never builds the third-person camera; nothing to reset there.
+  if (cameraSetup) {
+    cameraSetup.yaw = 0;
+    cameraSetup.pitch = 0;
+  }
   ui.setFuelCount(fuelSystem ? fuelSystem.banked : 0);
 }
 
@@ -308,7 +380,10 @@ const clock = new THREE.Clock();
 // Space pressed on a menu button also queues a jump in InputManager; flush it so resuming
 // doesn't launch the player.
 ui.subscribe((state) => {
-  if (state === STATES.PLAYING) inputManager.getInput();
+  if (state === STATES.PLAYING) {
+    if (isBlockoutLevel) ui.setLevel(requestedLevel);
+    inputManager.getInput();
+  }
 });
 
 // See the WIRING notes at the top of src/ui/index.js.
@@ -333,24 +408,69 @@ function animate() {
   // Menus, loading and options cover the canvas entirely, so nothing to update or draw.
   // Paused keeps drawing the (frozen) scene behind the dimmed overlay.
   if (uiState === STATES.PAUSED) {
-    renderer.render(scene, cameraSetup.getCamera());
+    renderer.render(scene, (flyCam ?? cameraSetup).getCamera());
     return;
   }
   if (uiState !== STATES.PLAYING) return;
 
   const input = inputManager.getInput();
 
-  // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
-  // object + the same third-person Camera, reading position/orientation
-  // through the shared player.userData.getSurfaceBasis() interface.
-  playerController.update(delta, input);
-  cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
-  level.update(delta, player, input);
+  if (flyCam) {
+    // Dev flycam path — no player physics. The flycam's own PerspectiveCamera
+    // is the viewer, so prompts, fuel pickups and the checkpoint all measure
+    // from the eye. WASD moves, Space/C flies, Shift boosts.
+    flyCam.applyLookDelta(input.mouseDX, input.mouseDY);
+    flyCam.update(delta, input);
+    level.update(delta, flyCam.getCamera(), input);
+  } else {
+    // cameraYaw: FlatPhysicsController (L2) uses this to make WASD
+    // camera-relative; PlayerController (L1) ignores it, since the drum's
+    // own movement is relative to the player's facing instead. One-frame
+    // stale (from last frame's camera), same as applyLookDelta below —
+    // imperceptible at frame rate.
+    input.cameraYaw = cameraSetup.getWorldYaw(player.userData.getSurfaceBasis());
+
+    // L1 (drum) and L2 (flat maze) both drive a PlayerController-shaped
+    // object + the same third-person Camera, reading position/orientation
+    // through the shared player.userData.getSurfaceBasis() interface.
+    playerController.update(delta, input);
+    cameraSetup.applyLookDelta(input.mouseDX, input.mouseDY);
+    level.update(delta, player, input);
+
+    // Dynamic camera bounds — L2 only. Extend maxZ when the player is in the elevator
+    // shaft (z > 30) so the camera can follow into the cab. Revert to HALL.maxZ
+    // when the player leaves the shaft to avoid the camera clipping through walls
+    // at spawn (where the south wall is at z=30).
+    // Guarded on inL2: L1 uses cylinder bounds (no maxZ), so without the guard this would
+    // swap L1's drum clamp for L2's box on the first frame and wreck the L1 camera.
+    if (inL2) {
+      const playerZ = player.position.z;
+      const inShaft = playerZ > HALL.maxZ;
+      const currentMaxZ = cameraSetup._bounds?.maxZ;
+      const targetMaxZ = inShaft ? 36 : HALL.maxZ;
+      if (currentMaxZ !== targetMaxZ) {
+        cameraSetup.setBounds({
+          type: 'box',
+          minX: HALL.minX,
+          maxX: HALL.maxX,
+          minY: GROUND_Y,
+          maxY: CEILING_Y,
+          minZ: HALL.minZ,
+          maxZ: targetMaxZ,
+          margin: 1,
+        });
+      }
+    }
+
+    const basis = player.userData.getSurfaceBasis();
+    cameraSetup.update(basis, delta);
+  }
+
+  // update() only touches strip-light intensities from elapsed time (no
+  // camera/player reads), so it runs after the branch for both paths.
   if (lightingRigL2) lightingRigL2.update(delta);
 
-  const basis = player.userData.getSurfaceBasis();
-  cameraSetup.update(basis, delta);
-  ui.syncPrompt(cameraSetup.getCamera()); // brackets follow the object, never a frame behind
+  ui.syncPrompt((flyCam ?? cameraSetup).getCamera()); // brackets follow the object, never a frame behind
 
   // Read the live count rather than hooking pickup(), so spending fuel on a door shows too.
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
@@ -407,12 +527,12 @@ function animate() {
     }
   }
 
-  renderer.render(scene, cameraSetup.getCamera());
+  renderer.render(scene, (flyCam ?? cameraSetup).getCamera());
 }
 
 animate();
 
 window.addEventListener('resize', () => {
-  cameraSetup.resize();
+  (flyCam ?? cameraSetup).resize();
   rendererSetup.resize();
 });
