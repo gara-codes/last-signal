@@ -3,6 +3,48 @@ import * as THREE from 'three';
 const LOOK_SENSITIVITY = 0.0025;
 const MAX_PITCH = Math.PI / 2 - 0.15; // stop just short of straight up/down, avoids gimbal flip
 
+// Camera-vs-geometry: how far the camera keeps off a blocking surface (a bit more than the
+// 0.1 near plane, so the surface itself never clips into view).
+const BLOCKER_PADDING = 0.3;
+const HEAD_HEIGHT = 4; // lookAt point above the player's base — also the ray's origin
+
+// Scratch values for the per-frame blocker test — module-level so it never allocates.
+const rayOrigin = new THREE.Vector3();
+const rayDirection = new THREE.Vector3();
+
+/**
+ * Distance along the ray (origin + t*dir, t >= 0) at which it first enters `box` grown by
+ * `pad` on every side, or Infinity if it never does. Returns -1 when the origin already
+ * starts inside the grown box. Standard slab test; a ray parallel to a slab misses unless
+ * its origin lies between that slab's planes.
+ */
+function rayEntersBox(origin, dir, box, pad) {
+  slabEnter = -Infinity;
+  slabExit = Infinity;
+  if (!clipSlab(origin.x, dir.x, box.minX - pad, box.maxX + pad)) return Infinity;
+  if (!clipSlab(origin.y, dir.y, box.minY - pad, box.maxY + pad)) return Infinity;
+  if (!clipSlab(origin.z, dir.z, box.minZ - pad, box.maxZ + pad)) return Infinity;
+
+  if (slabExit < 0) return Infinity; // box is behind the origin
+  if (slabEnter < 0) return -1; // origin inside the grown box
+  return slabEnter;
+}
+
+// Running enter/exit distances for rayEntersBox — module-level so the per-frame test has no
+// per-call allocation (no tuple return, no array of axes).
+let slabEnter = 0;
+let slabExit = 0;
+
+/** Narrows [slabEnter, slabExit] by one axis' slab; false once the ray can't hit the box. */
+function clipSlab(origin, dir, min, max) {
+  if (Math.abs(dir) < 1e-9) return origin >= min && origin <= max;
+  const t1 = (min - origin) / dir;
+  const t2 = (max - origin) / dir;
+  slabEnter = Math.max(slabEnter, Math.min(t1, t2));
+  slabExit = Math.min(slabExit, Math.max(t1, t2));
+  return slabEnter <= slabExit;
+}
+
 export class Camera {
   constructor() {
     this.camera = new THREE.PerspectiveCamera(
@@ -25,6 +67,9 @@ export class Camera {
     // is wrong for every real level, so every call site must set this
     // once after construction. See setBounds() for the two shapes.
     this._bounds = null;
+
+    // Solid boxes the camera must not pass through — see setBlockers(). null = none (L1).
+    this._blockers = null;
 
     // Flashlight — always-on SpotLight parented to the camera (design doc:
     // a camera spotlight, not a resource). Same settings as FlyCam's, so
@@ -64,6 +109,18 @@ export class Camera {
    */
   setBounds(bounds) {
     this._bounds = bounds;
+  }
+
+  /**
+   * Solid geometry the camera can't see through or pass through, as plain
+   * { minX, maxX, minY, maxY, minZ, maxZ } boxes (L2's walls and deck slabs). Each frame the
+   * camera is pulled in along its line to the player so it stops at the first one in the way
+   * — the walls of the maze, and the deck slab when pitching up from the ground floor.
+   * Pass null to disable (L1: the drum has no interior geometry to hide behind).
+   * setBounds() still applies on top as the outer hull limit.
+   */
+  setBlockers(boxes) {
+    this._blockers = boxes && boxes.length > 0 ? boxes : null;
   }
 
   /**
@@ -117,6 +174,12 @@ export class Camera {
 
     const desiredPosition = basis.position.clone().add(offset);
 
+    // Aim slightly ABOVE the player's base — less than before, just enough
+    // to center the body, not overshoot past the head.
+    const lookTarget = basis.position.clone().add(basis.up.clone().multiplyScalar(HEAD_HEIGHT));
+
+    this._pullInFromBlockers(lookTarget, desiredPosition);
+
     // Flagged by Yannis during Alpha: the offset above can occasionally
     // push the camera outside the level's hull. Clamp position only —
     // basis.up / lookAt (orientation) stay untouched — using whichever
@@ -124,11 +187,36 @@ export class Camera {
     this._clampToBounds(desiredPosition);
 
     this.camera.position.copy(desiredPosition);
-
-    // Aim slightly ABOVE the player's base — less than before, just enough
-    // to center the body, not overshoot past the head.
-    const lookTarget = basis.position.clone().add(basis.up.clone().multiplyScalar(4));
     this.camera.lookAt(lookTarget);
+  }
+
+  /**
+   * Shortens the line from `head` (the player) to `position` (where the camera wants to be) so
+   * it ends at the first blocker in the way, kept BLOCKER_PADDING off the surface. Mutates
+   * `position` in place. A blocker the head already sits inside (the player pressed against a
+   * wall) is tested at its true size instead of the padded one, so the camera still can't
+   * pass through the wall right behind them.
+   */
+  _pullInFromBlockers(head, position) {
+    const blockers = this._blockers;
+    if (!blockers) return;
+
+    rayOrigin.copy(head);
+    rayDirection.subVectors(position, head);
+    const length = rayDirection.length();
+    if (length < 1e-6) return;
+    rayDirection.divideScalar(length);
+
+    let nearest = length;
+    for (const box of blockers) {
+      let t = rayEntersBox(rayOrigin, rayDirection, box, BLOCKER_PADDING);
+      if (t === -1) t = rayEntersBox(rayOrigin, rayDirection, box, 0);
+      if (t >= 0 && t < nearest) nearest = t;
+    }
+
+    if (nearest < length) {
+      position.copy(rayOrigin).addScaledVector(rayDirection, nearest);
+    }
   }
 
   /** Mutates `position` in place to stay inside this._bounds, if set. */

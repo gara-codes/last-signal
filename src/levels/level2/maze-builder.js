@@ -44,7 +44,7 @@ import {
 } from './props.js';
 
 const WALL_THICKNESS = 0.5;
-const DECK_THICKNESS = 0.4;
+export const DECK_THICKNESS = 0.4;
 const RAIL_HEIGHT = 1.05;
 
 // ---------------------------------------------------------------------------

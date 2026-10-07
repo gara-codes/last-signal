@@ -92,6 +92,8 @@ function setupL2Camera() {
     maxZ: HALL.maxZ,
     margin: 1,
   });
+  // Walls + deck slabs: the camera stops at the first one between it and the player.
+  cameraSetup.setBlockers(level.cameraBlockers);
 }
 
 function loadL1() {
@@ -107,6 +109,7 @@ function loadL1() {
   // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
   // HEIGHT_HALF — update alongside those two if the drum size changes.
   cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
+  cameraSetup.setBlockers(null); // the camera is reused after an L2 restart — drop L2's walls
 
   if (!player) {
     player = loadAstronaut();

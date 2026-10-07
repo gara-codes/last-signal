@@ -16,9 +16,21 @@
 //   banked-fuel handoff. Oxygen drain IS wired (see update() below).
 
 import * as THREE from 'three';
-import { validateLayout, PLACEMENTS, cellToWorld, DECK_Y, GROUND_Y } from './level2/grid-data.js';
+import {
+  validateLayout,
+  PLACEMENTS,
+  cellToWorld,
+  CELL_SIZE,
+  DECK_Y,
+  GROUND_Y,
+} from './level2/grid-data.js';
 import { createBlockoutMaterials, releaseHullTexture } from './level2/props.js';
-import { buildLevelGeometry, placeAnchors } from './level2/maze-builder.js';
+import {
+  buildLevelGeometry,
+  placeAnchors,
+  listDeckCells,
+  DECK_THICKNESS,
+} from './level2/maze-builder.js';
 import { FuelSystem } from '../systems/fuel-system.js';
 import { SystemRepairAllocation } from '../systems/system-repair-allocation.js';
 import { CommandCenterOverride, Checkpoint } from '../systems/command-center.js';
@@ -41,6 +53,29 @@ const EYE_HEIGHT = 1.7; // flycam spawn eye height above the deck/ground
 // is a singleton in main.js), so shared scratch state is safe.
 const scratchPosition = new THREE.Vector3();
 const scratchEuler = new THREE.Euler();
+
+/**
+ * Boxes the third-person camera must not pass through: every wall/module/door the player
+ * collides with, plus one slab per upper-deck cell. The deck is only a visual mesh in the
+ * collision data (the player's floor comes from floorSpec), so without these the camera could
+ * pitch up on the ground floor and end up above the deck, looking down at its top face.
+ * Atrium rails are left out — thin and see-through, they'd make the camera jitter.
+ */
+function buildCameraBlockers(geometry) {
+  const slabs = listDeckCells(geometry.upper).map(({ col, row }) => {
+    const { x, z } = cellToWorld(col, row);
+    return {
+      minX: x - CELL_SIZE / 2,
+      maxX: x + CELL_SIZE / 2,
+      minY: DECK_Y - DECK_THICKNESS,
+      maxY: DECK_Y,
+      minZ: z - CELL_SIZE / 2,
+      maxZ: z + CELL_SIZE / 2,
+      name: 'deck-slab',
+    };
+  });
+  return [...geometry.collision.wallAABBs, ...slabs];
+}
 
 /** FlatPhysicsController's facingYaw, read back off the player model (it sets the model's
  *  quaternion to facingYaw + PI about +Y). 'YXZ' so a pure yaw doesn't come back as an X/Z flip. */
@@ -230,6 +265,8 @@ export function createLevel2(options = {}) {
   registries.collision = geometry.collision;
   group.add(geometry.group);
 
+  const cameraBlockers = buildCameraBlockers(geometry);
+
   const fuelSystem = new FuelSystem(restore ? restore.fuelCount : startingReserve);
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
@@ -365,6 +402,8 @@ export function createLevel2(options = {}) {
     dispose,
     update,
     collisionData: geometry.collision.finalize(),
+    // Solid boxes the third-person camera can't pass through — see Camera.setBlockers().
+    cameraBlockers,
     getSpawnView: computeSpawnView,
     // From a checkpoint the player starts where the snapshot was taken.
     getPlayerSpawn: () =>
