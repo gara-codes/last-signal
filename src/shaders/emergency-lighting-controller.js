@@ -61,8 +61,16 @@ export class EmergencyLightingController {
     this._dipDuration = 0;
     this._dipRemaining = 0;
 
+    this.reduceFlashing = false; // Options > Reduce Flashing: hold everything steady
+
     this._uniformSets = [];
     this._lights = [];
+  }
+
+  // Options > Reduce Flashing. Holds every registered material and light
+  // steady (no dropouts, no hum). Power, dips and colour still apply.
+  setReduceFlashing(on) {
+    this.reduceFlashing = Boolean(on);
   }
 
   // Register a material's uniforms ({ uPower, uTime, uFlickerBoost, ... }).
@@ -116,10 +124,11 @@ export class EmergencyLightingController {
       u.uPower.value = this.effectivePower;
       u.uTime.value = this.time;
       u.uFlickerBoost.value = this.boost;
+      if (u.uSteady) u.uSteady.value = this.reduceFlashing ? 1 : 0;
     }
 
     if (this._lights.length > 0) {
-      const f = flickerAt(this.time, this.effectivePower, this.boost);
+      const f = this.reduceFlashing ? 1 : flickerAt(this.time, this.effectivePower, this.boost);
       for (let i = 0; i < this._lights.length; i++) {
         const entry = this._lights[i];
         entry.light.intensity = entry.baseIntensity * f;

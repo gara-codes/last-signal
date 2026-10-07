@@ -15,6 +15,7 @@ import {
   createEmergencyLightingMaterial,
   setEmergencyColor,
   EMERGENCY_PRESETS,
+  readReduceFlashing,
 } from '../src/shaders/emergency-lighting.js';
 
 function declaredUniforms(file) {
@@ -70,5 +71,16 @@ describe('emergency-lighting colours', () => {
 
   it('keeps HAL at #24 tuning: dark red at power 0.05', () => {
     expect(EMERGENCY_PRESETS.hal).toMatchObject({ color: '#cc0000', power: 0.05 });
+  });
+});
+
+describe('emergency-lighting Reduce Flashing', () => {
+  it('materials start with the light free to flicker (uSteady 0)', () => {
+    const { uniforms } = createEmergencyLightingMaterial({ preset: 'hal' });
+    expect(uniforms.uSteady.value).toBe(0);
+  });
+
+  it('readReduceFlashing() is false without a DOM (node tests, no crash)', () => {
+    expect(readReduceFlashing()).toBe(false);
   });
 });

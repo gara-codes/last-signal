@@ -55,6 +55,7 @@ export function createEmergencyLightingMaterial(options = {}) {
     uMaxWhite:     { value: cfg.maxWhite },
     uFlickerBoost: { value: 0 },
     uIntensity:    { value: cfg.intensity },
+    uSteady:       { value: 0 }, // 1 = Reduce Flashing: hold the light steady
   };
 
   const material = new THREE.ShaderMaterial({
@@ -71,4 +72,14 @@ export function createEmergencyLightingMaterial(options = {}) {
 // Change colour at runtime (e.g. HAL shifting to hostile) without allocating.
 export function setEmergencyColor(uniforms, hex) {
   hexToShaderRGB(hex, uniforms.uColor.value);
+}
+
+/**
+ * Options > Reduce Flashing, read the same way the repair consoles do: from
+ * body[data-reduce-flashing], which ui/index.js keeps in sync with settings.
+ * Cheap enough to call every frame, so a mid-level toggle applies at once.
+ * False when there's no DOM (unit tests).
+ */
+export function readReduceFlashing() {
+  return typeof document !== 'undefined' && document.body?.dataset.reduceFlashing === 'on';
 }

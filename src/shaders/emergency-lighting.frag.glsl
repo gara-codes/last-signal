@@ -11,6 +11,8 @@
 //                        L1->L2 door power dip, proximity tells, the AI reveal.
 //                        0.0 = v1 behaviour.
 //   uIntensity    >0     Brightness multiplier for the emissive surface.
+//   uSteady       0..1   Options > Reduce Flashing. 1 holds the light steady:
+//                        no dropouts and no hum. Colour and power still apply.
 
 uniform float uPower;
 uniform float uTime;
@@ -18,6 +20,7 @@ uniform vec3  uColor;
 uniform float uMaxWhite;
 uniform float uFlickerBoost;
 uniform float uIntensity;
+uniform float uSteady;
 
 // Classic GLSL hash: take sin() of the input, scale it by a huge number and
 // keep only the fractional part. It's deterministic (same input -> same
@@ -55,6 +58,11 @@ void main() {
 
   // 5. A low continuous hum so the light never looks perfectly static.
   float hum = 0.96 + 0.04 * sin(uTime * 7.0);
+
+  // 6. Reduce Flashing: blend both toward a constant 1.0, so the light holds
+  //    steady. The project rule is that flashing is held, not just softened.
+  flicker = mix(flicker, 1.0, uSteady);
+  hum     = mix(hum, 1.0, uSteady);
 
   gl_FragColor = vec4(base * flicker * hum * uIntensity, 1.0);
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createEmergencyLightingMaterial } from '../shaders/emergency-lighting.js';
+import { createEmergencyLightingMaterial, readReduceFlashing } from '../shaders/emergency-lighting.js';
 import { loadFuelCell } from '../core/AssetLoader.js';
 import { createDoor, applyFuelGate, updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { FuelSystem } from '../systems/fuel-system.js';
@@ -515,6 +515,7 @@ export function createLevel1() {
       doorBlocker.active = false;
     }
 
+    emergencyUniforms.uSteady.value = readReduceFlashing() ? 1 : 0; // Options > Reduce Flashing
     emergencyUniforms.uTime.value += delta;
     updateInteractables(interactables, delta);
 

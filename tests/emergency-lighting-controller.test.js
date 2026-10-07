@@ -75,6 +75,40 @@ describe('EmergencyLightingController', () => {
     c.update(1 / 60);
     expect(light.intensity).toBeCloseTo(2 * flickerAt(c.time, c.effectivePower, c.boost));
   });
+
+  it('Reduce Flashing holds materials and lights steady, even at low power with a spike', () => {
+    const c = new EmergencyLightingController({ initialPower: 0 });
+    const u = { ...makeUniforms(), uSteady: { value: 0 } };
+    const light = { intensity: 2 };
+    c.addUniforms(u).addLight(light);
+    c.setReduceFlashing(true);
+    c.spike(1);
+    for (let i = 0; i < 120; i++) {
+      c.update(1 / 12); // one shader flicker tick per step
+      expect(u.uSteady.value).toBe(1);
+      expect(light.intensity).toBe(2); // no dropouts
+    }
+    expect(u.uPower.value).toBeCloseTo(0); // power itself still applies
+  });
+
+  it('turning Reduce Flashing off restores the flicker', () => {
+    const c = new EmergencyLightingController({ initialPower: 1 });
+    const u = { ...makeUniforms(), uSteady: { value: 0 } };
+    c.addUniforms(u);
+    c.setReduceFlashing(true);
+    c.update(1 / 60);
+    c.setReduceFlashing(false);
+    c.update(1 / 60);
+    expect(u.uSteady.value).toBe(0);
+  });
+
+  it('still works with uniform sets that predate uSteady', () => {
+    const c = new EmergencyLightingController();
+    const u = makeUniforms();
+    c.addUniforms(u);
+    c.setReduceFlashing(true);
+    expect(() => c.update(1 / 60)).not.toThrow();
+  });
 });
 
 describe('readPowerFraction', () => {
