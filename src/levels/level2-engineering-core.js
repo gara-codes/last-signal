@@ -233,6 +233,7 @@ export function createLevel2(options = {}) {
   const fuelSystem = new FuelSystem(restore ? restore.fuelCount : startingReserve);
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
+  group.userData.fuelCellsPlaced = PLACEMENTS.fuelCells.length; // HUD total (main.js)
 
   const repairs = new SystemRepairAllocation(restore?.repairs ?? {});
   registries.repairs = repairs;

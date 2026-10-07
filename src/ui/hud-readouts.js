@@ -32,6 +32,20 @@ export function meterView(fraction, { warnBelow, criticalBelow }) {
 }
 
 /**
+ * Fuel Cells panel text: the held count, plus the level's total when one is known
+ * ("02" + "/ 11"). The total is fixed for the level (cells carried in + cells placed in it),
+ * so it never moves as cells are spent.
+ * @param {number} held
+ * @param {number|null} [total] null hides the total
+ * @returns {{count:string, total:string|null}}
+ */
+export function fuelView(held, total = null) {
+  const whole = (v) => Math.max(0, Math.floor(Number(v) || 0));
+  const two = (v) => String(whole(v)).padStart(2, '0');
+  return { count: two(held), total: total === null || total === undefined ? null : two(total) };
+}
+
+/**
  * Hull Breach countdown, split for the "[ MM ]:[ SS ]" readout. Rounds up, so the timer only
  * shows 00:00 once time has actually run out.
  * @param {number} seconds

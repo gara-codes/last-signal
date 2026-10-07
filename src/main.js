@@ -18,8 +18,11 @@ import { initUI, STATES } from './ui/index.js';
 
 // Dev swap: ?level=l2 loads the Engineering Core blockout with the flat
 // controller + third-person camera. Default (no param) = L1 untouched.
+// The dev start is also where New Game (and a full reset) goes, and what the HUD shows from the
+// main menu on, so a ?level=l2 session stays on L2 instead of snapping the HUD back to L1.
 const urlParams = new window.URLSearchParams(window.location.search);
 const isL2 = urlParams.get('level') === 'l2';
+const START_LEVEL = isL2 ? 'l2' : 'l1';
 
 const sceneManager = new SceneManager();
 const scene = sceneManager.getScene();
@@ -29,7 +32,7 @@ const renderer = rendererSetup.getRenderer();
 
 // UI (main menu, loading, pause, options, credits, HUD). Must run before the level and player
 // are created so their asset loads are counted by the loading screen.
-const ui = initUI({ canvas: renderer.domElement });
+const ui = initUI({ canvas: renderer.domElement, startLevelId: START_LEVEL });
 
 // Level + camera branch — L1 (default) vs L2 (?level=l2 dev swap).
 
@@ -122,6 +125,7 @@ function loadL1() {
       'main.js: level1.group.userData.fuelSystem not found — the fuel counter will read 00.'
     );
   }
+  showFuelTotal(0); // L1 starts empty: the total is just the cells placed in it
 
   lightingRig = new LightingRig(scene, level.group, { lightCount: 8, radius: 28, ceilingHeight: 8 });
 
@@ -173,6 +177,9 @@ function loadL2({ startingReserve = 0, checkpoint = null } = {}) {
   cameraSetup.pitch = 0;
 
   fuelSystem = level.group.userData.fuelSystem;
+  // Fixed for the level, checkpoint restarts included: what L2 was entered with + its cells.
+  showFuelTotal(l2EntryReserve);
+  syncVitals(); // the meters show this level's values from the first frame (checkpoint included)
 
   renderer.shadowMap.enabled = true; // a couple of L2 lights cast shadows
   lightingRigL2 = new LightingRigL2(scene, level.group);
@@ -211,6 +218,26 @@ if (isL2) {
   loadL1();
 }
 
+/**
+ * The Fuel Cells panel's "/ NN": cells available this level = carried in + placed in it. Carried
+ * cells count so the held number can never be higher than the total. Hidden if the level
+ * doesn't say how many it places.
+ */
+function showFuelTotal(carriedIn) {
+  const placed = level.group.userData.fuelCellsPlaced;
+  ui.setFuelTotal(Number.isFinite(placed) ? carriedIn + placed : null);
+}
+
+/** Pushes the live oxygen + health to the HUD meters (L2 only). Returns the oxygen system. */
+function syncVitals() {
+  const oxygenSystem = inL2 ? level.group.userData.oxygenSystem : null;
+  if (oxygenSystem) {
+    ui.setOxygen(oxygenSystem.fraction);
+    ui.setHealth(oxygenSystem.health / 100);
+  }
+  return oxygenSystem;
+}
+
 /** Removes the live level and clears every per-level timer, so a new one can be built. */
 function teardownLevel() {
   scene.remove(level.group);
@@ -224,15 +251,27 @@ function teardownLevel() {
   swapTimer = null; // a restart mid L1 -> L2 transition cancels it
   fadeStarted = false;
   fadeTo(0, 0);
+  if (lightingRigL2) {
+    // Its ambient + hemisphere lights live on the scene, not the level group, so without this
+    // every L2 restart stacked another pair and they carried on into L1.
+    lightingRigL2.dispose();
+    lightingRigL2 = null;
+  }
+  renderer.shadowMap.enabled = false; // L2 turns shadows on; L1 is lit without them
   faultCueTimer = null;
   ui.setWarning(null);
+  // The vitals hold their last value while hidden; start the next level from full, not from the
+  // death that ended this one.
+  ui.setOxygen(1);
+  ui.setHealth(1);
   deathFired = false;
 }
 
 /**
  * Restarts without reloading the page (ui hook, see WIRING in src/ui/index.js). The UI shows
  * the loading screen first, so this runs while the world is not being updated or drawn.
- *   { full: true }   New Game: back to L1 with no fuel, repairs or checkpoint.
+ *   { full: true }   New Game: back to the start level (L1, or L2 on the ?level=l2 dev start)
+ *                    with no fuel, repairs or checkpoint.
  *   { full: false }  Restart Level: the current level again. L2 restarts fresh, with the fuel
  *                    carried in from L1.
  *   { full: false, fromCheckpoint: true }  Restart From Checkpoint (Restart screen, L2 past
@@ -248,6 +287,9 @@ function resetLevel({ full = false, fromCheckpoint = false } = {}) {
 
   if (restartL2) {
     loadL2({ startingReserve: l2EntryReserve, checkpoint });
+  } else if (full && START_LEVEL === 'l2') {
+    inL2 = true; // dev start: New Game goes back to a fresh L2
+    loadL2();
   } else {
     inL2 = false;
     l1TransitionFired = false;
@@ -314,10 +356,8 @@ function animate() {
   if (fuelSystem) ui.setFuelCount(fuelSystem.banked);
 
   // L2-only: oxygen + health meters, read the same way (live value each frame, not event-hooked).
-  const oxygenSystem = inL2 ? level.group.userData.oxygenSystem : null;
+  const oxygenSystem = syncVitals();
   if (oxygenSystem) {
-    ui.setOxygen(oxygenSystem.fraction);
-    ui.setHealth(oxygenSystem.health / 100);
 
     // Death -> the Restart ("Signal Lost") screen, with this run's summary.
     if (oxygenSystem.isDead && !deathFired) {

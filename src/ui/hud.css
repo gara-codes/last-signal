@@ -139,6 +139,17 @@ body[data-level='l3'] .ui-hud {
   font-weight: 600;
   font-size: 22px;
   color: var(--ui-text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The level's total after the held count ("02 / 11"): muted and smaller, so the live number
+   stays the one that reads first. */
+.hud-fuel__total {
+  margin-left: 0.2em;
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--ui-text-faint);
 }
 
 /* Oxygen / Health meters: icon + label + %, over 10 pips */

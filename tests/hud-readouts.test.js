@@ -3,9 +3,27 @@ import {
   meterView,
   splitCountdown,
   powerText,
+  fuelView,
   OXYGEN_THRESHOLDS,
   HEALTH_THRESHOLDS,
 } from '../src/ui/hud-readouts.js';
+
+describe('fuelView', () => {
+  it('pads the held count and the level total', () => {
+    expect(fuelView(2, 11)).toEqual({ count: '02', total: '11' });
+    expect(fuelView(0, 5)).toEqual({ count: '00', total: '05' });
+  });
+
+  it('hides the total when the level gives none', () => {
+    expect(fuelView(3)).toEqual({ count: '03', total: null });
+    expect(fuelView(3, null).total).toBeNull();
+  });
+
+  it('never shows negatives or fractions', () => {
+    expect(fuelView(-1, 4.7)).toEqual({ count: '00', total: '04' });
+    expect(fuelView('x', 0)).toEqual({ count: '00', total: '00' });
+  });
+});
 
 describe('meterView', () => {
   it('matches the mockup readouts', () => {

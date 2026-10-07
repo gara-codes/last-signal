@@ -11,6 +11,8 @@ import {
   SLIDERS,
   HINT_MAX_LENGTH,
   sliderMin,
+  CHOICES,
+  stepChoice,
 } from '../src/ui/settings.js';
 
 function fakeStorage(initial = {}) {
@@ -177,6 +179,52 @@ describe('createSettings', () => {
       'Brightness',
       'HUD Opacity',
     ]);
+  });
+});
+
+describe('graphicsQuality (pick-one setting)', () => {
+  it('defaults to High and only accepts low / medium / high', () => {
+    const storage = fakeStorage();
+    const settings = createSettings({ storage });
+    expect(settings.get().graphicsQuality).toBe('high');
+    expect(settings.set('graphicsQuality', 'ultra')).toBe(false);
+    expect(settings.set('graphicsQuality', 2)).toBe(false);
+    expect(settings.set('graphicsQuality', 'low')).toBe(true);
+    expect(createSettings({ storage }).get().graphicsQuality).toBe('low');
+  });
+
+  it('step() moves one value at a time and stops at the ends', () => {
+    const settings = createSettings({ storage: fakeStorage() });
+    expect(settings.step('graphicsQuality', 1)).toBe(false); // already High
+    expect(settings.step('graphicsQuality', -1)).toBe(true);
+    expect(settings.get().graphicsQuality).toBe('medium');
+    settings.step('graphicsQuality', -1);
+    expect(settings.step('graphicsQuality', -1)).toBe(false); // stays Low
+    expect(settings.get().graphicsQuality).toBe('low');
+  });
+
+  it('stepChoice() clamps and treats an unknown current value as the lowest', () => {
+    expect(stepChoice('graphicsQuality', 'medium', 1)).toBe('high');
+    expect(stepChoice('graphicsQuality', 'high', 5)).toBe('high');
+    expect(stepChoice('graphicsQuality', 'nope', -1)).toBe('low');
+    expect(stepChoice('notAChoice', 'low', 1)).toBeNull();
+  });
+
+  it('repairs a bad saved value and keeps a good one', () => {
+    const bad = fakeStorage({ [SETTINGS_KEY]: JSON.stringify({ graphicsQuality: 'ultra' }) });
+    expect(createSettings({ storage: bad }).get().graphicsQuality).toBe('high');
+    const good = fakeStorage({ [SETTINGS_KEY]: JSON.stringify({ graphicsQuality: 'medium' }) });
+    expect(createSettings({ storage: good }).get().graphicsQuality).toBe('medium');
+  });
+
+  it('every value has a name and a one-line hint', () => {
+    for (const choice of CHOICES) {
+      expect(choice.values).toContain(DEFAULT_SETTINGS[choice.key]);
+      for (const value of choice.values) {
+        expect(choice.names[value]).toBeTruthy();
+        expect(choice.hints[value].length).toBeLessThanOrEqual(HINT_MAX_LENGTH);
+      }
+    }
   });
 });
 
