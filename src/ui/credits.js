@@ -130,10 +130,10 @@ const CREDITS_DATA = {
 
   tutorials: [
     {
-      covers: 'GLSL sin/fract hash and 2D value noise',
+      covers: 'GLSL sin/fract hash and 2D value noise (chapters 10 and 11)',
       source: 'The Book of Shaders — Patricio Gonzalez Vivo & Jen Lowe',
       url: 'https://thebookofshaders.com/11/',
-      usedFor: 'rand() in the emergency-lighting and dissolve-glitch shaders; dissolve noise',
+      usedFor: 'rand() hash in the project\'s custom shaders; valueNoise() for the dissolve threshold (technique learned, code our own)',
     },
   ],
 };
