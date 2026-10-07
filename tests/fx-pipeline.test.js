@@ -99,15 +99,14 @@ describe('FxState (gameplay hooks)', () => {
     expect(u.uStress.value).toBeCloseTo(1, 2);
   });
 
-  it('Reduce Flashing scales pulses and warps down, but keeps the cue', () => {
+  it('Reduce Flashing holds pulses steady and keeps warps as a gentler cue', () => {
     const s = new FxState();
     const u = gradeUniforms();
     s.setReduceFlashing(true);
     s.pulse(1);
     s.warp(1);
     s.update(0, u);
-    expect(u.uPulse.value).toBeGreaterThan(0);
-    expect(u.uPulse.value).toBeLessThan(0.5);
+    expect(u.uPulse.value).toBe(0); // project rule: flashing held steady
     expect(u.uWarp.value).toBeGreaterThan(0);
     expect(u.uWarp.value).toBeLessThan(0.5);
   });

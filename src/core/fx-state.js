@@ -8,8 +8,9 @@
 //   warp(duration)   distortion that decays over `duration`: gravity snap-back/flip
 //   setStress(v)     sustained 0..1 danger: low oxygen, countdown running out
 //
-// Reduce Flashing (Options screen) scales the flashing parts down rather than
-// removing them, so the cue still exists but never strobes.
+// Reduce Flashing (Options screen) follows the project rule: flashing is held
+// steady. Pulses (brightness hits) are held at 0. Warps aren't a flash (they
+// bend the image), so they stay as a cue, scaled down.
 //
 // update() allocates nothing (hard constraint: no allocation in the animation loop).
 
@@ -17,9 +18,9 @@ const PULSE_DECAY = 2.5; // pulse falls by this much per second
 const STRESS_EASE = 3; // how fast displayed stress chases its target (per second)
 const TIME_WRAP = 3600; // wrap the clock every hour so float precision holds
 
-// Reduce Flashing multipliers: pulses and warps are the flashing parts
-const CALM_PULSE = 0.25;
-const CALM_WARP = 0.35;
+// Reduce Flashing multipliers
+const CALM_PULSE = 0; // brightness flash: held steady
+const CALM_WARP = 0.35; // distortion: kept as a gentler cue
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
