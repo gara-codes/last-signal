@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createEmergencyLightingMaterial } from '../shaders/emergency-lighting.js';
+import { createEmergencyLightingMaterial, readReduceFlashing } from '../shaders/emergency-lighting.js';
 import { loadFuelCell } from '../core/AssetLoader.js';
 import { createDoor, applyFuelGate, updateInteractables, isSharedDoorResource } from '../systems/door-system.js';
 import { FuelSystem } from '../systems/fuel-system.js';
@@ -124,7 +124,7 @@ function createAI() {
 
   // 3. Glowing camera eye — custom emergency-lighting shader
   const eyeGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-  const { material: eyeMaterial, uniforms: emergencyUniforms } = createEmergencyLightingMaterial();
+  const { material: eyeMaterial, uniforms: emergencyUniforms } = createEmergencyLightingMaterial({ preset: 'hal' });
   const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
   eye.position.set(2.5, -thickness / 2 - 0.15, 0); // Seat inside the bezel
   halGroup.add(eye);
@@ -515,7 +515,8 @@ export function createLevel1() {
       doorBlocker.active = false;
     }
 
-    emergencyUniforms.time.value += delta;
+    emergencyUniforms.uSteady.value = readReduceFlashing() ? 1 : 0; // Options > Reduce Flashing
+    emergencyUniforms.uTime.value += delta;
     updateInteractables(interactables, delta);
 
     if (!player) return;
