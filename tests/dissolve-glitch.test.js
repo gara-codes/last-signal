@@ -9,7 +9,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { DissolveAnimator } from '../src/shaders/dissolve-animator.js';
-import { createDissolveGlitchMaterial, DISSOLVE_PRESETS } from '../src/shaders/dissolve-glitch.js';
+import {
+  createDissolveGlitchMaterial,
+  createDissolveEffect,
+  DISSOLVE_PRESETS,
+} from '../src/shaders/dissolve-glitch.js';
 
 const uniformsFor = (progress = 0, glitch = 0) => ({
   uProgress: { value: progress },
@@ -120,5 +124,83 @@ describe('DissolveAnimator', () => {
     a.update(0.016);
     expect(u.uProgress.value).toBe(0);
     expect(Number.isFinite(u.uGlitch.value)).toBe(true);
+  });
+});
+
+// Shannon's review on #29
+describe('DissolveAnimator: review fixes', () => {
+  it('Reduce Flashing holds glitch at 0 for the whole reveal, but still dissolves', () => {
+    const u = uniformsFor();
+    const a = new DissolveAnimator(u, { reduceFlashing: true });
+    a.reveal(1);
+    expect(u.uGlitch.value).toBe(0);
+    a.update(0.5);
+    expect(u.uGlitch.value).toBe(0);
+    expect(u.uProgress.value).toBeCloseTo(0.5); // the dissolve still plays
+    a.update(0.5);
+    expect(u.uGlitch.value).toBe(0); // and doesn't settle into a flicker
+  });
+
+  it('toggling Reduce Flashing mid-way applies at once and restores the live value', () => {
+    const u = uniformsFor();
+    const a = new DissolveAnimator(u, { settleGlitch: 0.6 });
+    a.reveal(1);
+    a.update(1);
+    expect(u.uGlitch.value).toBeCloseTo(0.6);
+    a.setReduceFlashing(true);
+    expect(u.uGlitch.value).toBe(0);
+    a.setReduceFlashing(false);
+    expect(u.uGlitch.value).toBeCloseTo(0.6);
+  });
+
+  it('vanish() ends on the preset glitch: debris dissolves cleanly, the AI glitches apart', () => {
+    const debris = createDissolveEffect('debris');
+    debris.animator.vanish(1);
+    debris.animator.update(0.5);
+    expect(debris.uniforms.uGlitch.value).toBe(0);
+    debris.animator.update(0.5);
+    expect(debris.uniforms.uProgress.value).toBe(1);
+    expect(debris.uniforms.uGlitch.value).toBe(0);
+
+    const ai = createDissolveEffect('aiHologram');
+    ai.animator.vanish(1);
+    ai.animator.update(1);
+    expect(ai.uniforms.uGlitch.value).toBe(1);
+  });
+
+  it('vanish() accepts an explicit glitch target', () => {
+    const u = uniformsFor(0, 0.6);
+    const a = new DissolveAnimator(u);
+    a.vanish(1, null, 0.2);
+    a.update(1);
+    expect(u.uGlitch.value).toBeCloseTo(0.2);
+  });
+
+  it("one source of truth: reveal() settles at the preset's glitch, the level the material starts at", () => {
+    for (const name of Object.keys(DISSOLVE_PRESETS)) {
+      const fx = createDissolveEffect(name);
+      expect(fx.uniforms.uGlitch.value, name).toBe(DISSOLVE_PRESETS[name].glitch);
+      fx.animator.reveal(1);
+      fx.animator.update(1);
+      expect(fx.uniforms.uGlitch.value, name).toBeCloseTo(DISSOLVE_PRESETS[name].glitch);
+    }
+  });
+
+  it('an interrupted animation drops its onComplete; only the latest fires', () => {
+    const removeMesh = vi.fn();
+    const revealed = vi.fn();
+    const a = new DissolveAnimator(uniformsFor());
+    a.vanish(1, removeMesh); // e.g. "hide the mesh when gone"
+    a.update(0.5);
+    a.reveal(1, revealed); // re-triggered before the vanish finished
+    a.update(1);
+    expect(removeMesh).not.toHaveBeenCalled(); // dropped, by design (documented)
+    expect(revealed).toHaveBeenCalledTimes(1);
+  });
+
+  it('createDissolveEffect passes Reduce Flashing through', () => {
+    const fx = createDissolveEffect('aiHologram', { reduceFlashing: true });
+    expect(fx.uniforms.uGlitch.value).toBe(0);
+    expect(() => createDissolveEffect('confetti')).toThrow(/unknown preset/);
   });
 });

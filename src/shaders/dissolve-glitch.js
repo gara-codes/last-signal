@@ -1,8 +1,9 @@
 // dissolve-glitch.js — material factory for the dissolve/glitch-hologram shader.
 //
 // Usage (L2->L3 AI reveal):
-//   const { material, uniforms } = createDissolveGlitchMaterial({ preset: 'aiHologram' });
-//   const animator = new DissolveAnimator(uniforms);
+//   const { material, animator } = createDissolveEffect('aiHologram');
+//   mesh.material = material;
+//   animator.setReduceFlashing(settings.reduceFlashing);
 //   animator.reveal(1.6, () => startHostileLine());
 //   // every frame: animator.update(delta);
 //
@@ -12,22 +13,27 @@
 import * as THREE from 'three';
 import vertexShader from './dissolve-glitch.vert.glsl?raw';
 import fragmentShader from './dissolve-glitch.frag.glsl?raw';
+import { DissolveAnimator } from './dissolve-animator.js';
 
-export { DissolveAnimator } from './dissolve-animator.js';
+export { DissolveAnimator };
 
+// `glitch` is both the material's starting glitch and the level reveal()
+// settles to: one source of truth. `vanishGlitch` is where vanish() ends.
 export const DISSOLVE_PRESETS = Object.freeze({
   aiHologram: {
     baseColor: '#ff2626', // matches HAL so the AI is recognisably the same entity
     edgeColor: '#ff7a1a', // saturated orange: reads as a burning edge against the red body
     progress: 1, // starts hidden; reveal() brings it in
-    glitch: 0.7,
+    glitch: 0.6, // stays visibly corrupted once revealed
+    vanishGlitch: 1, // breaks apart glitching
     hologram: 1,
   },
   debris: {
     baseColor: '#5a5f66',
     edgeColor: '#ff8a2a',
     progress: 0,
-    glitch: 0,
+    glitch: 0, // clean metal: no banding, flicker or jitter
+    vanishGlitch: 0, // dissolves cleanly
     hologram: 0,
   },
 });
@@ -97,4 +103,23 @@ export function createDissolveGlitchMaterial(options = {}) {
   material.name = `dissolve-glitch-${options.preset ?? 'custom'}`;
 
   return { material, uniforms };
+}
+
+/**
+ * Material + animator configured from one preset, so the glitch levels can't
+ * drift apart between the two.
+ * @param {keyof DISSOLVE_PRESETS} preset
+ * @param {object} [options] - material overrides, plus `reduceFlashing`
+ * @returns {{ material: THREE.ShaderMaterial, uniforms: object, animator: DissolveAnimator }}
+ */
+export function createDissolveEffect(preset, { reduceFlashing = false, ...options } = {}) {
+  const p = DISSOLVE_PRESETS[preset];
+  if (!p) throw new Error(`[dissolve-glitch] unknown preset "${preset}"`);
+  const { material, uniforms } = createDissolveGlitchMaterial({ preset, ...options });
+  const animator = new DissolveAnimator(uniforms, {
+    settleGlitch: options.glitch ?? p.glitch,
+    vanishGlitch: options.vanishGlitch ?? p.vanishGlitch,
+    reduceFlashing,
+  });
+  return { material, uniforms, animator };
 }
