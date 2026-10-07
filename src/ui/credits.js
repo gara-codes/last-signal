@@ -32,6 +32,13 @@ const CREDITS_DATA = {
       usedFor: 'Core rendering',
     },
     {
+      item: 'mulberry32 seeded random-number generator (JavaScript port)',
+      source: 'Tommy Ettinger',
+      url: 'https://gist.github.com/tommyettinger/46a874533244883189143505d203312c',
+      license: 'CC0 (public domain)',
+      usedFor: 'Repeatable random layouts: L1 console screen content and particle seeds (adapted, not written by us)',
+    },
+    {
       item: 'GLTFLoader (Three.js addon)',
       source: 'Three.js contributors',
       url: 'https://threejs.org/docs/#examples/en/loaders/GLTFLoader',

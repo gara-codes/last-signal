@@ -39,6 +39,7 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 | Item                        | Source / author       | URL                                                      | Licence | Used for                         | Added by (date) |
 | --------------------------- | --------------------- | -------------------------------------------------------- | ------- | -------------------------------- | --------------- |
 | Three.js                    | Three.js contributors | https://threejs.org                                      | MIT     | Core rendering                   | —               |
+| mulberry32 seeded random-number generator (JavaScript port) | Tommy Ettinger | https://gist.github.com/tommyettinger/46a874533244883189143505d203312c | CC0 (public domain) | Repeatable random layouts: L1 console screen content and particle seeds (adapted, not written by us) | Natasha (07-10-2026) |
 | GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT     | Loading the astronaut .glb model | —               |
 
 ## 3D models
