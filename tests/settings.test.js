@@ -5,11 +5,14 @@ import {
   normalizeSlider,
   brightnessToFactor,
   hudOpacityToCss,
+  hudOpacityLayers,
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
   SLIDERS,
   HINT_MAX_LENGTH,
   sliderMin,
+  CHOICES,
+  stepChoice,
 } from '../src/ui/settings.js';
 
 function fakeStorage(initial = {}) {
@@ -82,6 +85,15 @@ describe('createSettings', () => {
     expect(settings.get()).not.toHaveProperty('difficulty');
   });
 
+  it('reduceFlashing defaults off, only accepts booleans and persists', () => {
+    const storage = fakeStorage();
+    const settings = createSettings({ storage });
+    expect(settings.get().reduceFlashing).toBe(false);
+    expect(settings.set('reduceFlashing', 1)).toBe(false);
+    expect(settings.set('reduceFlashing', true)).toBe(true);
+    expect(createSettings({ storage }).get().reduceFlashing).toBe(true);
+  });
+
   it('loads saved values and repairs bad ones', () => {
     const storage = fakeStorage({
       [SETTINGS_KEY]: JSON.stringify({
@@ -90,6 +102,7 @@ describe('createSettings', () => {
         brightness: 999,
         hudOpacity: 42,
         captions: 'nope',
+        reduceFlashing: 'on',
         extra: 1,
       }),
     });
@@ -99,6 +112,7 @@ describe('createSettings', () => {
     expect(values.brightness).toBe(100);
     expect(values.hudOpacity).toBe(40);
     expect(values.captions).toBe(DEFAULT_SETTINGS.captions);
+    expect(values.reduceFlashing).toBe(DEFAULT_SETTINGS.reduceFlashing);
     expect(values).not.toHaveProperty('extra');
   });
 
@@ -168,6 +182,52 @@ describe('createSettings', () => {
   });
 });
 
+describe('graphicsQuality (pick-one setting)', () => {
+  it('defaults to High and only accepts low / medium / high', () => {
+    const storage = fakeStorage();
+    const settings = createSettings({ storage });
+    expect(settings.get().graphicsQuality).toBe('high');
+    expect(settings.set('graphicsQuality', 'ultra')).toBe(false);
+    expect(settings.set('graphicsQuality', 2)).toBe(false);
+    expect(settings.set('graphicsQuality', 'low')).toBe(true);
+    expect(createSettings({ storage }).get().graphicsQuality).toBe('low');
+  });
+
+  it('step() moves one value at a time and stops at the ends', () => {
+    const settings = createSettings({ storage: fakeStorage() });
+    expect(settings.step('graphicsQuality', 1)).toBe(false); // already High
+    expect(settings.step('graphicsQuality', -1)).toBe(true);
+    expect(settings.get().graphicsQuality).toBe('medium');
+    settings.step('graphicsQuality', -1);
+    expect(settings.step('graphicsQuality', -1)).toBe(false); // stays Low
+    expect(settings.get().graphicsQuality).toBe('low');
+  });
+
+  it('stepChoice() clamps and treats an unknown current value as the lowest', () => {
+    expect(stepChoice('graphicsQuality', 'medium', 1)).toBe('high');
+    expect(stepChoice('graphicsQuality', 'high', 5)).toBe('high');
+    expect(stepChoice('graphicsQuality', 'nope', -1)).toBe('low');
+    expect(stepChoice('notAChoice', 'low', 1)).toBeNull();
+  });
+
+  it('repairs a bad saved value and keeps a good one', () => {
+    const bad = fakeStorage({ [SETTINGS_KEY]: JSON.stringify({ graphicsQuality: 'ultra' }) });
+    expect(createSettings({ storage: bad }).get().graphicsQuality).toBe('high');
+    const good = fakeStorage({ [SETTINGS_KEY]: JSON.stringify({ graphicsQuality: 'medium' }) });
+    expect(createSettings({ storage: good }).get().graphicsQuality).toBe('medium');
+  });
+
+  it('every value has a name and a one-line hint', () => {
+    for (const choice of CHOICES) {
+      expect(choice.values).toContain(DEFAULT_SETTINGS[choice.key]);
+      for (const value of choice.values) {
+        expect(choice.names[value]).toBeTruthy();
+        expect(choice.hints[value].length).toBeLessThanOrEqual(HINT_MAX_LENGTH);
+      }
+    }
+  });
+});
+
 describe('slider -> effect mappings', () => {
   it('brightness: 50% is the neutral look, range 0.5x-1.5x', () => {
     expect(brightnessToFactor(50)).toBe(1);
@@ -180,5 +240,14 @@ describe('slider -> effect mappings', () => {
     expect(hudOpacityToCss(20)).toBe(0.2);
     expect(hudOpacityToCss(50)).toBe(0.5);
     expect(hudOpacityToCss(100)).toBe(1);
+  });
+
+  it('splits HUD opacity: boxes fade fully, text and icons only a quarter as far', () => {
+    expect(hudOpacityLayers(100)).toEqual({ box: 1, content: 1, boxFactor: 1 });
+    const low = hudOpacityLayers(20);
+    expect(low.box).toBe(0.2);
+    expect(low.content).toBe(0.8);
+    expect(low.content * low.boxFactor).toBeCloseTo(0.2, 2);
+    expect(hudOpacityLayers(0)).toEqual(low); // the 20% floor still applies
   });
 });

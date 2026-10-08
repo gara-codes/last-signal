@@ -7,12 +7,12 @@
   top: 50%;
   left: 50%;
   width: 640px;
-  padding: 36px 40px;
+  padding: 30px 40px; /* trimmed (and the row gaps below) to fit the Graphics Quality row */
   transform: translate(-50%, -50%);
 }
 
 .options__title {
-  margin: 0 0 28px;
+  margin: 0 0 20px;
   font-family: var(--ui-font-label);
   font-weight: 700;
   text-transform: uppercase;
@@ -23,7 +23,7 @@
 
 /* ---- slider row ---- */
 .options-slider {
-  margin: 0 -12px 26px;
+  margin: 0 -12px 14px;
   padding: 10px 12px;
   border: 1px solid transparent;
 }
@@ -148,13 +148,63 @@
   opacity: 1;
 }
 
-/* ---- captions toggle (a rectangle, not a pill) ---- */
+/* ---- pick-one stepper (Graphics Quality): the value box takes the track's place ---- */
+.options-choice__value {
+  flex: 1;
+  height: 26px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--ui-border);
+  outline: none;
+}
+
+.options-choice__name {
+  font-size: var(--fs-md);
+  color: var(--accent);
+}
+
+.options-choice__marks {
+  display: flex;
+  gap: 4px;
+}
+
+.options-choice__marks i {
+  width: 16px;
+  height: 6px;
+  background: var(--ui-track);
+}
+
+.options-choice__marks i.is-on {
+  background: var(--accent);
+}
+
+.options-choice:focus-within .options-choice__value {
+  border-color: var(--accent);
+}
+
+/* ---- on/off switches: captions, reduce flashing (rectangles, not pills) ---- */
+.options__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 6px;
+  margin-bottom: 26px;
+}
+
 .options__toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.options__toggle-caption {
   margin-top: 6px;
-  margin-bottom: 26px;
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-tight);
+  color: var(--ui-text-tertiary);
 }
 
 .options__toggle-label {

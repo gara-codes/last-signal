@@ -107,7 +107,7 @@ export function createDoor(id, onOpen, options = {}) {
   group.userData = {
     id,
     interactable: true,
-    state: 'locked',  //'locked', 'unlocked', 'opening', 'open'
+    state: 'locked',  //'locked', 'unlocked', 'opening', 'open', 'closing'
     openProgress: 0,
     basePanelY: panel.position.y,
 
@@ -122,16 +122,27 @@ export function createDoor(id, onOpen, options = {}) {
       group.userData.state = 'opening';
     },
 
+    // Re-seals an open door (added for the L2 elevator gates, which cycle
+    // open/closed as the cab arrives and departs). Backwards-compatible:
+    // one-shot doors never call it.
+    close() {
+      if (group.userData.state !== 'open') return;
+      group.userData.state = 'closing';
+    },
+
     update(delta) {
-      if (group.userData.state !== 'opening') return;
-      group.userData.openProgress = Math.min(
-        1,
-        group.userData.openProgress + delta / openDuration
-      );
-      panel.position.y = group.userData.basePanelY + slideDirection * height * group.userData.openProgress;
-      if (group.userData.openProgress >= 1) {
-        group.userData.state = 'open';
-        if (onOpen) onOpen();
+      const ud = group.userData;
+      if (ud.state === 'opening') {
+        ud.openProgress = Math.min(1, ud.openProgress + delta / openDuration);
+        panel.position.y = ud.basePanelY + slideDirection * height * ud.openProgress;
+        if (ud.openProgress >= 1) {
+          ud.state = 'open';
+          if (onOpen) onOpen();
+        }
+      } else if (ud.state === 'closing') {
+        ud.openProgress = Math.max(0, ud.openProgress - delta / openDuration);
+        panel.position.y = ud.basePanelY + slideDirection * height * ud.openProgress;
+        if (ud.openProgress <= 0) ud.state = 'unlocked';
       }
     },
   };
@@ -164,14 +175,22 @@ export function createPowerPanel(id, linkedDoors) {
   return mesh;
 }
 
-export function updateInteractables(interactables, delta) {
+/**
+ * Ticks every registered interactable/updatable. `viewer` (the camera or
+ * player proxy) is forwarded as a second argument so updatables that need
+ * it — the transit system (elevator viewer-carry, ladder direction) —
+ * receive it; plain doors and panels ignore it. (L2 camera mounts get the
+ * viewer separately, via setTarget() before this tick.)
+ */
+export function updateInteractables(interactables, delta, viewer) {
   for (const obj of interactables) {
-    obj.userData.update?.(delta);
+    obj.userData.update?.(delta, viewer);
   }
 }
 
 export function applyFuelGate(door, gate, fuelSystem) {
   const baseInteract = door.userData.interact; //Save original method
+  door.userData.fuelGate = gate; // read by the HUD prompt (ui/prompt-copy.js) for the cost
 
   door.userData.interact = () => {
     if (door.userData.state !== 'locked') {

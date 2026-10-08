@@ -5,7 +5,7 @@
 // full-restart-on-death policy, placed right before the backtrack begins.
 // Pure logic modules — no Three.js dependency, unit-test candidates.
 
-const TERMINAL_UNLOCK_COST = 1;
+export const TERMINAL_UNLOCK_COST = 1;
 
 export class CommandCenterOverride {
   constructor() {

@@ -1,20 +1,5 @@
 import * as THREE from 'three';
 
-// Drum geometry — mirrors level1-habitation-ring.js / physics-controller.js.
-// Used only to keep the camera from rendering outside the hull; if Yannis
-// changes drum size, update this alongside those two copies.
-const WALL_RADIUS = 31;
-const WALL_MARGIN = 1.5; // minimum clearance kept between camera and the curved wall
-
-// The drum is a closed cylinder (flat end caps), spanning x: -10..10 —
-// mirrors physics-controller.js's HEIGHT_HALF. AXIAL_CLAMP there keeps the
-// player within ±9, but the camera's own axial offset (-9 * facing.x) can
-// still add up to another 9 units on top of that — e.g. walking to one end
-// of the corridor and turning around pushes facing.x negative while axial
-// is still near +9, sending the camera straight through the end cap.
-const AXIAL_HALF_LENGTH = 10;
-const AXIAL_MARGIN = 1.5;
-
 const LOOK_SENSITIVITY = 0.0025;
 const MAX_PITCH = Math.PI / 2 - 0.15; // stop just short of straight up/down, avoids gimbal flip
 
@@ -35,10 +20,61 @@ export class Camera {
     // level — a fixed world-axis version (à la OrbitControls) doesn't.
     this.yaw = 0;
     this.pitch = 0;
+
+    // Level-specific containment — null means no clamping at all, which
+    // is wrong for every real level, so every call site must set this
+    // once after construction. See setBounds() for the two shapes.
+    this._bounds = null;
+
+    // Orbit distance — how far back + how far off the wall. Per-level setting
+    // because L1 and L2 have different scales. Default 9 (L1's original).
+    this._orbitDistance = 9;
+    // Flashlight — always-on SpotLight parented to the camera (design doc:
+    // a camera spotlight, not a resource). Same settings as FlyCam's, so
+    // the blockout validated there looks the same in play. Light children
+    // only render once the camera is in the scene graph — main.js adds it.
+    this._flashlight = new THREE.SpotLight(0xffe8c0, 8, 80, Math.PI / 4, 0.5, 1);
+    this._flashlight.position.set(0, 0, 0); // at the camera's eye
+    this._flashlight.target.position.set(0, 0, -1); // along -Z (camera forward)
+    this.camera.add(this._flashlight);
+    this.camera.add(this._flashlight.target);
   }
 
   getCamera() {
     return this.camera;
+  }
+
+  /**
+   * Configures wall/ceiling containment for the current level. The two
+   * levels have genuinely different geometry (L1 is a cylinder around the
+   * world X-axis; L2 is an axis-aligned box), so this takes a shape
+   * descriptor instead of hardcoding one level's numbers:
+   *
+   *   { type: 'cylinder', radius, axialHalfLength, margin }
+   *     L1's drum — clamps radial distance from the X-axis (the curved
+   *     wall) and the axial position (the flat end caps).
+   *
+   *   { type: 'box', minX, maxX, minY, maxY, minZ, maxZ, margin }
+   *     L2's maze — clamps each axis independently against the hull/
+   *     floor/ceiling bounds.
+   *
+   * Previously these were hardcoded module-level constants mirroring
+   * L1's drum (WALL_RADIUS=31, AXIAL_HALF_LENGTH=10) and applied
+   * unconditionally — harmless on L1, but silently wrong on L2: its
+   * axial extent is ±32, not ±10, and its "radial" Y/Z bound doesn't
+   * correspond to anything (L2's actual bounds are a floor/ceiling on Y
+   * and walls on Z), so the camera had no real containment there at all.
+   */
+  setBounds(bounds) {
+    this._bounds = bounds;
+  }
+
+  /**
+   * Sets the orbit distance — how far back + how far off the wall the camera
+   * sits from the player. Per-level because L1 and L2 have different scales.
+   */
+  setOrbitDistance(distance) {
+    this._orbitDistance = distance;
   }
 
   /**
@@ -54,11 +90,29 @@ export class Camera {
     );
   }
 
+  /**
+   * The camera's current horizontal facing as a world-space angle, in the
+   * convention FlatPhysicsController expects: atan2(x, z), 0 = world +Z.
+   * Used to make flat-level movement (L2) camera-relative. this.yaw on its
+   * own isn't this angle — it's an orbit offset relative to the player's
+   * own basis.forward (see update() below), not an absolute world angle —
+   * so this re-derives the actual direction the same way update() does,
+   * minus pitch (vertical look shouldn't steer horizontal movement).
+   * L1 doesn't need this: its own movement is relative to the player's own
+   * facing, not the camera's, so physics-controller.js never reads it.
+   */
+  getWorldYaw(basis) {
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(basis.up, this.yaw);
+    const direction = basis.forward.clone().applyQuaternion(yawQuat);
+    return Math.atan2(direction.x, direction.z);
+  }
+
   update(basis) {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    const baseOffset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+    // Per-level setting — L1 uses 9, L2 uses 13.5 (×1.5 for the revised blockout).
+    const baseOffset = basis.up.clone().multiplyScalar(this._orbitDistance).add(basis.forward.clone().multiplyScalar(-this._orbitDistance));
 
     // Orbit that offset by the mouse-look yaw/pitch, both expressed
     // relative to the player's own local axes (not world ones): yaw spins
@@ -76,21 +130,10 @@ export class Camera {
     const desiredPosition = basis.position.clone().add(offset);
 
     // Flagged by Yannis during Alpha: the offset above can occasionally
-    // push the camera's radial distance from the drum's central (X) axis
-    // past the hull wall, rendering from outside it. Clamp the radial
-    // component back to a safe radius before assigning to camera.position
-    // — position only, so basis.up / lookAt (orientation) stay untouched.
-    const radialDist = Math.hypot(desiredPosition.y, desiredPosition.z);
-    const maxRadius = WALL_RADIUS - WALL_MARGIN;
-    if (radialDist > maxRadius) {
-      const scale = maxRadius / radialDist;
-      desiredPosition.y *= scale;
-      desiredPosition.z *= scale;
-    }
-
-    // Same idea along the drum's length, against the flat end caps.
-    const maxAxial = AXIAL_HALF_LENGTH - AXIAL_MARGIN;
-    desiredPosition.x = THREE.MathUtils.clamp(desiredPosition.x, -maxAxial, maxAxial);
+    // push the camera outside the level's hull. Clamp position only —
+    // basis.up / lookAt (orientation) stay untouched — using whichever
+    // shape setBounds() configured for the current level.
+    this._clampToBounds(desiredPosition);
 
     this.camera.position.copy(desiredPosition);
 
@@ -98,6 +141,28 @@ export class Camera {
     // to center the body, not overshoot past the head.
     const lookTarget = basis.position.clone().add(basis.up.clone().multiplyScalar(4));
     this.camera.lookAt(lookTarget);
+  }
+
+  /** Mutates `position` in place to stay inside this._bounds, if set. */
+  _clampToBounds(position) {
+    const b = this._bounds;
+    if (!b) return;
+
+    if (b.type === 'cylinder') {
+      const radialDist = Math.hypot(position.y, position.z);
+      const maxRadius = b.radius - b.margin;
+      if (radialDist > maxRadius) {
+        const scale = maxRadius / radialDist;
+        position.y *= scale;
+        position.z *= scale;
+      }
+      const maxAxial = b.axialHalfLength - b.margin;
+      position.x = THREE.MathUtils.clamp(position.x, -maxAxial, maxAxial);
+    } else if (b.type === 'box') {
+      position.x = THREE.MathUtils.clamp(position.x, b.minX + b.margin, b.maxX - b.margin);
+      position.y = THREE.MathUtils.clamp(position.y, b.minY + b.margin, b.maxY - b.margin);
+      position.z = THREE.MathUtils.clamp(position.z, b.minZ + b.margin, b.maxZ - b.margin);
+    }
   }
 
   resize() {

@@ -3,78 +3,83 @@
 // THE MAZE LIVES HERE. This file is authored data plus pure grid helpers —
 // no THREE imports, no side effects, fully unit-testable.
 //
-// Authorship contract (Yannis owns this data):
+// Authorship (delegated to the implementation owner — Yannis's call):
 //   • GROUND_GRID / UPPER_GRID are 10 rows of 16 characters each.
-//       col 0 = west end-cap (x -32..-28), col 15 = east end-cap.
-//       row 0 = north wall   (z -20..-16), row 9 = south wall.
+//       col 0 = west end-cap (x -48..-42), col 15 = east end-cap.
+//       row 0 = north wall   (z -30..-24), row 9 = south wall.
 //   • '#'  solid module (ground: energy pylon, upper: partition block)
 //   • '.'  walkable floor
 //   • '~'  atrium void — UPPER grid only: no deck slab, railed edge
-//   • Ramp footprints (RAMPS below) are auto-carved to '.' on both storeys,
-//     so draw them either way — the carve wins.
+//   • TRANSIT pins the two vertical connections (elevator + ladder); both
+//     must sit on walkable cells on BOTH storeys — validateLayout() enforces it.
 //   • PLACEMENTS pins every gameplay anchor to a cell. validateLayout()
 //     (run at build time and in tests) reports authoring errors in prose.
 //   • tests/level2-grid.test.js enforces solvability — if a maze edit bricks
 //     a route, the test names exactly which one.
 //
-// The shipped maze is a PLACEHOLDER v0 satisfying the zoning locked in the
-// L2 design interview — redraw the '#'/'.'/'.~' art freely, keep the anchors
-// and the fixed corridors (south row 9 + east col 14 on ground) reachable.
+// Non-uniform scale (design interview): the world runs ×1.5 versus the v0
+// blockout (cells 6 wide, hall 96x60, deck at 12, ceiling at 24) while the
+// player runs at astronaut scale 2.5 (~5 units tall) — the hall reads grand,
+// the player reads medium.
 
-export const CELL_SIZE = 4;
+export const CELL_SIZE = 6;
 export const GRID_COLS = 16;
 export const GRID_ROWS = 10;
 
 // Hall extents in world units — the geometry modules read these.
-export const HALL = { minX: -32, maxX: 32, minZ: -20, maxZ: 20 };
+export const HALL = { minX: -48, maxX: 48, minZ: -30, maxZ: 30 };
 export const GROUND_Y = 0; // ground-floor walking surface
-export const DECK_Y = 8; // upper deck walking surface
-export const CEILING_Y = 16;
+export const DECK_Y = 12; // upper deck walking surface
+export const CEILING_Y = 24;
 
 export const STOREYS = ['ground', 'upper'];
 
 // ---------------------------------------------------------------------------
-// Grids — row strings, north first. Placeholder v0 maze.
+// Grids — row strings, north first. Maze v1 (see header for authorship).
 // ---------------------------------------------------------------------------
 
 export const GROUND_GRID = [
   // 0123456789012345
-  '.##.####.####.#.', // r0  north edge pockets
-  '..##.###.##.##..', // r1
-  '###..#.....#...#', // r2  O2 alcove open to the east corridor
-  '#.##.##.##.###.#', // r3
-  '#.##...#.##..#..', // r4
-  '..##.#####.#.#.#', // r5
-  '##.#..#.##.###.#', // r6
-  '#.#.###..#.###.#', // r7  Grav alcove open to the south
-  '....#.#.##...#..', // r8
+  '.##.####.####...', // r0  NE pocket — ladder foot lands at (14,0)
+  '....#.##..##...#', // r1  NW mouth open to the col-1/2/3 corridor
+  '#.#.....#....#.#', // r2  O2 alcove (12,2) opens north and west
+  '#.#..##..#...#..', // r3
+  '..##..#....##...', // r4
+  '###.#..##..#....', // r5
+  '#...#.###.#.##..', // r6
+  '##..#....#...#.#', // r7  Grav alcove (3,7) + fuel (7,7), open north
+  '#..#.#..##.#....', // r8
   '................', // r9  south boulevard (fixed corridor)
 ];
 
 export const UPPER_GRID = [
   // 0123456789012345
-  '.##.####.####...', // r0  north deck pockets + NE ramp mouth
+  '.##.#########...', // r0  north deck pockets + ladder hatch at (14,0)
   '.##..#~~~~###..#', // r1  Comms niche far north-west
-  '.#.#.#~~~~####.#', // r2
-  '.#.###~~~~#..#.#', // r3
-  '...###~~~~.###.#', // r4  command door cell at col 0
-  '#..#.#~~~~##.#.#', // r5
+  '.#...#~~~~####.#', // r2
+  '.#.###~~~~#....#', // r3
+  '...###~~~~...#.#', // r4  command door cell at col 0
+  '#....#~~~~##.#.#', // r5
   '#..###~~~~####.#', // r6
   '#..#.#########.#', // r7
   '#..............#', // r8  south boulevard (spawn row)
-  '#..##.########.#', // r9  south deck pockets
+  '#..##.########.#', // r9  south deck pockets — elevator arrives at (1,9)
 ];
 
 // ---------------------------------------------------------------------------
-// Ramps — 2x2-cell footprints auto-carved walkable on both storeys.
-// lowSide: which edge of the footprint sits at ground level; the slab rises
-// toward the opposite edge, exiting onto the deck cell beyond it.
+// Vertical transit — the two storey connections (ramps were scrapped in the
+// revision interview). Each pin is one cell that must be walkable on BOTH
+// storeys; the walk graph adds a ground<->upper edge through it.
+//   elevator — exterior cab on the south face at (1,9): rides up next to the
+//              command-door checkpoint (the return leg of the backtrack).
+//   ladder   — circular deck hatch at (14,0) against the north wall: the fast
+//              descent into the maze, one cell past the descent strip's end.
 // ---------------------------------------------------------------------------
 
-export const RAMPS = [
-  { id: 'ramp-sw', cols: [1, 2], rows: [8, 9], lowSide: 'S' },
-  { id: 'ramp-ne', cols: [13, 14], rows: [0, 1], lowSide: 'N' },
-];
+export const TRANSIT = {
+  elevator: { col: 1, row: 9 },
+  ladder: { col: 14, row: 0 },
+};
 
 // ---------------------------------------------------------------------------
 // Placements — every gameplay anchor pinned to a cell (or wall position).
@@ -102,21 +107,27 @@ export const PLACEMENTS = {
   ],
 };
 
-// Wall/ceiling camera mounts — positions in world space, each facing the hall
-// centre so the pan sweep covers the maze (design doc: cameras watch; the
-// red tracking light and flicker warning wire up with the gravity system).
+// Wall/ceiling camera mounts — positions in world space, all just below the
+// ceiling so the player looks up to see them (revision interview). Each mount
+// yaw-tracks the viewer with a fixed 30-degree downward tilt; the red lens
+// and flicker warning wire up with the gravity system later.
 export const CAMERA_MOUNTS = [
-  { position: [0, 12.5, -19.4] }, // north wall, mid
-  { position: [0, 12.5, 19.4] }, // south wall, mid
-  { position: [-29.5, 11.5, -17.5] }, // NW corner
-  { position: [29.5, 11.5, -17.5] }, // NE corner
-  { position: [-29.5, 11.5, 17.5] }, // SW corner
-  { position: [29.5, 11.5, 17.5] }, // SE corner
+  { position: [0, 22.5, -29.1] }, // north wall, mid
+  { position: [0, 22.5, 29.1] }, // south wall, mid — clears the elevator breach
+  { position: [-44.25, 22.5, -26.25] }, // NW corner
+  { position: [44.25, 22.5, -26.25] }, // NE corner
+  { position: [-44.25, 22.5, 26.25] }, // SW corner
+  { position: [44.25, 22.5, 26.25] }, // SE corner
 ];
 
 // Honest wayfinding strips (amber floor lights). Each route is a chain of
 // 4-adjacent cells on one storey; maze-builder lays one segment per cell.
 // The AI-lying phase later flips per-segment state — routes are data.
+//   to-door / to-comms  — the upper-deck westward leg (unchanged from v0)
+//   descent-ladder      — spawn east along row 8, north up col 14, ends at
+//                         the ladder hatch (14,0)
+//   to-elevator        — the backtrack: override terminal west along the
+//                         south boulevard to the elevator (1,9)
 export const STRIP_ROUTES = [
   {
     id: 'to-door',
@@ -135,27 +146,19 @@ export const STRIP_ROUTES = [
     ],
   },
   {
-    id: 'descent-ne',
+    id: 'descent-ladder',
     storey: 'upper',
     cells: [
       [7, 8], [8, 8], [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8],
-      [14, 7], [14, 6], [14, 5], [14, 4], [14, 3], [14, 2], [14, 1],
+      [14, 7], [14, 6], [14, 5], [14, 4], [14, 3], [14, 2], [14, 1], [14, 0],
     ],
   },
   {
-    id: 'backtrack-south',
+    id: 'to-elevator',
     storey: 'ground',
     cells: [
-      [1, 9], [2, 9], [3, 9], [4, 9], [5, 9], [6, 9], [7, 9],
-      [8, 9], [9, 9], [10, 9], [11, 9], [12, 9], [13, 9], [14, 9],
-    ],
-  },
-  {
-    id: 'override-to-ramp-ne',
-    storey: 'ground',
-    cells: [
-      [14, 9], [14, 8], [14, 7], [14, 6], [14, 5],
-      [14, 4], [14, 3], [14, 2], [14, 1],
+      [14, 9], [13, 9], [12, 9], [11, 9], [10, 9], [9, 9], [8, 9], [7, 9],
+      [6, 9], [5, 9], [4, 9], [3, 9], [2, 9], [1, 9],
     ],
   },
 ];
@@ -192,23 +195,6 @@ export function storeyFloorY(storey) {
   return storey === 'upper' ? DECK_Y : GROUND_Y;
 }
 
-/**
- * Returns a NEW grid with every ramp footprint cell forced to '.', leaving
- * the authored arrays pristine. Run before walkability checks — the carve
- * is part of the layout contract.
- */
-export function carveRamps(grid, ramps = RAMPS) {
-  const carved = grid.map((row) => row.split(''));
-  for (const ramp of ramps) {
-    for (const col of ramp.cols) {
-      for (const row of ramp.rows) {
-        carved[row][col] = '.';
-      }
-    }
-  }
-  return carved.map((row) => row.join(''));
-}
-
 /** Cell key used by the walk graph: 'upper:7,8'. */
 export const keyOf = (storey, col, row) => `${storey}:${col},${row}`;
 
@@ -220,11 +206,11 @@ export function parseKey(key) {
 
 /**
  * Combined walk graph over both storeys: 4-neighbour edges within a storey
- * plus a ground<->upper edge on every ramp footprint cell (the ramp itself
- * is the vertical connection).
+ * plus a ground<->upper edge on every TRANSIT pin (the elevator edge assumes
+ * the cab can be called — solvability treats it as traversable).
  * @returns {Map<string, string[]>} adjacency list
  */
-export function buildWalkGraph(groundGrid, upperGrid, ramps = RAMPS) {
+export function buildWalkGraph(groundGrid, upperGrid, transit = TRANSIT) {
   const grids = { ground: groundGrid, upper: upperGrid };
   const graph = new Map();
   const addNode = (storey, col, row) => {
@@ -248,16 +234,12 @@ export function buildWalkGraph(groundGrid, upperGrid, ramps = RAMPS) {
     }
   }
 
-  for (const ramp of ramps) {
-    for (const col of ramp.cols) {
-      for (const row of ramp.rows) {
-        const ground = keyOf('ground', col, row);
-        const upper = keyOf('upper', col, row);
-        if (graph.has(ground) && graph.has(upper)) {
-          graph.get(ground).push(upper);
-          graph.get(upper).push(ground);
-        }
-      }
+  for (const pin of Object.values(transit)) {
+    const ground = keyOf('ground', pin.col, pin.row);
+    const upper = keyOf('upper', pin.col, pin.row);
+    if (graph.has(ground) && graph.has(upper)) {
+      graph.get(ground).push(upper);
+      graph.get(upper).push(ground);
     }
   }
   return graph;
@@ -291,13 +273,14 @@ export function findPath(graph, fromKey, toKey) {
   return null;
 }
 
-/** Which ramp footprints a path touches — used to prove the backtrack loop. */
-export function rampsOnPath(path, ramps = RAMPS) {
+/** Which ramp footprints a path touches — kept for tests that prove the
+ * backtrack uses a specific transit pin (elevator vs ladder). */
+export function transitPinsOnPath(path, transit = TRANSIT) {
   const used = new Set();
   for (const key of path) {
     const { col, row } = parseKey(key);
-    for (const ramp of ramps) {
-      if (ramp.cols.includes(col) && ramp.rows.includes(row)) used.add(ramp.id);
+    for (const [name, pin] of Object.entries(transit)) {
+      if (pin.col === col && pin.row === row) used.add(name);
     }
   }
   return used;
@@ -310,12 +293,11 @@ export function rampsOnPath(path, ramps = RAMPS) {
 export function validateLayout(
   groundGrid = GROUND_GRID,
   upperGrid = UPPER_GRID,
-  placements = PLACEMENTS
+  placements = PLACEMENTS,
+  transit = TRANSIT
 ) {
   const problems = [];
-  const ground = carveRamps(groundGrid);
-  const upper = carveRamps(upperGrid);
-  const grids = { ground, upper };
+  const grids = { ground: groundGrid, upper: upperGrid };
 
   problems.push(...validateGridShape(groundGrid), ...validateGridShape(upperGrid));
 
@@ -337,10 +319,23 @@ export function validateLayout(
   }
   placements.fuelCells.forEach((spot, i) => checkAnchor(`fuel cell #${i}`, spot));
 
+  // Transit pins — walkable on BOTH storeys, and never on an anchor cell.
+  for (const [name, pin] of Object.entries(transit)) {
+    for (const storey of STOREYS) {
+      const ch = getCell(grids[storey], pin.col, pin.row);
+      if (!isWalkable(ch)) {
+        problems.push(`${name} pin sits on '${ch ?? 'outside'}' at ${storey} (${pin.col},${pin.row})`);
+      }
+    }
+    for (const storey of STOREYS) {
+      anchorCells.push(keyOf(storey, pin.col, pin.row));
+    }
+  }
+
   const duplicated = anchorCells.filter((key, i) => anchorCells.indexOf(key) !== i);
   if (duplicated.length) problems.push(`anchors share cells: ${[...new Set(duplicated)].join(' ')}`);
 
-  problems.push(...validateRampFootprints(grids), ...validateStripRoutes(grids));
+  problems.push(...validateStripRoutes(grids));
   return problems;
 }
 
@@ -360,22 +355,6 @@ function validateGridShape(grid) {
   // '~' is an upper-storey concept; a void under the atrium would be a pit.
   if (grid === GROUND_GRID && grid.some((row) => row.includes('~'))) {
     problems.push('GROUND_GRID must not contain atrium voids (~)');
-  }
-  return problems;
-}
-
-function validateRampFootprints(grids) {
-  const problems = [];
-  for (const ramp of RAMPS) {
-    for (const col of ramp.cols) {
-      for (const row of ramp.rows) {
-        for (const storey of STOREYS) {
-          if (!isWalkable(getCell(grids[storey], col, row))) {
-            problems.push(`${ramp.id} footprint not walkable on ${storey} (${col},${row})`);
-          }
-        }
-      }
-    }
   }
   return problems;
 }

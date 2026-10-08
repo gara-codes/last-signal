@@ -1,7 +1,8 @@
 // src/ui/screens/options.js
 //
-// Options: four pip sliders (SFX, Music, Brightness, HUD Opacity) plus the AI Voice Captions
-// toggle. Always on the L1 blue, even when opened from the pause overlay.
+// Options: four pip sliders (SFX, Music, Brightness, HUD Opacity), the Graphics Quality stepper
+// (Low / Medium / High), then the AI Voice Captions and Reduce Flashing switches. Always on the
+// L1 blue, even when opened from the pause overlay.
 //
 // Each slider can be dragged (the pip track is the drag surface), stepped with the < > buttons,
 // or driven from the keyboard. The hover/focus state — brightened border, a handle tick at the
@@ -10,7 +11,7 @@
 
 import './options.css';
 import { el, cornerBrackets, createPips } from '../dom.js';
-import { SLIDERS, SLIDER_MAX, SLIDER_STEP, sliderMin } from '../settings.js';
+import { SLIDERS, SLIDER_MAX, SLIDER_STEP, sliderMin, CHOICES } from '../settings.js';
 
 const PIP_COUNT = 20;
 
@@ -131,24 +132,122 @@ function buildSlider(def, settings) {
   return { row, track, render, key: def.key };
 }
 
-export function createOptionsScreen(api) {
-  const { settings } = api;
-  const sliders = SLIDERS.map((def) => buildSlider(def, settings));
+// Pick-one settings (Graphics Quality): a stepper that reuses the slider row — the value's name
+// in a box with one mark per value, between the sliders' own < > buttons. Left/Right (or the
+// buttons) step through the values; the caption under the row describes the current value.
+function buildChoice(def, settings) {
+  const name = el('span', { className: 'options-choice__name ui-label' });
+  const marks = def.values.map(() => el('i'));
+  const box = el(
+    'div',
+    {
+      className: 'options-choice__value',
+      attrs: { role: 'spinbutton', tabindex: 0, 'aria-label': def.label },
+    },
+    name,
+    el('span', { className: 'options-choice__marks', attrs: { 'aria-hidden': 'true' } }, marks)
+  );
+  const stepButton = (symbol, direction, verb) =>
+    el('button', {
+      className: 'options-slider__step',
+      text: symbol,
+      attrs: { type: 'button', 'aria-label': `${verb} ${def.label}` },
+      on: { click: () => settings.step(def.key, direction) },
+    });
+  const lessButton = stepButton('<', -1, 'Lower');
+  const moreButton = stepButton('>', 1, 'Raise');
+  const caption = el('div', { className: 'options-slider__caption' });
 
-  const captionsLabel = el('span', {
-    className: 'options__toggle-label ui-label',
-    text: 'AI Voice Captions',
-    attrs: { id: 'options-captions-label' },
+  const row = el(
+    'div',
+    { className: 'options-slider options-choice' },
+    el('div', { className: 'options-slider__label ui-label', text: def.label }),
+    el('div', { className: 'options-slider__controls' }, box, lessButton, moreButton),
+    caption
+  );
+
+  box.addEventListener('keydown', (event) => {
+    let handled = true;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') settings.step(def.key, -1);
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') settings.step(def.key, 1);
+    else if (event.key === 'Home') settings.set(def.key, def.values[0]);
+    else if (event.key === 'End') settings.set(def.key, def.values[def.values.length - 1]);
+    else handled = false;
+    if (handled) event.preventDefault();
   });
-  const captionsToggle = el(
+
+  function render(value) {
+    const index = Math.max(0, def.values.indexOf(value));
+    name.textContent = def.names[value] ?? value;
+    caption.textContent = def.hints[value] ?? '';
+    marks.forEach((mark, i) => mark.classList.toggle('is-on', i <= index));
+    box.setAttribute('aria-valuemin', '1');
+    box.setAttribute('aria-valuemax', String(def.values.length));
+    box.setAttribute('aria-valuenow', String(index + 1));
+    box.setAttribute('aria-valuetext', def.names[value] ?? value);
+    for (const [button, atLimit] of [
+      [lessButton, index === 0],
+      [moreButton, index === def.values.length - 1],
+    ]) {
+      button.classList.toggle('is-limit', atLimit);
+      button.setAttribute('aria-disabled', String(atLimit));
+    }
+  }
+
+  return { row, render, key: def.key };
+}
+
+// On/off switches under the sliders. `caption` is a one-line note always shown under the row.
+const TOGGLES = [
+  { key: 'captions', label: 'AI Voice Captions' },
+  {
+    key: 'reduceFlashing',
+    label: 'Reduce Flashing',
+    caption: 'Warnings dim steadily instead of flashing.',
+  },
+];
+
+function buildToggle(def, settings) {
+  const labelId = `options-${def.key}-label`;
+  const toggle = el(
     'button',
     {
       className: 'options-toggle',
-      attrs: { type: 'button', role: 'switch', 'aria-labelledby': 'options-captions-label' },
-      on: { click: () => settings.set('captions', !settings.get().captions) },
+      attrs: { type: 'button', role: 'switch', 'aria-labelledby': labelId },
+      on: { click: () => settings.set(def.key, !settings.get()[def.key]) },
     },
     el('span', { className: 'options-toggle__knob' })
   );
+  const row = el(
+    'div',
+    { className: 'options__toggle' },
+    el(
+      'div',
+      { className: 'options__toggle-row' },
+      el('span', {
+        className: 'options__toggle-label ui-label',
+        text: def.label,
+        attrs: { id: labelId },
+      }),
+      toggle
+    ),
+    def.caption
+      ? el('div', { className: 'options__toggle-caption ui-mono', text: def.caption })
+      : null
+  );
+  return {
+    row,
+    render(value) {
+      toggle.setAttribute('aria-checked', String(value));
+    },
+  };
+}
+
+export function createOptionsScreen(api) {
+  const { settings } = api;
+  const sliders = SLIDERS.map((def) => buildSlider(def, settings));
+  const choices = CHOICES.map((def) => buildChoice(def, settings));
+  const toggles = TOGGLES.map((def) => ({ key: def.key, ...buildToggle(def, settings) }));
 
   const backButton = el('button', {
     className: 'ui-button ui-chamfer-row',
@@ -171,7 +270,12 @@ export function createOptionsScreen(api) {
         { className: 'options__panel ui-panel ui-chamfer-panel' },
         el('h2', { className: 'options__title', text: 'Options' }),
         sliders.map((slider) => slider.row),
-        el('div', { className: 'options__toggle-row' }, captionsLabel, captionsToggle),
+        choices.map((choice) => choice.row),
+        el(
+          'div',
+          { className: 'options__toggles' },
+          toggles.map((toggle) => toggle.row)
+        ),
         el('div', { className: 'options__footer' }, backButton)
       )
     ),
@@ -180,7 +284,8 @@ export function createOptionsScreen(api) {
 
   function renderAll(values) {
     for (const slider of sliders) slider.render(values[slider.key]);
-    captionsToggle.setAttribute('aria-checked', String(values.captions));
+    for (const choice of choices) choice.render(values[choice.key]);
+    for (const toggle of toggles) toggle.render(values[toggle.key]);
   }
 
   settings.subscribe(renderAll);

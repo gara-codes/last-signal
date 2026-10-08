@@ -19,9 +19,9 @@ export const TIPS = {
   ],
 
   // Not shown until Level 2 exists.
-  // TODO(confirm): repairs persisting across death is Alex/Yannis's call. "Beacon" was
-  // dropped on purpose — there is exactly one checkpoint (the L2 command-center door).
-  l2: ['Repaired systems stay repaired, even if you die and restart from the checkpoint.'],
+  // Matches main.js's resetLevel(): the one checkpoint is collecting the override; restarting
+  // from it keeps what was repaired by then, while dying before it restarts L2 fresh.
+  l2: ['Collecting the override is a checkpoint: repairs made before it survive a death.'],
 };
 
 /**

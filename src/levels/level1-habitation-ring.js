@@ -5,6 +5,8 @@ import { createDoor, applyFuelGate, updateInteractables, isSharedDoorResource } 
 import { FuelSystem } from '../systems/fuel-system.js';
 import { DoorGate } from '../systems/door-gate.js';
 import { setInteractPrompt } from '../ui/hud.js';
+import { promptForInteractable, FUEL_CELL_HINT } from '../ui/prompt-copy.js';
+import { createLevel1Decor } from './level1/decor.js';
 
 const SEGMENTS = 30;
 const RADIUS = 31;
@@ -57,13 +59,23 @@ function createPodBays() {
   const capRadius = 1.5;
   const capLength = 3.0;
   const capsuleGeometry = new THREE.CapsuleGeometry(capRadius, capLength, 8, 16);
+  // White hibernation pods (reference: Discovery's sleeper pods) with a
+  // dark glass canopy along the top
   const capsuleMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4a6a8a,
-    metalness: 0.2,
-    roughness: 0.4,
+    color: 0xf0f3f5,
+    metalness: 0.1,
+    roughness: 0.3,
+  });
+  const canopyGeometry = new THREE.CapsuleGeometry(capRadius * 0.55, capLength * 0.85, 8, 16);
+  const canopyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2a3f57,
+    metalness: 0.3,
+    roughness: 0.05,
+    transparent: true,
+    opacity: 0.85,
   });
 
-  const spawnRadius = RADIUS - capRadius; // Sit just inside the outer curved hull
+  const spawnRadius = WALK_RADIUS - capRadius; // Rest on the deck (decor.js), not sunk into it
   const numPods = 3;
 
   // Since level1.group.rotation.z = Math.PI / 2, local -X (angle = Math.PI)
@@ -81,6 +93,10 @@ function createPodBays() {
     const y = 7; // world x = -7 — clear of the transit chamber at the +x end
 
     pod.position.set(x, y, z);
+    // Canopy sits proud of the shell on the side facing the drum axis
+    const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
+    canopy.position.set(-Math.cos(angle) * capRadius * 0.5, 0, -Math.sin(angle) * capRadius * 0.5);
+    pod.add(canopy);
     group.add(pod);
   }
 
@@ -272,18 +288,36 @@ const FUEL_CELL_PLACEMENTS = [
 const PICKUP_RADIUS = 2.5;
 const scratchVec = new THREE.Vector3(); // Module scope — reused every frame, never allocated in the loop
 const INTERACT_RADIUS = 3; // Max distance from the player to an interactable's world AABB for the E-key
+const FUEL_HINT_RADIUS = 7; // Fuel cells within this range get the "Collect Fuel Cell" hint prompt
 const interactBox = new THREE.Box3();
 function findNearestInteractable(interactables, player, maxDistance){
   let best = null;
   let bestDist = maxDistance;
   for(const obj of interactables){
     if(!obj.userData?.interactable) continue;
+    if(obj.userData.isFuelCell) continue; // auto-pickup: hinted separately, never an E target
     interactBox.setFromObject(obj);                        // world AABB incl. all descendants + rotations
     const distance = interactBox.distanceToPoint(player.position);
     if(distance < bestDist) {best = obj; bestDist=distance;}
   }
   return best;
 }
+/** Closest uncollected fuel cell within maxDistance of the player, or null. */
+function nearestFuelCell(cells, player, maxDistance) {
+  let best = null;
+  let bestDist = maxDistance;
+  for (const cell of cells) {
+    if (cell.userData.collected) continue;
+    cell.getWorldPosition(scratchVec);
+    const distance = scratchVec.distanceTo(player.position);
+    if (distance < bestDist) {
+      best = cell;
+      bestDist = distance;
+    }
+  }
+  return best;
+}
+
 /**
  * Spawns one fuel cell per FUEL_CELL_PLACEMENTS entry. Collection is
  * proximity-based (driven from the level update loop), so no interact
@@ -389,6 +423,7 @@ export function createLevel1() {
   const { room, exitDoor } = createTransitPoint(interactables, () => {
     console.log(`LEVEL 1 COMPLETE - banked for L2: ${fuelSystem.banked}`);
     //Beta: level-swap lives here; `banked` becomes L2's starting reserve
+    level1Group.userData.l1Complete = true; // main.js watches this to fire the transition beat
   });
   applyFuelGate(exitDoor, new DoorGate('l1-blastdoor-2', 2), fuelSystem);
 
@@ -403,7 +438,11 @@ export function createLevel1() {
   level1Group.add(room);
   level1Group.add(cells);
 
+  const decor = createLevel1Decor(); // Visual pass: deck, end walls, consoles, bunks
+  level1Group.add(decor.group);
+
   level1Group.userData.fuelSystem = fuelSystem; // Console/debug access
+  level1Group.userData.fuelCellsPlaced = FUEL_CELL_PLACEMENTS.length; // HUD total (main.js)
 
   // --- Collision ---------------------------------------------------------
   // Walls are solid rectangles in the drum's own (axial, theta) coordinates:
@@ -460,6 +499,7 @@ export function createLevel1() {
    */
   function dispose() {
     setInteractPrompt(null); // Hide the HUD prompt along with the level
+    decor.dispose();
     if (attachedController) {
       for (const blocker of wallBlockers) attachedController.removeWallBlocker(blocker);
     }
@@ -497,6 +537,7 @@ export function createLevel1() {
 
     emergencyUniforms.time.value += delta;
     updateInteractables(interactables, delta);
+    decor.update(delta); // console screen animation
 
     if (!player) return;
     // Copy the list first: interact() removes the cell from `cells` mid-iteration
@@ -508,13 +549,19 @@ export function createLevel1() {
       }
     }
     // Nearest interactable in reach drives both the E-key dispatch and
-    // the on-screen prompt. Doors mid-animation or already open are
-    // excluded from the prompt (E has no effect there) but still receive
-    // the key press.
+    // the on-screen prompt (copy in ui/prompt-copy.js: "Open Door | 2 Fuel
+    // Cells", muted when unaffordable). Doors mid-animation or already open
+    // get no prompt (E has no effect there) but still receive the key press.
+    // With nothing in reach, the nearest fuel cell gets a hint prompt.
     const nearby = findNearestInteractable(interactables, player, INTERACT_RADIUS);
-    const promptable =
-      nearby && (!nearby.userData.state || nearby.userData.state === 'locked' || nearby.userData.state === 'unlocked');
-    setInteractPrompt(promptable ? 'Interact' : null);
+    const prompt = promptForInteractable(nearby, fuelSystem);
+    if (prompt) {
+      setInteractPrompt(prompt.label, { ...prompt, target: nearby });
+    } else {
+      const cell = nearestFuelCell(cells.children, player, FUEL_HINT_RADIUS);
+      if (cell) setInteractPrompt(FUEL_CELL_HINT.label, { ...FUEL_CELL_HINT, target: cell });
+      else setInteractPrompt(null);
+    }
     if (input?.interact) nearby?.userData.interact?.();
   }
 
