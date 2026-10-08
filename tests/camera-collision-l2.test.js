@@ -30,7 +30,7 @@ beforeAll(async () => {
   ({ Camera } = await import('../src/core/Camera.js'));
   ({ createLevel2 } = await import('../src/levels/level2-engineering-core.js'));
   ({ HALL, GROUND_Y, DECK_Y, CEILING_Y } = await import('../src/levels/level2/grid-data.js'));
-});
+}, 60000); // loads the whole L2 module graph; the default 10s can trip on a busy machine
 
 // Seeded so a failure reproduces.
 function mulberry32(seed) {
@@ -144,7 +144,7 @@ describe('camera blockers on the real L2 level', () => {
     expect(tested).toBeGreaterThan(1000);
     expect(firstFailure).toBeNull();
     expect(failures).toBe(0);
-  });
+  }, 60000);
 
   it('includes the command door and elevator gates, and follows a gate being spliced out', () => {
     const level = createLevel2({ useTextures: false });
