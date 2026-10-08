@@ -35,14 +35,14 @@ describe('Camera blockers', () => {
 
   it('is unaffected by blockers that are not on its line to the player', () => {
     const cam = new Camera();
-    cam.setBlockers([box(20, 30, 0, 10, -20, 20)]);
+    cam.setBlockers([[box(20, 30, 0, 10, -20, 20)]]);
     cam.update(makeBasis());
     expect(cam.getCamera().position.z).toBeCloseTo(-9, 5);
   });
 
   it('stops in front of a wall between the player and the camera', () => {
     const cam = new Camera();
-    cam.setBlockers([box(-10, 10, 0, 10, -6, -5)]); // wall behind the player
+    cam.setBlockers([[box(-10, 10, 0, 10, -6, -5)]]); // wall behind the player
     cam.update(makeBasis());
     // Must end up on the player's side of the wall, not behind it.
     expect(cam.getCamera().position.z).toBeGreaterThan(-5);
@@ -50,7 +50,7 @@ describe('Camera blockers', () => {
 
   it('stays under a deck slab instead of rising above it (ground floor, pitching up)', () => {
     const cam = new Camera();
-    cam.setBlockers([box(-10, 10, 6, 6.4, -10, 10)]); // slab overhead, player below it
+    cam.setBlockers([[box(-10, 10, 6, 6.4, -10, 10)]]); // slab overhead, player below it
     cam.update(makeBasis());
     expect(cam.getCamera().position.y).toBeLessThan(6);
   });
@@ -59,16 +59,80 @@ describe('Camera blockers', () => {
     const cam = new Camera();
     // Wall 0.1 behind the player: the player's head point is inside the padded box, so this
     // exercises the true-size fallback.
-    cam.setBlockers([box(-10, 10, 0, 10, -1, -0.1)]);
+    cam.setBlockers([[box(-10, 10, 0, 10, -1, -0.1)]]);
     cam.update(makeBasis());
     expect(cam.getCamera().position.z).toBeGreaterThanOrEqual(-0.1 - 1e-6);
   });
 
   it('setBlockers(null) turns it off again', () => {
     const cam = new Camera();
-    cam.setBlockers([box(-10, 10, 0, 10, -6, -5)]);
+    cam.setBlockers([[box(-10, 10, 0, 10, -6, -5)]]);
     cam.setBlockers(null);
     cam.update(makeBasis());
     expect(cam.getCamera().position.z).toBeCloseTo(-9, 5);
+  });
+
+  // The elevator and the level's anchors add boxes to the wall list AFTER the geometry is built,
+  // and the elevator splices its gates in and out at runtime — so the camera has to read the
+  // list live rather than keep a snapshot.
+  it('sees boxes added to, and removed from, a blocker list after setBlockers()', () => {
+    const walls = [];
+    const cam = new Camera();
+    cam.setBlockers([walls]);
+
+    cam.update(makeBasis());
+    expect(cam.getCamera().position.z).toBeCloseTo(-9, 5); // nothing yet
+
+    const door = box(-10, 10, 0, 10, -6, -5);
+    walls.push(door); // e.g. the command-door slab, added by placeAnchors()
+    cam.update(makeBasis());
+    expect(cam.getCamera().position.z).toBeGreaterThan(-5);
+
+    walls.splice(walls.indexOf(door), 1); // e.g. an elevator gate opening
+    cam.update(makeBasis());
+    expect(cam.getCamera().position.z).toBeCloseTo(-9, 5);
+  });
+
+  it('reports how close the camera is to the head, so the player can be hidden when squeezed', () => {
+    const open = new Camera();
+    open.update(makeBasis());
+    expect(open.headDistance).toBeCloseTo(Math.hypot(5, 9), 5); // head (0,4,0) -> camera (0,9,-9)
+
+    const squeezed = new Camera();
+    squeezed.setBlockers([[box(-10, 10, 0, 10, -1, -0.1)]]);
+    squeezed.update(makeBasis());
+    expect(squeezed.headDistance).toBeLessThan(1.3);
+  });
+
+  it('with a clamp that would put the line under the floor, never ends up inside a blocker', () => {
+    // Floor at y=0 is only a clamp (not a blocker); a pylon stands where the clamp would lift
+    // the camera to. Pitched hard down, the unclamped target sits below the floor.
+    const cam = new Camera();
+    cam.setBounds({ type: 'box', minX: -50, maxX: 50, minY: 0, maxY: 24, minZ: -50, maxZ: 50, margin: 1 });
+    const pylon = box(-2, 2, 0, 3, -9.5, -6);
+    cam.setBlockers([[pylon]]);
+    cam.pitch = -1.4; // looking down: camera swings up, then clamp/pull-in must still hold
+    cam.update(makeBasis());
+    const p = cam.getCamera().position;
+    const inside =
+      p.x > pylon.minX && p.x < pylon.maxX && p.y > pylon.minY && p.y < pylon.maxY && p.z > pylon.minZ && p.z < pylon.maxZ;
+    expect(inside).toBe(false);
+  });
+
+  it('eases back out after a wall lets go instead of snapping, but never past a wall', () => {
+    const cam = new Camera();
+    const walls = [box(-10, 10, 0, 10, -2, -1)];
+    cam.setBlockers([walls]);
+    cam.update(makeBasis(), 1 / 60);
+    const squeezed = cam.getCamera().position.z;
+
+    walls.length = 0; // wall gone
+    cam.update(makeBasis(), 1 / 60);
+    const next = cam.getCamera().position.z;
+    expect(next).toBeLessThan(squeezed); // moving outward (more negative z)
+    expect(next).toBeGreaterThan(-9); // but not all the way out in one frame
+
+    for (let i = 0; i < 120; i++) cam.update(makeBasis(), 1 / 60);
+    expect(cam.getCamera().position.z).toBeCloseTo(-9, 1); // settles back at the full orbit
   });
 });

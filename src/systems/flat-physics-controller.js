@@ -26,8 +26,9 @@ const GRAVITY = 20;
 
 // Player capsule footprint, used for the swept-AABB collision check against
 // wallAABBs/railAABBs. Half-extents in X/Z; full height in Y.
-const PLAYER_RADIUS = 0.4;
-const PLAYER_HEIGHT = 1.8;
+// Scaled ×1.5 to match the revised blockout (CELL_SIZE 4 → 6).
+const PLAYER_RADIUS = 0.6;
+const PLAYER_HEIGHT = 2.7;
 
 export class FlatPhysicsController {
   /**

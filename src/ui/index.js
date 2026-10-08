@@ -27,6 +27,9 @@
 //   fuel count     Wired: main.js reads level1.group.userData.fuelSystem.banked every frame and
 //                  calls ui.setFuelCount() (which ignores repeats). If the level ever stops
 //                  exposing fuelSystem there, main.js warns and the panel reads 00.
+//   fuel total     Wired: on each level load main.js calls ui.setFuelTotal(carried in + cells
+//                  placed), read from level.group.userData.fuelCellsPlaced. Fixed for the
+//                  level; L3 should set it the same way (or null to hide it).
 //   oxygen/health  Wired (L2): main.js reads level.group.userData.oxygenSystem every frame and
 //                  calls ui.setOxygen(fraction) / ui.setHealth(health / 100). The meters only
 //                  show on L2/L3 (the level sets that via setLevel).
@@ -51,6 +54,11 @@
 //                  (body[data-captions]).
 //   flashing       Options > Reduce Flashing sets body[data-reduce-flashing]; hud.css and the
 //                  repair consoles handle it, nothing to wire.
+//   graphics       Options > Graphics Quality: 'low' | 'medium' | 'high' (default 'high' until the
+//                  benchmark says otherwise). Natasha's PostFx applies it — once it is created
+//                  in main.js:  postFx.setQuality(ui.settings.get().graphicsQuality);
+//                               ui.settings.subscribe((s) => postFx.setQuality(s.graphicsQuality));
+//                  Also mirrored to body[data-graphics-quality].
 //   death          Wired (L2): main.js calls ui.showRestart({ levelId, fuelCells, repairs,
 //                  checkpointReached }) once per death when oxygenSystem.isDead. L3 should call
 //                  it the same way.
@@ -83,8 +91,10 @@ export { STATES };
 /**
  * @param {object} [options]
  * @param {HTMLCanvasElement} [options.canvas] the game canvas (Brightness is applied to it)
+ * @param {string} [options.initialLevelId] the level New Game starts on and the HUD opens with —
+ *   L1 normally; main.js passes 'l2' for the ?level=l2 dev start.
  */
-export function initUI({ canvas = null } = {}) {
+export function initUI({ canvas = null, initialLevelId = FIRST_LEVEL_ID } = {}) {
   // Must run before the level and player start loading so their assets are counted.
   const progress = trackAssetProgress();
 
@@ -95,7 +105,7 @@ export function initUI({ canvas = null } = {}) {
   const hooks = {};
   const hud = createHud();
 
-  let levelId = FIRST_LEVEL_ID;
+  let levelId = initialLevelId;
   function setLevel(id) {
     levelId = id;
     document.body.dataset.level = id;
@@ -116,6 +126,7 @@ export function initUI({ canvas = null } = {}) {
     }
     document.body.dataset.captions = values.captions ? 'on' : 'off';
     document.body.dataset.reduceFlashing = values.reduceFlashing ? 'on' : 'off';
+    document.body.dataset.graphicsQuality = values.graphicsQuality;
   }
   settings.subscribe(applySettings);
   applySettings(settings.get());
@@ -129,7 +140,7 @@ export function initUI({ canvas = null } = {}) {
     hud,
     getLevelId: () => levelId,
     setLevel,
-    firstLevelId: FIRST_LEVEL_ID,
+    firstLevelId: initialLevelId,
   });
   document.body.append(manager.root);
 
@@ -140,6 +151,8 @@ export function initUI({ canvas = null } = {}) {
     registerHooks: (partial) => Object.assign(hooks, partial),
     setLevel,
     setFuelCount: (count) => hud.setFuelCount(count),
+    /** The level's total fuel cells (carried in + placed), shown as "/ 11"; null hides it. */
+    setFuelTotal: (total) => hud.setFuelTotal(total),
     setOxygen: (fraction) => hud.setOxygen(fraction),
     setHealth: (fraction) => hud.setHealth(fraction),
     setPower: (percent) => hud.setPower(percent),

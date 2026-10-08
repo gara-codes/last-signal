@@ -9,7 +9,7 @@ float rand(float n) {
 
 void main() {
   vec3 white = vec3(1.0, 1.0, 1.0);
-  vec3 red = vec3(1.0, 0.15, 0.15);
+  vec3 red = vec3(0.8, 0.0, 0.0);
   vec3 baseColor = mix(red, white, powerRemaining);
 
   // flicker gets stronger as power drops; steps ~12x/sec so it reads as

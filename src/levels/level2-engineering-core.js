@@ -23,6 +23,7 @@ import {
   CELL_SIZE,
   DECK_Y,
   GROUND_Y,
+  UPPER_GRID,
 } from './level2/grid-data.js';
 import { createBlockoutMaterials, releaseHullTexture } from './level2/props.js';
 import {
@@ -46,7 +47,7 @@ import {
 const INTERACT_RADIUS = 3.5; // max world distance for the E-key prompt
 const FUEL_PICKUP_RADIUS = 2.5; // proximity collection radius for fuel cells
 const FUEL_HINT_RADIUS = 7; // fuel cells within this range get the "Collect Fuel Cell" hint
-const EYE_HEIGHT = 1.7; // flycam spawn eye height above the deck/ground
+const EYE_HEIGHT = 2.55; // flycam spawn eye height above the deck/ground
 
 // Reusable scratch vectors — module-level singletons, never allocated inside
 // the per-frame loop. Concurrent L2 instances are not supported (the level
@@ -55,14 +56,20 @@ const scratchPosition = new THREE.Vector3();
 const scratchEuler = new THREE.Euler();
 
 /**
- * Boxes the third-person camera must not pass through: every wall/module/door the player
- * collides with, plus one slab per upper-deck cell. The deck is only a visual mesh in the
- * collision data (the player's floor comes from floorSpec), so without these the camera could
- * pitch up on the ground floor and end up above the deck, looking down at its top face.
- * Atrium rails are left out — thin and see-through, they'd make the camera jitter.
+ * What the third-person camera must not pass through, as a list of box LISTS for
+ * Camera.setBlockers(): the player's own wall list, plus one slab per upper-deck cell. The deck
+ * is only a visual mesh in the collision data (the player's floor comes from floorSpec), so
+ * without the slabs the camera could pitch up on the ground floor and end up above the deck,
+ * looking down at its top face. Atrium rails are left out — thin and see-through, they'd make
+ * the camera jitter.
+ *
+ * The wall list is the SAME array collision.wallAABBs, not a copy: placeAnchors() adds boxes to
+ * it after the geometry is built (command-door slab, elevator shaft walls, gates, ladder rails)
+ * and the elevator splices its gate boxes in and out at runtime. A snapshot taken here would
+ * miss the first and keep stale copies of the second.
  */
 function buildCameraBlockers(geometry) {
-  const slabs = listDeckCells(geometry.upper).map(({ col, row }) => {
+  const slabs = listDeckCells(UPPER_GRID).map(({ col, row }) => {
     const { x, z } = cellToWorld(col, row);
     return {
       minX: x - CELL_SIZE / 2,
@@ -74,7 +81,7 @@ function buildCameraBlockers(geometry) {
       name: 'deck-slab',
     };
   });
-  return [...geometry.collision.wallAABBs, ...slabs];
+  return [geometry.collision.wallAABBs, slabs];
 }
 
 /** FlatPhysicsController's facingYaw, read back off the player model (it sets the model's
@@ -95,6 +102,10 @@ function createRegistries() {
     updatables: [], // per-frame animation tick
     fuelCells: [], // proximity pickup candidates
     collision: null, // set by buildLevelGeometry
+    // Blockout transit hooks (see setTransitHandlers): while unwired,
+    // transit.js moves the viewer directly — which serves the flycam
+    // and the tests.
+    transit: { onTeleport: null, onRide: null },
   };
 }
 
@@ -270,6 +281,7 @@ export function createLevel2(options = {}) {
   const fuelSystem = new FuelSystem(restore ? restore.fuelCount : startingReserve);
   registries.fuelSystem = fuelSystem;
   group.userData.fuelSystem = fuelSystem; // debug / HUD read
+  group.userData.fuelCellsPlaced = PLACEMENTS.fuelCells.length; // HUD total (main.js)
 
   const repairs = new SystemRepairAllocation(restore?.repairs ?? {});
   registries.repairs = repairs;
@@ -327,8 +339,11 @@ export function createLevel2(options = {}) {
     for (const obj of registries.updatables) {
       obj.userData.setTarget?.(viewer ? viewer.position : null);
     }
-    updateInteractables(registries.updatables, delta);
-    if (!viewer) return;
+
+    // Viewer forwarded (door-system.js) so updatables that track it —
+    // camera mounts, elevator carry, ladder direction — receive it.
+    updateInteractables(registries.updatables, delta, viewer);
+    if (!viewer) return; // nothing below makes sense without a viewer (tests / pre-spawn frames)
 
     tickFuelProximity(registries.fuelCells, viewer);
 
@@ -410,6 +425,16 @@ export function createLevel2(options = {}) {
       restore
         ? { x: restore.x, y: restore.y, z: restore.z, yaw: restore.yaw ?? 0 }
         : computePlayerSpawn(),
+    /**
+     * Wires the blockout transit handlers (main.js's player path):
+     *   onTeleport(x, y, z, yaw) — the ladder hatch
+     *   onRide(cabFloorY)        — the elevator carry
+     * Left unwired, transit.js mutates the viewer directly — the flycam
+     * and the tests run that way.
+     */
+    setTransitHandlers(handlers = {}) {
+      Object.assign(registries.transit, handlers);
+    },
     // Debug handles — console access for the flycam and fuel reads.
     __anchors: anchors,
     __lighting: lighting,

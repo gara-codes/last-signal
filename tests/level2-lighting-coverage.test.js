@@ -13,7 +13,6 @@ import {
 import {
   GROUND_GRID,
   UPPER_GRID,
-  RAMPS,
   GRID_COLS,
   GRID_ROWS,
   cellToWorld,
@@ -30,8 +29,7 @@ function walkableCells(grid) {
   const cells = [];
   for (let row = 0; row < GRID_ROWS; row++) {
     for (let col = 0; col < GRID_COLS; col++) {
-      const inRamp = RAMPS.some((r) => r.cols.includes(col) && r.rows.includes(row));
-      if (isWalkable(grid[row][col]) || inRamp) cells.push({ col, row });
+      if (isWalkable(grid[row][col])) cells.push({ col, row });
     }
   }
   return cells;

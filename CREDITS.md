@@ -87,7 +87,7 @@ redrawn from our own wireframes. Listed because it shaped the look.
 
 | What it covers | Source / author | URL | Used for | Added by (date) |
 | -------------- | --------------- | --- | -------- | --------------- |
-| —              | —               | —   | —        | —               |
+| GLSL sin/fract hash and 2D value noise (chapters 10 and 11) | The Book of Shaders — Patricio Gonzalez Vivo & Jen Lowe | https://thebookofshaders.com/11/ | rand() hash in the project's custom shaders; valueNoise() for the dissolve threshold (technique learned, code our own) | Natasha (06-10-2026) |
 
 ---
 

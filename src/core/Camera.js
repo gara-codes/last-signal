@@ -7,6 +7,7 @@ const MAX_PITCH = Math.PI / 2 - 0.15; // stop just short of straight up/down, av
 // 0.1 near plane, so the surface itself never clips into view).
 const BLOCKER_PADDING = 0.3;
 const HEAD_HEIGHT = 4; // lookAt point above the player's base — also the ray's origin
+const ARM_EASE_RATE = 6; // 1/s — how quickly the camera eases back out once a wall lets go
 
 // Scratch values for the per-frame blocker test — module-level so it never allocates.
 const rayOrigin = new THREE.Vector3();
@@ -68,8 +69,21 @@ export class Camera {
     // once after construction. See setBounds() for the two shapes.
     this._bounds = null;
 
-    // Solid boxes the camera must not pass through — see setBlockers(). null = none (L1).
+    // Lists of solid boxes the camera must not pass through — see setBlockers(). null = none (L1).
     this._blockers = null;
+
+    // How much of the head-to-camera line is clear (0..1), eased back out after a wall lets go
+    // so the camera doesn't snap away — see _pullInFromBlockers().
+    this._armRatio = 1;
+
+    // Distance from the player's head to the camera after the last update(). When a wall
+    // squeezes the camera in, main.js hides the player model below a threshold so the camera
+    // is never looking out from inside it.
+    this.headDistance = Infinity;
+
+    // Orbit distance — how far back + how far off the wall. Per-level setting
+    // because L1 and L2 have different scales. Default 9 (L1's original).
+    this._orbitDistance = 9;
 
     // Flashlight — always-on SpotLight parented to the camera (design doc:
     // a camera spotlight, not a resource). Same settings as FlyCam's, so
@@ -112,15 +126,26 @@ export class Camera {
   }
 
   /**
-   * Solid geometry the camera can't see through or pass through, as plain
-   * { minX, maxX, minY, maxY, minZ, maxZ } boxes (L2's walls and deck slabs). Each frame the
-   * camera is pulled in along its line to the player so it stops at the first one in the way
-   * — the walls of the maze, and the deck slab when pitching up from the ground floor.
+   * Solid geometry the camera can't see through or pass through: an array of LISTS of plain
+   * { minX, maxX, minY, maxY, minZ, maxZ } boxes (L2: its wall list and its deck slabs). Each
+   * frame the camera is pulled in along its line to the player so it stops at the first box in
+   * the way. The lists are read live, never copied — L2 adds boxes after the geometry is built
+   * (command door, elevator shaft) and removes them at runtime (elevator gates), and the
+   * camera has to see those changes.
    * Pass null to disable (L1: the drum has no interior geometry to hide behind).
-   * setBounds() still applies on top as the outer hull limit.
+   * setBounds() still applies first, as the outer hull limit.
    */
-  setBlockers(boxes) {
-    this._blockers = boxes && boxes.length > 0 ? boxes : null;
+  setBlockers(lists) {
+    this._blockers = lists && lists.length > 0 ? lists : null;
+    this._armRatio = 1; // a new level starts with a clear line
+  }
+
+  /**
+   * Sets the orbit distance — how far back + how far off the wall the camera
+   * sits from the player. Per-level because L1 and L2 have different scales.
+   */
+  setOrbitDistance(distance) {
+    this._orbitDistance = distance;
   }
 
   /**
@@ -153,11 +178,17 @@ export class Camera {
     return Math.atan2(direction.x, direction.z);
   }
 
-  update(basis) {
+  /**
+   * @param {{position:THREE.Vector3, up:THREE.Vector3, forward:THREE.Vector3}} basis
+   * @param {number} [delta] seconds since last frame. When given, the camera eases back out
+   *   after a wall lets go; when omitted it moves straight to its target (tests).
+   */
+  update(basis, delta) {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    const baseOffset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+    // Per-level setting — L1 uses 9, L2 uses 13.5 (×1.5 for the revised blockout).
+    const baseOffset = basis.up.clone().multiplyScalar(this._orbitDistance).add(basis.forward.clone().multiplyScalar(-this._orbitDistance));
 
     // Orbit that offset by the mouse-look yaw/pitch, both expressed
     // relative to the player's own local axes (not world ones): yaw spins
@@ -178,16 +209,22 @@ export class Camera {
     // to center the body, not overshoot past the head.
     const lookTarget = basis.position.clone().add(basis.up.clone().multiplyScalar(HEAD_HEIGHT));
 
-    this._pullInFromBlockers(lookTarget, desiredPosition);
-
     // Flagged by Yannis during Alpha: the offset above can occasionally
     // push the camera outside the level's hull. Clamp position only —
     // basis.up / lookAt (orientation) stay untouched — using whichever
     // shape setBounds() configured for the current level.
+    //
+    // This must run BEFORE the blocker pull-in. The floor isn't a blocker, so an unclamped
+    // target can sit below it; the pull-in's line then runs under the floor, and clamping
+    // afterwards lifts the camera to the floor plane — which can be inside a pylon. Clamped
+    // first, the whole head-to-camera line stays inside the hull, so the pull-in only ever
+    // shortens it along a path that was already legal.
     this._clampToBounds(desiredPosition);
+    this._pullInFromBlockers(lookTarget, desiredPosition, delta);
 
     this.camera.position.copy(desiredPosition);
     this.camera.lookAt(lookTarget);
+    this.headDistance = desiredPosition.distanceTo(lookTarget);
   }
 
   /**
@@ -196,10 +233,17 @@ export class Camera {
    * `position` in place. A blocker the head already sits inside (the player pressed against a
    * wall) is tested at its true size instead of the padded one, so the camera still can't
    * pass through the wall right behind them.
+   *
+   * Shortening is instant (never let the camera through a wall for even a frame), but when the
+   * line clears again the camera eases back out — otherwise walking along a corridor snaps it
+   * several units in one frame as modules flick in and out of the line.
    */
-  _pullInFromBlockers(head, position) {
-    const blockers = this._blockers;
-    if (!blockers) return;
+  _pullInFromBlockers(head, position, delta) {
+    const lists = this._blockers;
+    if (!lists) {
+      this._armRatio = 1;
+      return;
+    }
 
     rayOrigin.copy(head);
     rayDirection.subVectors(position, head);
@@ -208,14 +252,25 @@ export class Camera {
     rayDirection.divideScalar(length);
 
     let nearest = length;
-    for (const box of blockers) {
-      let t = rayEntersBox(rayOrigin, rayDirection, box, BLOCKER_PADDING);
-      if (t === -1) t = rayEntersBox(rayOrigin, rayDirection, box, 0);
-      if (t >= 0 && t < nearest) nearest = t;
+    for (const boxes of lists) {
+      for (const box of boxes) {
+        let t = rayEntersBox(rayOrigin, rayDirection, box, BLOCKER_PADDING);
+        if (t === -1) t = rayEntersBox(rayOrigin, rayDirection, box, 0);
+        if (t >= 0 && t < nearest) nearest = t;
+      }
     }
 
-    if (nearest < length) {
-      position.copy(rayOrigin).addScaledVector(rayDirection, nearest);
+    const target = nearest / length; // fraction of the line that is clear right now
+    let ratio = target;
+    if (delta !== undefined && target > this._armRatio) {
+      // Easing out, but never past what is clear this frame (min with target).
+      const ease = 1 - Math.exp(-ARM_EASE_RATE * delta);
+      ratio = Math.min(target, this._armRatio + (target - this._armRatio) * ease);
+    }
+    this._armRatio = ratio;
+
+    if (ratio < 1) {
+      position.copy(rayOrigin).addScaledVector(rayDirection, length * ratio);
     }
   }
 

@@ -10,6 +10,9 @@
 //   - captions                 -> exposed as body[data-captions]; the HUD caption bar hides when off
 //   - reduceFlashing           -> exposed as body[data-reduce-flashing]; hud.css swaps every
 //                                 flash/pulse for a steady state or one slow dim
+//   - graphicsQuality        -> 'low' | 'medium' | 'high'. TODO(wire): the post-processing
+//                                 pipeline (Natasha's PostFx) calls setQuality(value) from
+//                                 subscribe(); exposed as body[data-graphics-quality] meanwhile
 
 export const SETTINGS_KEY = 'last-signal.settings.v1';
 
@@ -56,10 +59,39 @@ export const DEFAULT_SETTINGS = Object.freeze({
   hudOpacity: 100,
   captions: true,
   reduceFlashing: false,
+  // TODO(confirm): High until Natasha's benchmark says whether Medium is the safer default.
+  graphicsQuality: 'high',
 });
 
 // On/off settings (Options draws these as switches, in this order).
 export const TOGGLE_KEYS = ['captions', 'reduceFlashing'];
+
+// Pick-one settings (Options draws these as steppers: the value's name between < > buttons).
+//   values: lowest to highest — the order < and > step through and the arrow keys follow.
+//   hints:  one line per value, shown under the row (same HINT_MAX_LENGTH as the sliders).
+export const CHOICES = [
+  {
+    key: 'graphicsQuality',
+    label: 'Graphics Quality',
+    values: ['low', 'medium', 'high'],
+    names: { low: 'Low', medium: 'Medium', high: 'High' },
+    hints: {
+      low: 'Fastest. No ambient shadowing and a softer glow.',
+      medium: 'Balanced. Ambient shadowing at half resolution.',
+      high: 'Best looking. Full-resolution ambient shadowing.',
+    },
+  },
+];
+
+const CHOICE_BY_KEY = new Map(CHOICES.map((c) => [c.key, c]));
+
+/** The value `steps` away from `current` in a choice's order, stopping at either end. */
+export function stepChoice(key, current, steps) {
+  const values = CHOICE_BY_KEY.get(key)?.values;
+  if (!values) return null;
+  const at = Math.max(0, values.indexOf(current));
+  return values[Math.min(values.length - 1, Math.max(0, at + Math.sign(steps)))];
+}
 
 const SLIDER_KEYS = new Set(SLIDERS.map((s) => s.key));
 
@@ -128,6 +160,9 @@ function sanitize(raw) {
   for (const key of TOGGLE_KEYS) {
     if (typeof raw[key] === 'boolean') clean[key] = raw[key];
   }
+  for (const choice of CHOICES) {
+    if (choice.values.includes(raw[choice.key])) clean[choice.key] = raw[choice.key];
+  }
   return clean;
 }
 
@@ -161,6 +196,8 @@ export function createSettings({ storage = defaultStorage(), key = SETTINGS_KEY 
       next = normalizeSlider(value, sliderMin(name));
     } else if (TOGGLE_KEYS.includes(name) && typeof value === 'boolean') {
       next = value;
+    } else if (CHOICE_BY_KEY.get(name)?.values.includes(value)) {
+      next = value;
     }
     if (next === undefined || next === null) return false;
     if (values[name] === next) return false;
@@ -173,8 +210,11 @@ export function createSettings({ storage = defaultStorage(), key = SETTINGS_KEY 
   return {
     get: () => ({ ...values }),
     set,
-    /** Move a slider one step: direction is -1 or +1. */
-    step: (name, direction) => set(name, values[name] + direction * SLIDER_STEP),
+    /** Move a slider, or a choice, one step: direction is -1 or +1. */
+    step: (name, direction) =>
+      CHOICE_BY_KEY.has(name)
+        ? set(name, stepChoice(name, values[name], direction))
+        : set(name, values[name] + direction * SLIDER_STEP),
     reset() {
       values = { ...DEFAULT_SETTINGS };
       persist();
