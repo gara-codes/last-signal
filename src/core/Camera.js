@@ -26,6 +26,9 @@ export class Camera {
     // once after construction. See setBounds() for the two shapes.
     this._bounds = null;
 
+    // Orbit distance — how far back + how far off the wall. Per-level setting
+    // because L1 and L2 have different scales. Default 9 (L1's original).
+    this._orbitDistance = 9;
     // Flashlight — always-on SpotLight parented to the camera (design doc:
     // a camera spotlight, not a resource). Same settings as FlyCam's, so
     // the blockout validated there looks the same in play. Light children
@@ -67,6 +70,14 @@ export class Camera {
   }
 
   /**
+   * Sets the orbit distance — how far back + how far off the wall the camera
+   * sits from the player. Per-level because L1 and L2 have different scales.
+   */
+  setOrbitDistance(distance) {
+    this._orbitDistance = distance;
+  }
+
+  /**
    * Feeds raw Pointer Lock mouse deltas (InputManager) into the camera's
    * own look state. Call once per frame, before update().
    */
@@ -100,7 +111,8 @@ export class Camera {
     this.camera.up.copy(basis.up);
 
     // Camera distance: how far back + how far off the wall
-    const baseOffset = basis.up.clone().multiplyScalar(9).add(basis.forward.clone().multiplyScalar(-9));
+    // Per-level setting — L1 uses 9, L2 uses 13.5 (×1.5 for the revised blockout).
+    const baseOffset = basis.up.clone().multiplyScalar(this._orbitDistance).add(basis.forward.clone().multiplyScalar(-this._orbitDistance));
 
     // Orbit that offset by the mouse-look yaw/pitch, both expressed
     // relative to the player's own local axes (not world ones): yaw spins

@@ -17,13 +17,13 @@ const L1_STRIP_INTENSITY = 2.2;
 const L1_STRIP_DISTANCE = 32;
 const L1_STRIP_DECAY = 2;
 
-const FLICKER_RADIUS = 8;
+const FLICKER_RADIUS = 12;
 // Flicker swing is a fraction of each light's base intensity, so the effect
 // keeps the same relative strength if the base values are retuned.
-const AMBIENT_FLICKER_SWING = 0.2;
-const AMBIENT_FLICKER_NOISE = 0.2;
-const STRIP_FLICKER_SWING = 0.4;
-const STRIP_FLICKER_NOISE = 0.25;
+const AMBIENT_FLICKER_SWING = 0.35;
+const AMBIENT_FLICKER_NOISE = 0.3;
+const STRIP_FLICKER_SWING = 0.6;
+const STRIP_FLICKER_NOISE = 0.4;
 
 export class LightingRig {
   // levelGroup: pass level1.group so lights inherit its rotation/transform
