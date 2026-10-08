@@ -106,7 +106,10 @@ updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     if (this._dipTimer > 0) return; // power dip owns the lights while active
     this.flickerTime += delta;
     const distance = playerPosition.distanceTo(aiWorldPosition);
-    const isNear = distance < this.flickerRadius;
+    // Options > Reduce Flashing: hold the lights at base instead of flickering,
+    // same as the HUD alarm / repair console blink (see ship-status.js, repair-console.js).
+    const reduceFlashing = typeof document !== 'undefined' && document.body?.dataset.reduceFlashing === 'on';
+    const isNear = distance < this.flickerRadius && !reduceFlashing;
 
     if (isNear) {
       const ambientFlicker = (Math.sin(this.flickerTime * 15) * AMBIENT_FLICKER_SWING +
