@@ -132,7 +132,9 @@ export class Camera {
    * the way. The lists are read live, never copied — L2 adds boxes after the geometry is built
    * (command door, elevator shaft) and removes them at runtime (elevator gates), and the
    * camera has to see those changes.
-   * Pass null to disable (L1: the drum has no interior geometry to hide behind).
+   * Pass null to disable. Only L2 uses this so far: L1's solids are (axial, theta) rectangles on
+   * its player controller, not world boxes, so they can't be passed in directly — building world
+   * boxes from L1's door and wall meshes is a known follow-up.
    * setBounds() still applies first, as the outer hull limit.
    */
   setBlockers(lists) {

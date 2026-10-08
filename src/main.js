@@ -86,6 +86,9 @@ const FADE_OUT = 0.3; // last stretch of the dip, spent fading to black
 const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
 // Camera-to-head distance under which the player model is hidden. The camera sits up and behind the
 // head, so beyond ~1.3 it is already clear of the model (~2.4 wide, ~4.6 tall in L2).
+// Calibrated for L2's model only: L1's astronaut is scale 4 (~7.4 tall), so in L1 the camera can
+// still end up inside it against a wall at distances above this. Known follow-up: make the
+// distance per-level, or scale it by the model's scale.
 const PLAYER_HIDE_DISTANCE = 1.3;
 
 // L2 arrival cue: the HUD warning banner reads "Life Support Fault Detected" for this long
@@ -474,7 +477,8 @@ function animate() {
     cameraSetup.update(basis, delta);
 
     // Backed against a wall the camera is squeezed in close; below this the view would be from
-    // inside the model, so hide it for those frames instead (L1's camera never gets this close).
+    // inside the model, so hide it for those frames instead. (L1 has no camera blockers yet, so
+    // there the camera can still pass through its door and walls — see the follow-ups on the PR.)
     player.visible = cameraSetup.headDistance > PLAYER_HIDE_DISTANCE;
   }
 
