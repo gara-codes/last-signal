@@ -222,22 +222,26 @@ function createTransitPoint(interactables, onExitOpen) {
 
   // Ceiling (local -X face — world y = +19.8, level with door 1's risen slab)
   const ceiling = new THREE.Mesh(sideWallGeometry, wallMaterial);
+  ceiling.name = 'chamber-ceiling'; // named so getCameraBlockers() can find the chamber's solids
   ceiling.rotation.y = Math.PI / 2;
   ceiling.position.x = -width / 2;
   room.add(ceiling);
 
   // Side walls (local -Z and +Z faces)
   const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+  leftWall.name = 'chamber-wall-left';
   leftWall.position.z = -depth / 2;
   room.add(leftWall);
 
   const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+  rightWall.name = 'chamber-wall-right';
   rightWall.rotation.y = Math.PI;
   rightWall.position.z = depth / 2;
   room.add(rightWall);
 
   // Far end wall (local -Y face — world x = +9.5, just inside the hull cap)
   const farWall = new THREE.Mesh(endWallGeometry, wallMaterial);
+  farWall.name = 'chamber-wall-far';
   farWall.rotation.x = -Math.PI / 2;
   farWall.position.y = -height / 2;
   room.add(farWall);
@@ -401,7 +405,7 @@ function createBlastDoor() {
 }
 /**
  * Main orchestration function for Level 1.
- * @returns {{ group: THREE.Group, dispose: () => void, update: (delta: number, player: THREE.Object3D, input: Object) => void, attachCollision: (playerController: Object) => void }}
+ * @returns {{ group: THREE.Group, dispose: () => void, update: (delta: number, player: THREE.Object3D, input: Object) => void, attachCollision: (playerController: Object) => void, getCameraBlockers: () => Object[][] }}
  */
 export function createLevel1() {
   const level1Group = new THREE.Group();
@@ -494,6 +498,55 @@ export function createLevel1() {
     }));
   }
 
+  // --- Camera blockers -----------------------------------------------------
+  // The third-person camera can't use the controller's (axial, theta) rectangles above, so it
+  // gets the same solids as plain WORLD boxes, read off the real meshes: the transit chamber's
+  // side walls, ceiling and far wall, plus door 1's slab while it is still closed. The chamber
+  // and door are axis-aligned in world space (the group's rotation.z = PI/2 only swaps axes), so
+  // a mesh's bounding box is exact. Thin planes get a little thickness so a ray can hit them.
+  const CAMERA_BLOCKER_PLANE_PAD = 0.05;
+  const CHAMBER_BLOCKER_NAMES = [
+    'chamber-wall-left',
+    'chamber-wall-right',
+    'chamber-wall-far',
+    'chamber-ceiling',
+  ];
+  const cameraBlockerBoxes = []; // live: the door's box is removed once its collision opens
+  let doorCameraBox = null;
+  const scratchBox = new THREE.Box3();
+
+  function worldBoxOf(object, name) {
+    scratchBox.setFromObject(object);
+    const pad = CAMERA_BLOCKER_PLANE_PAD;
+    return {
+      minX: scratchBox.min.x - pad,
+      maxX: scratchBox.max.x + pad,
+      minY: scratchBox.min.y - pad,
+      maxY: scratchBox.max.y + pad,
+      minZ: scratchBox.min.z - pad,
+      maxZ: scratchBox.max.z + pad,
+      name,
+    };
+  }
+
+  /**
+   * World-space boxes the camera must not pass through, as a list of box lists for
+   * Camera.setBlockers(). Call AFTER the level group's final rotation is applied (main.js sets
+   * rotation.z = PI/2 right after createLevel1()). The list is live — see update() — so pass it
+   * to the camera as is, don't copy it.
+   */
+  function getCameraBlockers() {
+    level1Group.updateMatrixWorld(true);
+    cameraBlockerBoxes.length = 0;
+    for (const name of CHAMBER_BLOCKER_NAMES) {
+      const mesh = room.getObjectByName(name);
+      if (mesh) cameraBlockerBoxes.push(worldBoxOf(mesh, name));
+    }
+    doorCameraBox = worldBoxOf(blastDoorOne, 'blast-door-1');
+    cameraBlockerBoxes.push(doorCameraBox);
+    return [cameraBlockerBoxes];
+  }
+
   /**
    * Cleans up level resources when transitioned or destroyed.
    */
@@ -533,6 +586,9 @@ export function createLevel1() {
     // headroom (30% of its travel), open the doorway for passage
     if (doorBlocker?.active && blastDoorOne.userData.openProgress >= 0.3) {
       doorBlocker.active = false;
+      // The camera passes through the doorway at the same moment the player can.
+      const at = cameraBlockerBoxes.indexOf(doorCameraBox);
+      if (at !== -1) cameraBlockerBoxes.splice(at, 1);
     }
 
     emergencyUniforms.time.value += delta;
@@ -565,5 +621,5 @@ export function createLevel1() {
     if (input?.interact) nearby?.userData.interact?.();
   }
 
-  return { group: level1Group, dispose, update, attachCollision };
+  return { group: level1Group, dispose, update, attachCollision, getCameraBlockers };
 }

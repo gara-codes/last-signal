@@ -84,12 +84,11 @@ let fadeStarted = false;
 const SWAP_DELAY = 0.7; // dip length = time from hatch open to the swap
 const FADE_OUT = 0.3; // last stretch of the dip, spent fading to black
 const FADE_IN = 0.5; // seconds for the black overlay to clear after the swap
-// Camera-to-head distance under which the player model is hidden. The camera sits up and behind the
-// head, so beyond ~1.3 it is already clear of the model (~2.4 wide, ~4.6 tall in L2).
-// Calibrated for L2's model only: L1's astronaut is scale 4 (~7.4 tall), so in L1 the camera can
-// still end up inside it against a wall at distances above this. Known follow-up: make the
-// distance per-level, or scale it by the model's scale.
-const PLAYER_HIDE_DISTANCE = 1.3;
+// Camera-to-head distance under which the player model is hidden, per unit of the model's scale.
+// The camera sits up and behind the head, so beyond ~1.3 it is already clear of L2's model (scale
+// 2.5: ~2.4 wide, ~4.6 tall). L1's astronaut is scale 4, so the same rule gives ~2.1 there — it
+// follows whichever scale the model currently has, so no per-level constant to keep in sync.
+const PLAYER_HIDE_DISTANCE_PER_SCALE = 1.3 / 2.5;
 
 // L2 arrival cue: the HUD warning banner reads "Life Support Fault Detected" for this long
 // (game time, so it holds while paused). The same banner slot carries the gravity warning later.
@@ -141,8 +140,10 @@ function loadL1() {
   // Mirrors level1-habitation-ring.js's RADIUS / physics-controller.js's
   // HEIGHT_HALF — update alongside those two if the drum size changes.
   cameraSetup.setBounds({ type: 'cylinder', radius: 31, axialHalfLength: 10, margin: 1.5 });
-  // The camera is reused after an L2 restart — drop L2's walls and its larger orbit distance.
-  cameraSetup.setBlockers(null);
+  // The camera is reused after an L2 restart — swap L2's walls for L1's (the transit chamber and
+  // door 1; boxes are read off the meshes, so this must come after the group's rotation above)
+  // and drop L2's larger orbit distance.
+  cameraSetup.setBlockers(level.getCameraBlockers());
   cameraSetup.setOrbitDistance(9);
 
   if (!player) {
@@ -477,9 +478,9 @@ function animate() {
     cameraSetup.update(basis, delta);
 
     // Backed against a wall the camera is squeezed in close; below this the view would be from
-    // inside the model, so hide it for those frames instead. (L1 has no camera blockers yet, so
-    // there the camera can still pass through its door and walls — see the follow-ups on the PR.)
-    player.visible = cameraSetup.headDistance > PLAYER_HIDE_DISTANCE;
+    // inside the model, so hide it for those frames instead.
+    const modelScale = player.children[0]?.scale.x ?? ASTRONAUT_SCALE_L2;
+    player.visible = cameraSetup.headDistance > modelScale * PLAYER_HIDE_DISTANCE_PER_SCALE;
   }
 
   // update() only touches strip-light intensities from elapsed time (no
