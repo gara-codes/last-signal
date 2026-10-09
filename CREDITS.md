@@ -40,6 +40,9 @@ Don't batch this for later. "I'll add it before beta" is how this file goes stal
 | --------------------------- | --------------------- | -------------------------------------------------------- | ------- | -------------------------------- | --------------- |
 | Three.js                    | Three.js contributors | https://threejs.org                                      | MIT     | Core rendering                   | —               |
 | GLTFLoader (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/loaders/GLTFLoader | MIT     | Loading the astronaut .glb model | —               |
+| EffectComposer, RenderPass, ShaderPass, OutputPass (Three.js addons) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/EffectComposer | MIT | Post-processing pipeline (`src/core/post-fx.js`) | Natasha (07-10-2026) |
+| GTAOPass (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/GTAOPass | MIT | Ambient occlusion (soft contact shadows) | Natasha (07-10-2026) |
+| UnrealBloomPass (Three.js addon) | Three.js contributors | https://threejs.org/docs/#examples/en/postprocessing/UnrealBloomPass | MIT | Bloom on emissive screens, lights and strips | Natasha (07-10-2026) |
 
 ## 3D models
 

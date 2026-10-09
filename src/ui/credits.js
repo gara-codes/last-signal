@@ -38,6 +38,27 @@ const CREDITS_DATA = {
       license: 'MIT',
       usedFor: 'Loading the astronaut .glb model',
     },
+    {
+      item: 'EffectComposer, RenderPass, ShaderPass, OutputPass (Three.js addons)',
+      source: 'Three.js contributors',
+      url: 'https://threejs.org/docs/#examples/en/postprocessing/EffectComposer',
+      license: 'MIT',
+      usedFor: 'Post-processing pipeline',
+    },
+    {
+      item: 'GTAOPass (Three.js addon)',
+      source: 'Three.js contributors',
+      url: 'https://threejs.org/docs/#examples/en/postprocessing/GTAOPass',
+      license: 'MIT',
+      usedFor: 'Ambient occlusion (soft contact shadows)',
+    },
+    {
+      item: 'UnrealBloomPass (Three.js addon)',
+      source: 'Three.js contributors',
+      url: 'https://threejs.org/docs/#examples/en/postprocessing/UnrealBloomPass',
+      license: 'MIT',
+      usedFor: 'Bloom on emissive screens, lights and strips',
+    },
   ],
 
   models: [
