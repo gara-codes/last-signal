@@ -4,12 +4,13 @@ import { SceneManager } from './core/SceneManager.js';
 import { RendererSetup } from './core/RendererSetup.js';
 import { LightingRig } from './core/LightingRig.js';
 import { LightingRigL2 } from './core/LightingRigL2.js';
+import { LightingRigL3 } from './core/LightingRigL3.js';
 import { Camera } from './core/Camera.js';
 import { FlyCam } from './core/FlyCam.js';
 import { getCappedDelta } from './core/capped-delta.js';
 import { createLevel1 } from './levels/level1-habitation-ring.js';
 import { createLevel2 } from './levels/level2-engineering-core.js';
-//import { createLevel3 } from './levels/level3-docking-corridor.js';
+import { createLevel3 } from './levels/level3/level3-docking-corridor.js';
 import { HALL, GROUND_Y, CEILING_Y } from './levels/level2/grid-data.js';
 import { loadAstronaut } from './core/AssetLoader.js';
 import { PlayerController } from './systems/physics-controller.js';
@@ -28,8 +29,9 @@ const isL2 = requestedLevel === 'l2';
 const isL3 = requestedLevel === 'l3';
 const isBlockoutLevel = isL2 || isL3;
 // Gated on isL2 so the real L1 -> L2 handoff (swapToL2) always keeps the
-// player path — the flycam is for the direct blockout swap only.
-const useFlyCam = isL2 && urlParams.get('cam') === 'fly';
+// player path — the flycam is for the direct blockout swap only. L3 is a
+// blockout-only level (no player controller yet), so it always uses the flycam.
+const useFlyCam = (isL2 && urlParams.get('cam') === 'fly') || isL3;
 
 // Where New Game goes back to (and what the HUD shows from the main menu on):
 // the ?level=l2 dev start stays on L2 instead of snapping back to L1.
@@ -65,6 +67,8 @@ let inL2 = isL2;
 let lightingRig = null;
 // L2 lighting pass — built in loadL2, replaces the blockout's placeholder fill lights.
 let lightingRigL2 = null;
+// L3 lighting pass — Gara's rig (currently a stub consuming the cue channel).
+let lightingRigL3 = null;
 let halObject = null;
 let halWorldPosition = null;
 let l1TransitionFired = false;
@@ -292,7 +296,30 @@ function swapToL2() {
   fadeTo(0, FADE_IN);
 }
 
-if (isL2) {
+/**
+ * L3 — the Docking Corridor blockout. Flycam-only: the level ships as pure
+ * geometry + exported contracts (collisionData, hazards, gates, cues) and has
+ * no player controller yet, so there is no player model or physics to set up.
+ * Gara's LightingRigL3 (stub) consumes the cue channel the level emits.
+ */
+function loadL3() {
+  ui.setLevel('l3');
+  level = createLevel3();
+  scene.add(level.group);
+
+  flyCam = new FlyCam();
+  const { position, lookAt } = level.getSpawnView();
+  flyCam.setPositionAndLook(position, lookAt);
+
+  renderer.shadowMap.enabled = true;
+  lightingRigL3 = new LightingRigL3(scene, level.group);
+
+  window.__game = { level3: level, flyCam };
+}
+
+if (isL3) {
+  loadL3();
+} else if (isL2) {
   loadL2();
 } else {
   loadL1();
@@ -325,6 +352,10 @@ function teardownLevel() {
   if (lightingRig) {
     lightingRig.dispose();
     lightingRig = null;
+  }
+  if (lightingRigL3) {
+    lightingRigL3.dispose();
+    lightingRigL3 = null;
   }
   halObject = null;
   halWorldPosition = null;
@@ -485,6 +516,7 @@ function animate() {
   // update() only touches strip-light intensities from elapsed time (no
   // camera/player reads), so it runs after the branch for both paths.
   if (lightingRigL2) lightingRigL2.update(delta);
+  if (lightingRigL3) lightingRigL3.update(delta);
 
   ui.syncPrompt((flyCam ?? cameraSetup).getCamera()); // brackets follow the object, never a frame behind
 
@@ -515,11 +547,13 @@ function animate() {
     lightingRig.triggerPowerDip(SWAP_DELAY);
   }
 
-  // L1-only: HAL proximity flicker + power dip.
-  if (!inL2 && halWorldPosition) {
+  // L1-only: HAL proximity flicker + power dip. `lightingRig` is non-null
+  // only on L1 (L2 has lightingRigL2, L3 has lightingRigL3), so a truthy
+  // check is the right guard — `!inL2` would also be true on L3 and crash.
+  if (lightingRig && halWorldPosition) {
     lightingRig.updateProximityFlicker(player.position, halWorldPosition, delta);
   }
-  if (!inL2) lightingRig.updatePowerDip(delta);
+  if (lightingRig) lightingRig.updatePowerDip(delta);
 
   if (faultCueTimer !== null) {
     faultCueTimer -= delta;
