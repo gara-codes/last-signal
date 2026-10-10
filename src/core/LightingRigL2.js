@@ -11,6 +11,7 @@
 // the intensities below are calibrated for the real falloff instead.
 import * as THREE from 'three';
 import { CEILING_Y, DECK_Y, cellToWorld } from '../levels/level2/grid-data.js';
+import { readReduceFlashing } from '../ui/reduce-flashing.js';
 
 // ---- Palette ---------------------------------------------------------------
 // Single source for the amber. Mirrors --state-warning in ui/theme.css
@@ -65,6 +66,12 @@ const NOISE_HASH_SCALE = 43758.5453;
 const WARNING_DEPTH = 0.75; // extra dimming while the warning cue plays
 const WARNING_RATE = 14;
 
+// Options > Reduce Flashing: unstable strips skip the dropout/stutter and fall back to the
+// steady branch (no noise-free fixed alternative needed — STEADY_DRIFT is already calm), and
+// the warning cue becomes one smooth eased dim instead of noisy — same convention as
+// LightingRig.js's calm dim (src/ui/reduce-flashing.js is the shared DOM read).
+const CALM_WARNING_DEPTH = 0.4; // dim depth for the eased warning envelope
+
 // ---- Layout ----------------------------------------------------------------
 // Positions come from grid cells (fractional cells are fine) so the lights
 // track the real maze. The hall is one open volume with a deck at DECK_Y and
@@ -108,6 +115,15 @@ function smoothNoise(x) {
   return hashNoise(i) * (1 - u) + hashNoise(i + 1) * u;
 }
 
+// Triangle envelope (0 -> 1 -> 0 over the cue's lifetime), smoothstep-eased so it ramps in
+// and out instead of switching — the "no noise" warning cue used when Reduce Flashing is on.
+function easedEnvelope(elapsed, duration) {
+  if (duration <= 0) return 0;
+  const u = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
+  const tri = u < 0.5 ? u * 2 : (1 - u) * 2;
+  return tri * tri * (3 - 2 * tri);
+}
+
 // Walls, floors and decks live under the maze builder's 'l2-geometry' group;
 // emissive meshes (glow strips) are excluded since they're thin and self-lit.
 function isStructure(mesh) {
@@ -130,6 +146,7 @@ export class LightingRigL2 {
     this.seeds = [];
     this.time = 0;
     this.warningTimeRemaining = 0;
+    this._warningDuration = 0;
     this.powerLevel = 1;
 
     // The blockout ships its own bright placeholder ambient/hemisphere in the
@@ -198,6 +215,7 @@ export class LightingRigL2 {
   update(delta) {
     this.time += delta;
     const t = this.time;
+    const reduceFlashing = readReduceFlashing();
     const warning = this.warningTimeRemaining > 0;
     if (warning) this.warningTimeRemaining = Math.max(0, this.warningTimeRemaining - delta);
 
@@ -205,24 +223,34 @@ export class LightingRigL2 {
       const seed = this.seeds[i];
       let factor;
 
-      if (this.unstableFlags[i]) {
+      if (this.unstableFlags[i] && !reduceFlashing) {
         factor = 1 - UNSTABLE_DEPTH * smoothNoise(t * UNSTABLE_RATE + seed);
         if (smoothNoise(t * DROPOUT_RATE + seed * 2.7) > DROPOUT_THRESHOLD) {
           factor *= DROPOUT_FLOOR + (1 - DROPOUT_FLOOR) * smoothNoise(t * STUTTER_RATE + seed * 5.1);
         }
       } else {
+        // Reduce Flashing on: unstable strips fall back to this same steady branch.
         factor = 1 + (smoothNoise(t * STEADY_DRIFT_RATE + seed) - 0.5) * 2 * STEADY_DRIFT_DEPTH;
       }
 
-      if (warning) factor *= 1 - WARNING_DEPTH * smoothNoise(t * WARNING_RATE + seed * 1.9);
+      if (warning) {
+        if (reduceFlashing) {
+          const elapsed = this._warningDuration - this.warningTimeRemaining;
+          factor *= 1 - CALM_WARNING_DEPTH * easedEnvelope(elapsed, this._warningDuration);
+        } else {
+          factor *= 1 - WARNING_DEPTH * smoothNoise(t * WARNING_RATE + seed * 1.9);
+        }
+      }
 
       this.stripLights[i].intensity = this.baseIntensities[i] * this.powerLevel * factor;
     }
   }
 
-  // Telegraph cue (e.g. before the gravity snap-back): every strip flickers hard.
+  // Telegraph cue (e.g. before the gravity snap-back): every strip flickers hard (or, with
+  // Reduce Flashing on, one smooth eased dim — see easedEnvelope()).
   triggerWarningFlicker(durationSeconds) {
     this.warningTimeRemaining = Math.max(0, durationSeconds);
+    this._warningDuration = this.warningTimeRemaining;
   }
 
   // 0–1 power level scaling the strips; ambient/hemisphere stay put so the
