@@ -1,5 +1,6 @@
 // src/core/LightingRig.js
 import * as THREE from 'three';
+import { readReduceFlashing } from '../ui/reduce-flashing.js';
 
 const L1_AMBIENT_COLOR = 0xcfe8ff;
 const L1_AMBIENT_INTENSITY = 0.9;
@@ -24,6 +25,12 @@ const AMBIENT_FLICKER_SWING = 0.35;
 const AMBIENT_FLICKER_NOISE = 0.3;
 const STRIP_FLICKER_SWING = 0.6;
 const STRIP_FLICKER_NOISE = 0.4;
+
+// Options > Reduce Flashing: instead of removing the proximity cue entirely (leaving players
+// with no sign HAL is close), ease to a fixed dim and back — a smooth exponential, no
+// Math.random()/sine, matching the HUD alarm's "one slow dim" treatment.
+const CALM_DIM = 0.8; // fraction of base intensity held while HAL is near
+const CALM_EASE = 3; // approach rate for the exponential ease
 
 export class LightingRig {
   // levelGroup: pass level1.group so lights inherit its rotation/transform
@@ -80,6 +87,8 @@ export class LightingRig {
     // so call updatePowerDip() after it each frame.
     this._dipTimer = 0;
     this._dipDuration = 0;
+
+    this._calmFactor = 1; // eased dim factor used while Reduce Flashing is on
   }
 
   /** Starts a power dip: quick drop, brief near-dark hold, eased recovery. */
@@ -102,15 +111,26 @@ export class LightingRig {
     });
   }
 
-updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
+  updateProximityFlicker(playerPosition, aiWorldPosition, delta) {
     if (this._dipTimer > 0) return; // power dip owns the lights while active
     this.flickerTime += delta;
     const distance = playerPosition.distanceTo(aiWorldPosition);
-    // Options > Reduce Flashing: hold the lights at base instead of flickering,
-    // same as the HUD alarm / repair console blink (see ship-status.js, repair-console.js).
-    const reduceFlashing = typeof document !== 'undefined' && document.body?.dataset.reduceFlashing === 'on';
-    const isNear = distance < this.flickerRadius && !reduceFlashing;
+    const near = distance < this.flickerRadius;
 
+    // Options > Reduce Flashing: no Math.random()/sine — ease to a fixed dim near HAL and
+    // back out, same "one slow dim" idea as the HUD alarm (see ship-status.js).
+    if (readReduceFlashing()) {
+      const target = near ? CALM_DIM : 1;
+      this._calmFactor += (target - this._calmFactor) * (1 - Math.exp(-CALM_EASE * delta));
+      this.ambientLight.intensity = this.baseAmbientIntensity * this._calmFactor;
+      this.stripLights.forEach((light, i) => {
+        light.intensity = this.baseIntensities[i] * this._calmFactor;
+      });
+      return;
+    }
+    this._calmFactor = 1;
+
+    const isNear = near;
     if (isNear) {
       const ambientFlicker = (Math.sin(this.flickerTime * 15) * AMBIENT_FLICKER_SWING +
           Math.random() * AMBIENT_FLICKER_NOISE) *
